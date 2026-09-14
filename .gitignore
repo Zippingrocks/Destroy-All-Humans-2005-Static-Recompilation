@@ -1,0 +1,35 @@
+# Original game data
+game/
+*.xbe
+*.iso
+
+# Build output
+**/build/
+**/build-internal/
+**/build-ninja/
+**/cmake-build-*/
+**/CMakeFiles/
+**/CMakeCache.txt
+
+# Compiled/debug binaries
+*.obj
+*.pdb
+*.ilk
+*.exe
+
+# Large/debug captures
+*.raw
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Local third-party reference clones
+Repos/*
+!Repos/RECOMP_REFERENCE_REPOS.md

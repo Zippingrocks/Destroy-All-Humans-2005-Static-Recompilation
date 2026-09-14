@@ -1,0 +1,642 @@
+#include <windows.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <tlhelp32.h>
+#include <io.h>
+#include <xbox/xboxrecomp.h>
+
+#define DAH_ENTRY_POINT 0x000B27BBu
+
+typedef void (*recomp_func_t)(void);
+extern recomp_func_t recomp_lookup(uint32_t xbox_va);
+extern int recomp_dispatch_init(void);
+extern RECOMP_TLS uint32_t g_eax, g_ecx, g_edx, g_esp;
+extern RECOMP_TLS uint32_t g_ebx, g_esi, g_edi, g_ebp;
+
+static HWND g_game_window;
+static HWND g_game_overlay;
+static HANDLE g_window_ready_event;
+static volatile LONG g_window_init_result;
+static volatile LONG g_dah_has_real_draw;
+static uint32_t g_dah_ltcg_ring;
+static uintptr_t g_kpcr_watch_base;
+static RECOMP_TLS int g_kpcr_watch_rearm;
+
+static int dah_internal_run(void)
+{
+    static int internal_run = -1;
+    if (internal_run < 0) {
+        const char *setting = getenv("DAH_INTERNAL_RUN");
+        internal_run = setting && strcmp(setting, "1") == 0;
+    }
+    return internal_run;
+}
+
+static void dah_report_startup_error(const char *message, UINT flags)
+{
+    fprintf(stderr, "[DAH-STARTUP] %s\n", message);
+    fflush(stderr);
+    if (!dah_internal_run())
+        MessageBoxA(NULL, message, "Destroy All Humans! Recomp", flags);
+}
+
+static void position_diagnostic_overlay(void)
+{
+    RECT rect;
+    static int logged;
+    if (!g_game_window || !g_game_overlay || !GetWindowRect(g_game_window, &rect))
+        return;
+    SetWindowPos(g_game_overlay, HWND_TOP,
+                 rect.left, rect.top,
+                 rect.right - rect.left, rect.bottom - rect.top,
+                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    if (!logged++) {
+        fprintf(stderr, "[DAH-WINDOW] parent rect=%ld,%ld-%ld,%ld style=%08lX exstyle=%08lX\n",
+                (long)rect.left, (long)rect.top, (long)rect.right, (long)rect.bottom,
+                (unsigned long)GetWindowLongA(g_game_window, GWL_STYLE),
+                (unsigned long)GetWindowLongA(g_game_window, GWL_EXSTYLE));
+        fflush(stderr);
+    }
+}
+
+/* Keep a visible, honest diagnostic surface until the retail renderer
+ * submits its first real primitive.  This is not game art: it prevents a
+ * missing UI/movie path from looking identical to a dead window. */
+void dah_host_set_render_activity(int real_draw)
+{
+    if (real_draw && InterlockedCompareExchange(&g_dah_has_real_draw, 1, 0) == 0) {
+        if (g_game_overlay)
+            PostMessageA(g_game_overlay, WM_APP + 0x51u, 0, 0);
+    }
+    if (g_game_window && !InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0))
+        InvalidateRect(g_game_window, NULL, FALSE);
+}
+
+void dah_reset_ltcg_context(void)
+{
+    const uint32_t context = 0x001E8970u;
+    const uint32_t ring_size = 512u * 1024u;
+    ptrdiff_t memory_offset = xbox_GetMemoryOffset();
+    uint32_t *global_device =
+        (uint32_t *)((uintptr_t)memory_offset + 0x001E8968u);
+    uint32_t *device = (uint32_t *)((uintptr_t)memory_offset + context);
+
+    memset(device, 0, 0x928u * sizeof(uint32_t));
+    *global_device = context;
+    device[0x00 / 4] = g_dah_ltcg_ring;
+    device[0x04 / 4] = g_dah_ltcg_ring + 0x8000u - 516u;
+    device[0x24 / 4] = g_dah_ltcg_ring;
+    device[0x28 / 4] = g_dah_ltcg_ring + ring_size;
+    /* Retail's device-submit path dereferences these as the NV2A channel
+     * aperture and the base of the NV2A MMIO register aperture.  The alpha's
+     * live boot trace independently confirms the normal channel value. */
+    device[0x1C20 / 4] = 0xFD800000u;
+    device[0x1C28 / 4] = 0xFD000000u;
+}
+
+static void paint_diagnostic_surface(HDC dc, const RECT *client)
+{
+    HBRUSH background = CreateSolidBrush(RGB(8, 20, 42));
+    FillRect(dc, client, background);
+    DeleteObject(background);
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(96, 240, 240));
+    SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
+    DrawTextA(dc,
+              "DESTROY ALL HUMANS!\r\n\r\n"
+              "RECOMP WINDOW ONLINE\r\n"
+              "WAITING FOR RETAIL UI / MOVIE GEOMETRY",
+              -1, (RECT *)client, DT_CENTER | DT_VCENTER | DT_WORDBREAK);
+}
+
+static LRESULT CALLBACK diagnostic_overlay_proc(HWND hwnd, UINT message,
+                                                WPARAM wparam, LPARAM lparam)
+{
+    static unsigned paint_count;
+    if (message == WM_APP + 0x51u) {
+        fprintf(stderr, "[DAH-OVERLAY] hide hwnd=%p after presented content\n", (void *)hwnd);
+        fflush(stderr);
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
+    }
+    if (message == WM_PAINT) {
+        PAINTSTRUCT paint;
+        RECT client;
+        HDC dc = BeginPaint(hwnd, &paint);
+        GetClientRect(hwnd, &client);
+        if (paint_count++ == 0) {
+            fprintf(stderr, "[DAH-OVERLAY] first paint hwnd=%p rect=%ldx%ld visible=%u\n",
+                    (void *)hwnd, (long)(client.right - client.left),
+                    (long)(client.bottom - client.top),
+                    (unsigned)IsWindowVisible(hwnd));
+            fflush(stderr);
+        }
+        if (!InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0))
+            paint_diagnostic_surface(dc, &client);
+        EndPaint(hwnd, &paint);
+        return 0;
+    }
+    if (message == WM_TIMER) {
+        if (InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0)) {
+            ShowWindow(hwnd, SW_HIDE);
+        } else {
+            position_diagnostic_overlay();
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+    }
+    if (message == WM_ERASEBKGND)
+        return 1;
+    return DefWindowProcA(hwnd, message, wparam, lparam);
+}
+
+static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT message,
+                                         WPARAM wparam, LPARAM lparam)
+{
+    if (message == WM_TIMER) {
+        if (!InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0))
+            InvalidateRect(hwnd, NULL, FALSE);
+        return 0;
+    }
+    if (message == WM_PAINT) {
+        PAINTSTRUCT paint;
+        HDC dc = BeginPaint(hwnd, &paint);
+        if (!InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0)) {
+            RECT client;
+            SetRect(&client, 0, 0, 640, 480);
+            GetClientRect(hwnd, &client);
+            paint_diagnostic_surface(dc, &client);
+        }
+        EndPaint(hwnd, &paint);
+        return 0;
+    }
+    if (message == WM_SIZE && g_game_overlay) {
+        position_diagnostic_overlay();
+        return 0;
+    }
+    if (message == WM_CLOSE) {
+        fprintf(stderr, "[DAH-WINDOW] WM_CLOSE hwnd=%p\n", (void *)hwnd);
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    if (message == WM_DESTROY) {
+        KillTimer(hwnd, 0xDA01u);
+        if (g_game_overlay) {
+            KillTimer(g_game_overlay, 0xDA02u);
+            DestroyWindow(g_game_overlay);
+            g_game_overlay = NULL;
+        }
+        fprintf(stderr, "[DAH-WINDOW] WM_DESTROY hwnd=%p\n", (void *)hwnd);
+        PostQuitMessage(0);
+        return 0;
+    }
+    return DefWindowProcA(hwnd, message, wparam, lparam);
+}
+
+static DWORD WINAPI host_window_thread(LPVOID parameter)
+{
+    HINSTANCE instance = (HINSTANCE)parameter;
+    WNDCLASSA window_class = {0};
+    WNDCLASSA overlay_class = {0};
+    RECT rect = {0, 0, 640, 480};
+    int internal_run = dah_internal_run();
+
+    window_class.lpfnWndProc = game_window_proc;
+    window_class.hInstance = instance;
+    window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
+    window_class.lpszClassName = "DestroyAllHumansRecompWindow";
+    window_class.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    if (!RegisterClassA(&window_class) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        fprintf(stderr, "[DAH-WINDOW] RegisterClass failed error=%lu\n", GetLastError());
+        InterlockedExchange(&g_window_init_result, -1);
+        SetEvent(g_window_ready_event);
+        return 0;
+    }
+
+    overlay_class.lpfnWndProc = diagnostic_overlay_proc;
+    overlay_class.hInstance = instance;
+    overlay_class.hCursor = LoadCursor(NULL, IDC_ARROW);
+    overlay_class.lpszClassName = "DestroyAllHumansRecompOverlay";
+    overlay_class.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    if (!RegisterClassA(&overlay_class) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        fprintf(stderr, "[DAH-WINDOW] RegisterClass overlay failed error=%lu\n", GetLastError());
+        InterlockedExchange(&g_window_init_result, -1);
+        SetEvent(g_window_ready_event);
+        return 0;
+    }
+
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    g_game_window = CreateWindowA(window_class.lpszClassName,
+        "Destroy All Humans! (2005) - Native Recomp",
+        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+        rect.right - rect.left, rect.bottom - rect.top,
+        NULL, NULL, instance, NULL);
+    if (!g_game_window) {
+        fprintf(stderr, "[DAH-WINDOW] CreateWindow failed error=%lu\n", GetLastError());
+        InterlockedExchange(&g_window_init_result, -1);
+        SetEvent(g_window_ready_event);
+        return 0;
+    }
+
+    if (!internal_run) {
+        ShowWindow(g_game_window, SW_SHOW);
+        SetForegroundWindow(g_game_window);
+        BringWindowToTop(g_game_window);
+        UpdateWindow(g_game_window);
+    }
+    /* An opaque owned popup covers the DXGI target and can itself make
+     * Present report occlusion. Use the swapchain diagnostic clear normally;
+     * retain this popup only for explicit window-composition diagnostics. */
+    if (!internal_run && getenv("DAH_DIAGNOSTIC_OVERLAY") && atoi(getenv("DAH_DIAGNOSTIC_OVERLAY")))
+        g_game_overlay = CreateWindowExA(
+        WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+        overlay_class.lpszClassName, "",
+        WS_POPUP | WS_VISIBLE,
+        0, 0, 640, 480,
+        g_game_window, NULL, instance, NULL);
+    if (g_game_overlay) {
+        EnableWindow(g_game_overlay, FALSE);
+        position_diagnostic_overlay();
+        SetTimer(g_game_overlay, 0xDA02u, 100u, NULL);
+        fprintf(stderr, "[DAH-WINDOW] diagnostic overlay hwnd=%p visible=%u\n",
+                (void *)g_game_overlay, (unsigned)IsWindowVisible(g_game_overlay));
+    }
+    SetTimer(g_game_window, 0xDA01u, 100u, NULL);
+    fprintf(stderr, "[DAH-WINDOW] ready hwnd=%p thread=%lu visible=%u\n",
+            (void *)g_game_window, GetCurrentThreadId(),
+            (unsigned)IsWindowVisible(g_game_window));
+    InterlockedExchange(&g_window_init_result, 1);
+    SetEvent(g_window_ready_event);
+
+    {
+        MSG msg;
+        while (GetMessageA(&msg, NULL, 0, 0) > 0) {
+            TranslateMessage(&msg);
+            DispatchMessageA(&msg);
+        }
+    }
+    fprintf(stderr, "[DAH-WINDOW] message thread exited hwnd=%p\n",
+            (void *)g_game_window);
+    /* Closing the visible game must also stop its guest workers. The guest
+     * scheduler does not consume the host UI thread's WM_QUIT. */
+    fflush(stderr);
+    ExitProcess(0);
+    return 0;
+}
+
+static int init_host_renderer(HINSTANCE instance)
+{
+    D3DPRESENT_PARAMETERS present = {0};
+    IDirect3D8 *d3d;
+    IDirect3DDevice8 *device = NULL;
+
+    /* Keep the HWND on a dedicated UI thread.  The guest entry point can
+     * create and retire many Xbox worker threads, and if it returns from the
+     * native thread that originally owned the window Windows destroys that
+     * thread's top-level HWND.  A dedicated message thread keeps the visible
+     * host window alive independently of the translated guest scheduler. */
+    g_window_ready_event = CreateEventA(NULL, TRUE, FALSE, NULL);
+    if (!g_window_ready_event) return 0;
+    g_window_init_result = 0;
+    if (!CreateThread(NULL, 0, host_window_thread, instance, 0, NULL)) {
+        CloseHandle(g_window_ready_event);
+        g_window_ready_event = NULL;
+        return 0;
+    }
+    if (WaitForSingleObject(g_window_ready_event, 5000) != WAIT_OBJECT_0 ||
+        InterlockedCompareExchange(&g_window_init_result, 0, 0) != 1) {
+        CloseHandle(g_window_ready_event);
+        g_window_ready_event = NULL;
+        return 0;
+    }
+    CloseHandle(g_window_ready_event);
+    g_window_ready_event = NULL;
+
+    present.BackBufferWidth = 640;
+    present.BackBufferHeight = 480;
+    present.BackBufferCount = 1;
+    present.MultiSampleType = D3DMULTISAMPLE_NONE;
+    present.SwapEffect = D3DSWAPEFFECT_DISCARD;
+    present.hDeviceWindow = g_game_window;
+    present.Windowed = TRUE;
+    present.EnableAutoDepthStencil = TRUE;
+    present.AutoDepthStencilFormat = D3DFMT_D24S8;
+
+    d3d = xbox_Direct3DCreate8(0);
+    if (!d3d || FAILED(d3d->lpVtbl->CreateDevice(
+            d3d, 0, 0, g_game_window, 0, &present, &device)))
+        return 0;
+
+    pgraph_d3d11_init();
+    fprintf(stderr, "[DAH] Host D3D11 renderer ready (640x480)\n");
+    return 1;
+}
+
+static int init_dah_ltcg_bootstrap_ring(void)
+{
+    const uint32_t ring_size = 512u * 1024u;
+    uint32_t ring = xbox_HeapAlloc(ring_size, 4096);
+
+    if (!ring) return 0;
+    g_dah_ltcg_ring = ring;
+    dah_reset_ltcg_context();
+    fprintf(stderr,
+            "[DAH] seeded LTCG bootstrap ring %08X-%08X at context %08X\n",
+            ring, ring + ring_size, 0x001E8970u);
+    return 1;
+}
+
+static LONG CALLBACK watch_kpcr_writes(EXCEPTION_POINTERS *info)
+{
+    EXCEPTION_RECORD *record = info->ExceptionRecord;
+
+    if (record->ExceptionCode == EXCEPTION_SINGLE_STEP && g_kpcr_watch_rearm) {
+        DWORD old_protect;
+        VirtualProtect((void *)g_kpcr_watch_base, 4096u,
+                       PAGE_READONLY, &old_protect);
+        info->ContextRecord->EFlags &= ~0x100u;
+        g_kpcr_watch_rearm = 0;
+        return EXCEPTION_CONTINUE_EXECUTION;
+    }
+
+    if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+        record->NumberParameters >= 2 && record->ExceptionInformation[0] == 1u) {
+        uintptr_t address = (uintptr_t)record->ExceptionInformation[1];
+        if (address >= g_kpcr_watch_base && address < g_kpcr_watch_base + 4096u) {
+            uintptr_t module_base = (uintptr_t)GetModuleHandleA(NULL);
+            unsigned offset = (unsigned)(address - g_kpcr_watch_base);
+            FILE *log = fopen("kpcr_watch.log", "a");
+            if (log) {
+                fprintf(log,
+                        "write offset=%03X host_rva=%08llX guest_esp=%08X "
+                        "eax=%08X ecx=%08X edx=%08X esi=%08X edi=%08X\n",
+                        offset,
+                        (unsigned long long)((uintptr_t)record->ExceptionAddress - module_base),
+                        g_esp, g_eax, g_ecx, g_edx, g_esi, g_edi);
+                fclose(log);
+            }
+
+            /* fs:[0] is the live SEH chain anchor. Let one native instruction
+             * update that dword, then immediately re-arm the page. Any write
+             * beginning beyond it is the corruption we are hunting. */
+            if (offset < 4u) {
+                DWORD old_protect;
+                if (VirtualProtect((void *)g_kpcr_watch_base, 4096u,
+                                   PAGE_READWRITE, &old_protect)) {
+                    g_kpcr_watch_rearm = 1;
+                    info->ContextRecord->EFlags |= 0x100u;
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+        }
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static LONG CALLBACK log_unhandled_exception(EXCEPTION_POINTERS *info)
+{
+    /* OutputDebugString on Windows is surfaced as this first-chance code.
+     * It is expected diagnostic traffic, not a game fault; do not overwrite
+     * the crash report with it. */
+    if (info->ExceptionRecord->ExceptionCode == 0x40010006u ||
+        info->ExceptionRecord->ExceptionCode == 0x4001000Au ||
+        /* MSVC's thread-name debugger exception (0x406D1388) is raised by
+         * SetThreadDescription-style naming and is not a game fault. */
+        info->ExceptionRecord->ExceptionCode == 0x406D1388u)
+        return EXCEPTION_CONTINUE_SEARCH;
+    FILE *log = fopen("recomp_crash.log", "w");
+    if (log) {
+        uintptr_t module_base = (uintptr_t)GetModuleHandleA(NULL);
+        uintptr_t guest_base = (uintptr_t)xbox_GetMemoryOffset();
+        fprintf(log, "exception=%08lX address=%p guest_esp=%08X\n",
+                info->ExceptionRecord->ExceptionCode,
+                info->ExceptionRecord->ExceptionAddress, g_esp);
+        fprintf(log,
+                "guest_regs eax=%08X ecx=%08X edx=%08X ebx=%08X "
+                "esi=%08X edi=%08X ebp=%08X esp=%08X\n",
+                g_eax, g_ecx, g_edx, g_ebx, g_esi, g_edi, g_ebp, g_esp);
+        fprintf(log,
+                "guest_state tib04=%08X tib08=%08X tib20=%08X tib28=%08X "
+                "tls_index_270948=%08X\n",
+                *(uint32_t *)(guest_base + 0x04u),
+                *(uint32_t *)(guest_base + 0x08u),
+                *(uint32_t *)(guest_base + 0x20u),
+                *(uint32_t *)(guest_base + 0x28u),
+                *(uint32_t *)(guest_base + 0x270948u));
+        fprintf(log, "module=%p rva=%08llX\n", (void *)module_base,
+                (unsigned long long)((uintptr_t)info->ExceptionRecord->ExceptionAddress - module_base));
+        fprintf(log, "parameters=%lu", info->ExceptionRecord->NumberParameters);
+        for (DWORD i = 0; i < info->ExceptionRecord->NumberParameters; ++i)
+            fprintf(log, " p%lu=%016llX", i,
+                    (unsigned long long)info->ExceptionRecord->ExceptionInformation[i]);
+        fputc('\n', log);
+#if defined(_M_X64)
+        fprintf(log, "rip=%016llX rsp=%016llX rbp=%016llX\n",
+                (unsigned long long)info->ContextRecord->Rip,
+                (unsigned long long)info->ContextRecord->Rsp,
+                (unsigned long long)info->ContextRecord->Rbp);
+#endif
+        {
+            void *frames[24];
+            USHORT count = CaptureStackBackTrace(0, 24, frames, NULL);
+            for (USHORT i = 0; i < count; ++i)
+                fprintf(log, "frame[%u]=%p rva=%08llX\n", i, frames[i],
+                        (unsigned long long)((uintptr_t)frames[i] - module_base));
+        }
+        fclose(log);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+static DWORD WINAPI sample_guest_threads(LPVOID unused)
+{
+    DWORD process_id = GetCurrentProcessId();
+    DWORD sampler_id = GetCurrentThreadId();
+    uintptr_t module_base = (uintptr_t)GetModuleHandleA(NULL);
+    (void)unused;
+    for (int sample = 0; sample < 8; ++sample) {
+        Sleep(3000);
+        FILE *log = fopen("recomp_watchdog.log", sample ? "a" : "w");
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+        if (!log || snapshot == INVALID_HANDLE_VALUE) {
+            if (log) fclose(log);
+            continue;
+        }
+        THREADENTRY32 thread = { sizeof(thread) };
+        fprintf(log, "sample=%d tick=%llu\n", sample,
+                (unsigned long long)GetTickCount64());
+        if (Thread32First(snapshot, &thread)) do {
+            if (thread.th32OwnerProcessID != process_id || thread.th32ThreadID == sampler_id)
+                continue;
+            HANDLE handle = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT |
+                                       THREAD_QUERY_INFORMATION, FALSE, thread.th32ThreadID);
+            if (!handle) continue;
+            if (SuspendThread(handle) != (DWORD)-1) {
+                CONTEXT context = {0};
+                context.ContextFlags = CONTEXT_CONTROL;
+                if (GetThreadContext(handle, &context))
+                    fprintf(log, "thread=%lu rip=%016llX rva=%08llX\n",
+                            thread.th32ThreadID,
+                            (unsigned long long)context.Rip,
+                            (unsigned long long)((uintptr_t)context.Rip - module_base));
+                ResumeThread(handle);
+            }
+            CloseHandle(handle);
+        } while (Thread32Next(snapshot, &thread));
+        CloseHandle(snapshot);
+        fclose(log);
+    }
+    return 0;
+}
+
+static int load_file(const char *path, void **data, size_t *size)
+{
+    FILE *file = fopen(path, "rb");
+    long length;
+    void *buffer;
+    if (!file) return 0;
+    fseek(file, 0, SEEK_END);
+    length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+    if (length <= 0) { fclose(file); return 0; }
+    buffer = malloc((size_t)length);
+    if (!buffer || fread(buffer, 1, (size_t)length, file) != (size_t)length) {
+        free(buffer);
+        fclose(file);
+        return 0;
+    }
+    fclose(file);
+    *data = buffer;
+    *size = (size_t)length;
+    return 1;
+}
+
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, int show)
+{
+    void *xbe = NULL;
+    size_t xbe_size = 0;
+    recomp_func_t entry;
+    WCHAR executable_path[32768];
+    WCHAR mutex_name[64];
+    WCHAR *directory_end;
+    DWORD path_length;
+    uint32_t path_hash = 2166136261u;
+    HANDLE instance_mutex;
+    int internal_run = dah_internal_run();
+    (void)previous; (void)command_line; (void)show;
+
+    if (internal_run)
+        SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX | SEM_NOOPENFILEERRORBOX);
+
+    /* File associations and launchers need not inherit the exe directory.
+     * Resolve all game data, save paths and diagnostics beside this build. */
+    path_length = GetModuleFileNameW(NULL, executable_path, 32768);
+    if (!path_length || path_length >= 32768) return 1;
+    for (DWORD i = 0; i < path_length; ++i)
+        path_hash = (path_hash ^ (uint32_t)executable_path[i]) * 16777619u;
+    swprintf_s(mutex_name, 64, L"Local\\DAH1Recomp-%08X", path_hash);
+    instance_mutex = CreateMutexW(NULL, FALSE, mutex_name);
+    if (!instance_mutex) return 1;
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        CloseHandle(instance_mutex);
+        dah_report_startup_error("This build is already running. Close its game window before launching it again.",
+                                 MB_OK);
+        return internal_run ? 1 : 0;
+    }
+    directory_end = wcsrchr(executable_path, L'\\');
+    if (!directory_end) return 1;
+    *directory_end = L'\0';
+    if (!SetCurrentDirectoryW(executable_path)) return 1;
+
+    /* GUI launches need only the game window. Both diagnostic streams go
+     * to recomp.log, so allocating a separate console creates an empty
+     * second window without providing any diagnostic output. */
+    freopen("recomp.log", "w", stdout);
+    freopen("recomp.log", "a", stderr);
+    /* Both FILE streams must exist even for a hidden GUI process, then
+     * share the descriptor's file position to avoid overwriting each other. */
+    if (_dup2(_fileno(stdout), _fileno(stderr)) != 0) return 1;
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+    printf("Destroy All Humans! (2005) native static recomp bring-up\n");
+    fprintf(stderr, "[DAH-RUN] pid=%lu data-directory=%ls\n", GetCurrentProcessId(), executable_path);
+    {
+        const char *kpcr_watch = getenv("DAH_KPCR_WATCH");
+        if (kpcr_watch && atoi(kpcr_watch) != 0)
+            AddVectoredExceptionHandler(1, watch_kpcr_writes);
+    }
+    AddVectoredExceptionHandler(0, log_unhandled_exception);
+    /* Stack-sampling suspends the game thread by design.  Keep it available
+     * for crash investigations, but do not let the diagnostic distort normal
+     * frame-pacing measurements or gameplay input. */
+    {
+        const char *watchdog = getenv("DAH_WATCHDOG");
+        if (watchdog && atoi(watchdog) != 0)
+            CloseHandle(CreateThread(NULL, 0, sample_guest_threads, NULL, 0, NULL));
+    }
+
+    if (!load_file("default.xbe", &xbe, &xbe_size)) {
+        dah_report_startup_error("default.xbe must be beside DestroyAllHumans.exe", MB_ICONERROR);
+        return 1;
+    }
+    /* Keep physical-memory probes and the host-side XAPI heap in distinct
+     * headroom. The original unified allocator otherwise fragments retail
+     * 64 MiB during the title's startup probe before its main arena is made. */
+    xbox_SetTotalRam(XBOX_DEVKIT_RAM);
+    xbox_SetContiguousAllocationLimit(48u * 1024u * 1024u);
+    if (!xbox_MemoryLayoutInit(xbe, xbe_size)) {
+        dah_report_startup_error("Xbox memory initialization failed", MB_ICONERROR);
+        free(xbe);
+        return 2;
+    }
+
+    xbox_kernel_init();
+    xbox_path_init(".", ".\\saves");
+    xbox_kernel_bridge_init();
+    if (!init_dah_ltcg_bootstrap_ring()) {
+        dah_report_startup_error("Xbox D3D bootstrap ring allocation failed", MB_ICONERROR);
+        return 5;
+    }
+    if (!init_host_renderer(instance)) {
+        dah_report_startup_error("Host D3D11 renderer initialization failed", MB_ICONERROR);
+        return 4;
+    }
+    g_esp = XBOX_STACK_TOP;
+    recomp_dispatch_init();
+
+    /* Bring-up diagnostic: catch the first write through a RAM mirror.  Such
+     * a write currently poisons the fake KPCR at guest VA 0 before the retail
+     * CRT indexes its TLS slot.  Page protection is opt-in because every
+     * legitimate KPCR write otherwise becomes a debugger trap on the frame
+     * path. */
+    {
+        const char *kpcr_watch = getenv("DAH_KPCR_WATCH");
+        if (kpcr_watch && atoi(kpcr_watch) != 0) {
+            xbox_ProtectMirrorsForDebug();
+            {
+                DWORD old_protect;
+                g_kpcr_watch_base = (uintptr_t)xbox_GetMemoryOffset();
+                if (VirtualProtect((void *)g_kpcr_watch_base, 4096u,
+                                   PAGE_READONLY, &old_protect))
+                    fprintf(stderr, "[DAH-DIAG] protected fake KPCR page\n");
+            }
+        } else {
+            fprintf(stderr, "[DAH-DIAG] KPCR/mirror watcher disabled for normal run\n");
+        }
+    }
+
+    entry = recomp_lookup(DAH_ENTRY_POINT);
+    if (!entry) {
+        fprintf(stderr, "Entry point 0x%08X was not translated.\n", DAH_ENTRY_POINT);
+        return 3;
+    }
+    printf("Launching translated entry point 0x%08X...\n", DAH_ENTRY_POINT);
+    entry();
+    printf("The translated game returned to the host.\n");
+    xbox_kernel_shutdown();
+    xbox_MemoryLayoutShutdown();
+    free(xbe);
+    return 0;
+}

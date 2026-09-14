@@ -1,0 +1,190 @@
+{
+  "binary": "..\\..\\work\\default.xbe",
+  "base_address": "0x00010000",
+  "entry_point": "0x000B27BB",
+  "total_instructions": 802115,
+  "total_functions": 10828,
+  "functions_with_prologue": 1273,
+  "functions_by_method": {
+    "call_target": 6253,
+    "cc_boundary": 3257,
+    "prologue": 1199,
+    "tail_jump_target": 49,
+    "seed_vtable_thunk": 60,
+    "entry_point": 1,
+    "tail_jump_alias": 9
+  },
+  "functions_by_section": {
+    ".text": 9677,
+    "XMV": 64,
+    "D3D": 269,
+    "XGRPH": 25,
+    "DSOUND": 417,
+    "BINK": 114,
+    "BINK32": 17,
+    "BINK32A": 17,
+    "BINK16": 16,
+    "BINK4444": 17,
+    "BINK5551": 16,
+    "BINKYUY2": 18,
+    "XPP": 161
+  },
+  "total_xrefs": 111255,
+  "xrefs_by_type": {
+    "call": 31604,
+    "cond_jump": 46862,
+    "data_read": 15385,
+    "data_imm": 8047,
+    "jump": 8849,
+    "kernel_call": 508
+  },
+  "total_labels": 12697,
+  "total_strings": 1762,
+  "kernel_imports": 107,
+  "sections_analyzed": [
+    {
+      "name": ".text",
+      "va": "0x00011000",
+      "size": 1699980,
+      "functions": 9677
+    },
+    {
+      "name": "XMV",
+      "va": "0x001B00A0",
+      "size": 163204,
+      "functions": 64
+    },
+    {
+      "name": "D3D",
+      "va": "0x001D7E40",
+      "size": 78636,
+      "functions": 269
+    },
+    {
+      "name": "XGRPH",
+      "va": "0x001EB180",
+      "size": 5497,
+      "functions": 25
+    },
+    {
+      "name": "DSOUND",
+      "va": "0x001EC700",
+      "size": 123684,
+      "functions": 417
+    },
+    {
+      "name": "BINK",
+      "va": "0x0020AA40",
+      "size": 52284,
+      "functions": 114
+    },
+    {
+      "name": "BINK32",
+      "va": "0x00217680",
+      "size": 4485,
+      "functions": 17
+    },
+    {
+      "name": "BINK32A",
+      "va": "0x00218820",
+      "size": 5209,
+      "functions": 17
+    },
+    {
+      "name": "BINK16",
+      "va": "0x00219C80",
+      "size": 4684,
+      "functions": 16
+    },
+    {
+      "name": "BINK4444",
+      "va": "0x0021AEE0",
+      "size": 5328,
+      "functions": 17
+    },
+    {
+      "name": "BINK5551",
+      "va": "0x0021C3C0",
+      "size": 5396,
+      "functions": 16
+    },
+    {
+      "name": "BINKYUY2",
+      "va": "0x0021D8E0",
+      "size": 3244,
+      "functions": 18
+    },
+    {
+      "name": "BINKYUY2",
+      "va": "0x0021E5A0",
+      "size": 156,
+      "functions": 18
+    },
+    {
+      "name": "BINKYUY2",
+      "va": "0x0021E640",
+      "size": 184,
+      "functions": 18
+    },
+    {
+      "name": "BINKYUY2",
+      "va": "0x0021E700",
+      "size": 136,
+      "functions": 18
+    },
+    {
+      "name": "BINK16MX",
+      "va": "0x0021E7A0",
+      "size": 304,
+      "functions": 0
+    },
+    {
+      "name": "BINK16X2",
+      "va": "0x0021E8E0",
+      "size": 1368,
+      "functions": 0
+    },
+    {
+      "name": "BINK16M",
+      "va": "0x0021EE40",
+      "size": 504,
+      "functions": 0
+    },
+    {
+      "name": "BINK32MX",
+      "va": "0x0021F040",
+      "size": 444,
+      "functions": 0
+    },
+    {
+      "name": "BINK32X2",
+      "va": "0x0021F200",
+      "size": 1420,
+      "functions": 0
+    },
+    {
+      "name": "BINK32M",
+      "va": "0x0021F7A0",
+      "size": 332,
+      "functions": 0
+    },
+    {
+      "name": "XPP",
+      "va": "0x0021F900",
+      "size": 24836,
+      "functions": 161
+    },
+    {
+      "name": "DOLBY",
+      "va": "0x00287D40",
+      "size": 29056,
+      "functions": 0
+    },
+    {
+      "name": "BINKDATA",
+      "va": "0x0028EEC0",
+      "size": 54624,
+      "functions": 0
+    }
+  ]
+}
