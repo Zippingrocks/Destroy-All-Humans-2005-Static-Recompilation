@@ -1,0 +1,97 @@
+/* Original 62-instruction morph + four-influence skin VSH.
+ * Unique original XBE match at file 0x250B1C; the first two instruction
+ * signatures match four rejected Crypto submeshes in the live Farm trace.
+ * Attribute inputs 5..8 below map to NV2A slots 10..13, not slots 5..8. */
+#ifndef DAH_SKIN62_VERTEX_H
+#define DAH_SKIN62_VERTEX_H
+#include "dah_skin_vertex.h"
+static const uint32_t dah_skin62_program[62][4] = {
+    {0x00000000u,0x0237601Bu,0x083613FCu,0x3F203854u},
+    {0x00000000u,0x0057E61Bu,0x0836186Cu,0x2F600FF8u},
+    {0x00000000u,0x008AB41Bu,0x0800186Cu,0x9E300FF8u},
+    {0x00000000u,0x008AB61Bu,0x08AA186Cu,0xDE400FF8u},
+    {0x00000000u,0x008AB81Bu,0x0954186Du,0x1E500FF8u},
+    {0x00000000u,0x008ABA1Bu,0x09FE186Du,0x5E200FF8u},
+    {0x00000000u,0x01A00000u,0x6436106Cu,0x20700FF8u},
+    {0x00000000u,0x003760FFu,0x0C36106Cu,0x21900FF8u},
+    {0x00000000u,0x00EAC01Bu,0x2436186Cu,0x28700FFAu},
+    {0x00000000u,0x00EAE01Bu,0x2436186Cu,0x24700FFAu},
+    {0x00000000u,0x00EB001Bu,0x2436186Cu,0x22700FFAu},
+    {0x00000000u,0x00AAC21Bu,0x0836186Cu,0x28800FFAu},
+    {0x00000000u,0x00AAE21Bu,0x0836186Cu,0x24800FFAu},
+    {0x00000000u,0x00AB021Bu,0x0836186Cu,0x22800FFAu},
+    {0x00000000u,0x01A00055u,0x6436106Cu,0x20700FF8u},
+    {0x00000000u,0x0040041Au,0x7400106Cu,0x2E500FF8u},
+    {0x00000000u,0x00EAC01Bu,0x2436186Cu,0x28900FFAu},
+    {0x00000000u,0x00EAE01Bu,0x2436186Cu,0x24900FFAu},
+    {0x00000000u,0x00EB001Bu,0x2436186Cu,0x22900FFAu},
+    {0x00000000u,0x00AAC21Bu,0x0836186Cu,0x28A00FFAu},
+    {0x00000000u,0x00AAE21Bu,0x0836186Cu,0x24A00FFAu},
+    {0x00000000u,0x00AB021Bu,0x0836186Cu,0x22A00FFAu},
+    {0x00000000u,0x01A000AAu,0x6436106Cu,0x20700FF8u},
+    {0x00000000u,0x0080041Au,0x94AA1069u,0x5E600FF8u},
+    {0x00000000u,0x00EAC01Bu,0x2436186Cu,0x28B00FFAu},
+    {0x00000000u,0x00EAE01Bu,0x2436186Cu,0x24B00FFAu},
+    {0x00000000u,0x00EB001Bu,0x2436186Cu,0x22B00FFAu},
+    {0x00000000u,0x00AAC21Bu,0x0836186Cu,0x28000FFAu},
+    {0x00000000u,0x00AAE21Bu,0x0836186Cu,0x24000FFAu},
+    {0x00000000u,0x00AB021Bu,0x0836186Cu,0x22000FFAu},
+    {0x00000000u,0x01A000FFu,0x6436106Cu,0x20700FF8u},
+    {0x00000000u,0x0080041Au,0xB5541069u,0x9E700FF8u},
+    {0x00000000u,0x00EAC01Bu,0x2436186Cu,0x28300FFAu},
+    {0x00000000u,0x00EAE01Bu,0x2436186Cu,0x24300FFAu},
+    {0x00000000u,0x00EB001Bu,0x2436186Cu,0x22300FFAu},
+    {0x00000000u,0x00AAC21Bu,0x0836186Cu,0x28400FFAu},
+    {0x00000000u,0x00AAE21Bu,0x0836186Cu,0x24400FFAu},
+    {0x00000000u,0x00AB021Bu,0x0836186Cu,0x22400FFAu},
+    {0x00000000u,0x0080041Au,0x35FE1069u,0xDE900FF8u},
+    {0x00000000u,0x0040041Au,0x8400106Cu,0x2EB00FF8u},
+    {0x00000000u,0x0080041Au,0xA4AA106Au,0xDE200FF8u},
+    {0x00000000u,0x0080041Au,0x05541068u,0x9EA00FF8u},
+    {0x00000000u,0x0080041Au,0x45FE106Au,0x9EB00FF8u},
+    {0x00000000u,0x00C4801Bu,0x9436186Cu,0x28000FF8u},
+    {0x00000000u,0x00C4A01Bu,0x9436186Cu,0x24000FF8u},
+    {0x00000000u,0x00C4C01Bu,0x9436186Cu,0x22000FF8u},
+    {0x00000000u,0x00C4E01Bu,0x9436186Cu,0x21201800u},
+    {0x00000000u,0x00A5C01Bu,0xB436186Cu,0x2D300FF8u},
+    {0x00000000u,0x0640401Bu,0x04361BFCu,0x9018E800u},
+    {0x00000000u,0x0EE7001Bu,0x9436186Cu,0xD014F828u},
+    {0x00000000u,0x0080201Bu,0xC400286Cu,0x3070E800u},
+    {0x00000000u,0x0045E01Bu,0x0CAA286Cu,0x2F400FF8u},
+    {0x00000000u,0x0066001Bu,0x4436106Cu,0x3F500FF8u},
+    {0x00000000u,0x00E9C81Bu,0x0836186Cu,0x20708848u},
+    {0x00000000u,0x0049801Bu,0x5436186Cu,0x2F600FF8u},
+    {0x00000000u,0x0069A01Bu,0x6436106Cu,0x3F700FF8u},
+    {0x00000000u,0x00E9E81Bu,0x0836186Cu,0x20704848u},
+    {0x00000000u,0x0042801Au,0x7434186Cu,0x2E800FF8u},
+    {0x00000000u,0x0062601Au,0x84361068u,0x3E700FF8u},
+    {0x00000000u,0x00A3201Bu,0xB436186Cu,0x24900FF8u},
+    {0x00000000u,0x02A3001Bu,0xB436186Du,0xD890F81Cu},
+    {0x00000000u,0x0097C015u,0x942A1854u,0x3070C851u}
+};
+static unsigned dah_skin62_program_kind(const uint32_t *p,const uint8_t *valid)
+{
+    if(!p||!valid)return 0u;
+    for(unsigned i=0;i<62u*4u;++i)
+        if(!valid[i]||p[i]!=((const uint32_t *)dah_skin62_program)[i])return 0u;
+    return 16u;
+}
+static int dah_skin62_vertex(const float v[9][4],const float c[192][4],
+                            const uint8_t valid[192*4],DahMenuVertex *out,
+                            float uv1[2],float skinned_out[3],float normal_out[3])
+{
+    float inputs[5][4];
+    if(!v||!c||!valid||!out||!uv1)return 0;
+    memcpy(inputs,v,sizeof inputs);
+    /* Retail instructions 2..5: four ordered MADs change position.xyz
+     * before the four palette transforms. The base normal is unchanged. */
+    for(unsigned morph=0;morph<4u;++morph){
+        if(!valid[85u*4u+morph]||!dah_menu_finite(c[85][morph]))return 0;
+        for(unsigned axis=0;axis<3u;++axis){
+            if(!dah_menu_finite(v[5u+morph][axis]))return 0;
+            inputs[0][axis]=dah_farm_mul(v[5u+morph][axis],c[85][morph])+inputs[0][axis];
+        }
+    }
+    return dah_skin_vertex(inputs,c,valid,out,uv1,skinned_out,normal_out);
+}
+#endif

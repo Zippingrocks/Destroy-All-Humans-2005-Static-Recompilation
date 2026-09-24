@@ -1,5 +1,10 @@
 # Original game data
 game/
+blocks/
+movies/
+TDATA/
+UDATA/
+saves/
 *.xbe
 *.iso
 
@@ -7,6 +12,7 @@ game/
 **/build/
 **/build-internal/
 **/build-ninja/
+**/build-public/
 **/cmake-build-*/
 **/CMakeFiles/
 **/CMakeCache.txt
@@ -16,9 +22,19 @@ game/
 *.pdb
 *.ilk
 *.exe
+*.dll
+*.lib
+*.exp
+*.map
 
 # Large/debug captures
 *.raw
+*.dmp
+*.log
+crashlog/
+recomp_crash.log
+xbox_kernel.log
+furonlog.log
 
 # IDE
 .vs/
@@ -33,3 +49,8 @@ Thumbs.db
 # Local third-party reference clones
 Repos/*
 !Repos/RECOMP_REFERENCE_REPOS.md
+
+# Generated analysis output from the vendored runtime
+third_party/xboxrecomp/tools/**/output/
+third_party/xboxrecomp/**/__pycache__/
+*.pyc
