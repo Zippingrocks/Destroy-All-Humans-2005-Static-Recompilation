@@ -388,6 +388,11 @@ loc_000DDC2B: ;
         if ((dah_trace_input_lx || dah_trace_input_ly ||
              dah_trace_input_rx || dah_trace_input_ry) &&
             dah_active_native_trace_count++ < 4096u) {
+            uint32_t arg0 = 0u, arg1 = 0u;
+            if (edi >= 0x00010000u && edi <= 0x08000000u - 8u) {
+                arg0 = MEM32(edi);
+                arg1 = MEM32(edi + 4u);
+            }
             fprintf(stderr,
                     "[DAH-ACTIVE-NATIVE] sticks=%d,%d,%d,%d owner=%08X object=%08X "
                     "vtable=%08X target=%08X words=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X "
@@ -397,7 +402,7 @@ loc_000DDC2B: ;
                     esi, eax, edx, script_native_target,
                     MEM32(eax), MEM32(eax + 4u), MEM32(eax + 8u), MEM32(eax + 0xCu),
                     MEM32(eax + 0x10u), MEM32(eax + 0x14u), MEM32(eax + 0x18u), MEM32(eax + 0x1Cu),
-                    MEM32(edi), MEM32(edi + 4u));
+                    arg0, arg1);
         }
     }
     if (esi >= 0x01458000u && esi < 0x01459000u && script_native_trace_count++ < 32u) {
@@ -2962,6 +2967,21 @@ loc_000DEE29: ;
 
 loc_000DEE30: ;
     ebp = MEM32(edi + 8);
+    /* The host async loader can publish a queue node a fraction earlier than
+     * its payload pointer.  The Xbox path observes these in one serialized
+     * address space; on the host, dereferencing the transient value crashes
+     * outside the 128 MiB guest mapping.  Leave the node queued, request
+     * another service pass, and retry it on the next poll. */
+    if (ebp < 0x00010000u || ebp > 0x08000000u - 0x128u) {
+        static uint32_t invalid_primary_payload_logs;
+        if (invalid_primary_payload_logs++ < 16u)
+            fprintf(stderr,
+                    "[DAH-ASYNC-QUEUE-WAIT] queue=primary node=%08X payload=%08X\n",
+                    edi, ebp);
+        MEM8(esp + 0x13) = 1;
+        edi = MEM32(edi);
+        goto loc_000DEECB;
+    }
     eax = MEM32(ebp + 4);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(1) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 1 (32-bit) */
@@ -3057,6 +3077,16 @@ loc_000DEED3: ;
 
 loc_000DEEE7: ;
     ebp = MEM32(edi + 8);
+    if (ebp < 0x00010000u || ebp > 0x08000000u - 0x24u) {
+        static uint32_t invalid_secondary_payload_logs;
+        if (invalid_secondary_payload_logs++ < 16u)
+            fprintf(stderr,
+                    "[DAH-ASYNC-QUEUE-WAIT] queue=secondary node=%08X payload=%08X\n",
+                    edi, ebp);
+        MEM8(esp + 0x13) = 1;
+        edi = MEM32(edi);
+        goto loc_000DEF63;
+    }
     eax = MEM32(ebp);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(2) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 2 (32-bit) */

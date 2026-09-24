@@ -1,0 +1,14 @@
+# Internal-only Farm endurance route.
+# Use with DAH_CONSOLE_AUTOLOAD_LEVEL=farm at the 30 FPS compatibility target.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Hold user-forward for exactly 3600 controller polls (120 seconds at 30 Hz).
+2900 3600 0 0 0 0 32767 0 0

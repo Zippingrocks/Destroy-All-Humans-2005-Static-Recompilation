@@ -1,0 +1,17 @@
+# Reach Farm through the validated profile route and open the retail pause
+# menu after Crypto exists. Use DAH_CONSOLE_AUTOLOAD_LEVEL=farm.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# START after the known Farm spawn window.
+3200 30 10 0 0 0 0 0 0
+3450 30 10 0 0 0 0 0 0
+3700 30 10 0 0 0 0 0 0
+3950 30 10 0 0 0 0 0 0

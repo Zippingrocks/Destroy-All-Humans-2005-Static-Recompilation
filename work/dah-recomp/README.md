@@ -3,6 +3,14 @@
 This is an early Windows-native static-recomp bring-up generated from the
 original Xbox executable. It is not yet a finished playable port.
 
+> **HARD BLOCKER — controller fidelity gate.** Do not diagnose or declare
+> any gameplay issue fixed on a build that has not passed the complete
+> controller acceptance gate in `tools/CONTROLLER_ACCEPTANCE_GATE.md`.
+> Forward/backward physical displacement, all eight movement directions,
+> four-way camera motion, neutral stability, and the two-minute 30 FPS walk
+> are one indivisible gate. One failure means the controller remains broken;
+> no partial pass, visual impression, or "closer" result may override it.
+
 > **For AI agents / future sessions: read this first.** `DAH_FRAME_TURBO=1`
 > (alongside `DAH_INTERNAL_RUN=1`) makes every headless test run 5-15x+
 > faster in real wall-clock time with zero change to what's simulated --
@@ -52,10 +60,11 @@ affect the real player build (`build-ninja`).
 **How to use it**: add `DAH_FRAME_TURBO=1` to any existing
 `DAH_INTERNAL_RUN=1` test invocation (`tools/run_internal.ps1` or a manual
 launch). No other changes needed -- it composes with `DAH_CONSOLE_AUTOLOAD_LEVEL`,
-`DAH_INPUT_SCRIPT`, frame capture, etc. Note that `DAH_INPUT_SCRIPT` rows
-are keyed to *input-poll ticks*, not wall-clock seconds, so scripted input
-timing is unaffected by turbo mode -- a script calibrated without turbo
-should still work with it on, just finishing in far less real time.
+`DAH_INPUT_SCRIPT`, frame capture, etc. Ordinary `DAH_INPUT_SCRIPT` rows are
+keyed to *input-poll ticks*. A script can insert `@gameplay`; subsequent row
+start/duration values are then retail main-loop frames relative to a stable
+active-Crypto anchor. Frame-relative events are the required form for menu
+tests because the title may poll the controller multiple times per frame.
 
 ## Build
 

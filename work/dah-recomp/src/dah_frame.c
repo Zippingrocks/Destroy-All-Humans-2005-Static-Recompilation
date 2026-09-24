@@ -501,6 +501,13 @@ static void drain_retail_pushbuffer(void)
     dah_retail_pushbuffer_reset();
 }
 
+static uint64_t g_dah_frame_serial;
+
+uint64_t dah_frame_serial(void)
+{
+    return g_dah_frame_serial;
+}
+
 void dah_frame_end(void)
 {
     PgraphD3D11Stats stats;
@@ -518,6 +525,7 @@ void dah_frame_end(void)
     pgraph_d3d11_flush();
     pgraph_d3d11_get_stats(&stats);
     frame.frames++;
+    ++g_dah_frame_serial;
     if (stats.draw_calls != frame.draws_before) frame.draw_frames++;
     if (stats.draw_calls == frame.draws_before && host_frame_load()) {
         host_draw = d3d8_DrawHostFrameBgra(host_frame_pixels, 640u, 448u,

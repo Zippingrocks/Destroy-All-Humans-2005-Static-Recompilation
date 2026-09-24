@@ -1,0 +1,26 @@
+# Deterministic Farm route into the retail Options screen.
+# Run with DAH_CONSOLE_AUTOLOAD_LEVEL=farm.  The early presses advance the
+# existing profile/cutscene route; the late presses act only after gameplay
+# has rendered and the pause menu is known to accept input.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# All menu input after @gameplay is relative to the harness's stable-Crypto
+# frame anchor, not controller-poll counts.
+@gameplay
+# Farm creates Crypto before its intro relinquishes control.  First START
+# skips that intro; the second opens Pause after the loading-card transition.
+30 2 10 0 0 0 0 0 0
+750 2 10 0 0 0 0 0 0
+1050 2 10 0 0 0 0 0 0
+1080 2 2 0 0 0 0 0 0
+1095 2 2 0 0 0 0 0 0
+1110 2 2 0 0 0 0 0 0
+1140 2 0 255 0 0 0 0 0

@@ -31,13 +31,17 @@ $dahStartInfo.WorkingDirectory = $dahInternal
 $dahStartInfo.UseShellExecute = $false
 $dahStartInfo.CreateNoWindow = $true
 $dahStartInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+$dahHasInputScript = ![string]::IsNullOrWhiteSpace($env:DAH_INPUT_SCRIPT)
 $dahChildSettings = @{
     DAH_INTERNAL_RUN = '1'
     DAH_FPS = '30'
     DAH_HOST_FRAME = '0'
     DAH_MOVIE_NONBLOCK = $(if ($NonblockingMovie) { '1' } else { '0' })
     DAH_DIAGNOSTIC_OVERLAY = '0'
-    DAH_AUTOSTART = '1'
+    # A calibrated input schedule owns the complete route, including its
+    # first START press. Combining it with the runner's early autostart can
+    # enter loading before the front end is ready and invalidate the probe.
+    DAH_AUTOSTART = $(if ($dahHasInputScript) { '0' } else { '1' })
     DAH_AUTOSTART_DELAY = [string]$StartDelay
     DAH_FRAME_CAPTURE = [string]$CaptureCount
     DAH_FRAME_CAPTURE_INTERVAL = [string]$CaptureInterval

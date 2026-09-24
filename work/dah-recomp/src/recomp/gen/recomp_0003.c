@@ -8,6 +8,12 @@
 #include <math.h>
 #include <stdio.h>
 
+extern uint32_t dah_unreg_8d8_record_count;
+extern uint32_t dah_unreg_8d8_caller[32];
+extern uint32_t dah_unreg_8d8_arg[32];
+extern uint32_t dah_unreg_8d8_obj[32];
+extern uint32_t dah_unreg_8d8_oldcount[32];
+
 /**
  * sub_0004DB40
  * Original: 0x0004DB40 - 0x0004DC6D (301 bytes, 106 insns)
@@ -28158,6 +28164,30 @@ loc_0005A4F8: ;
 
 loc_0005A4FC: ;
     eax = MEM32(0x24B87C);
+    {
+        static uint32_t stuck_8d8_polls;
+        static int dumped_stuck_8d8;
+        uint32_t gate_8d8 = (uint32_t)(uint16_t)MEM16(eax + 0x8D8);
+        if (gate_8d8 == 15) {
+            ++stuck_8d8_polls;
+            if (stuck_8d8_polls == 30 && !dumped_stuck_8d8) {
+                uint32_t count = dah_unreg_8d8_record_count;
+                uint32_t i;
+                if (count > 32) count = 32;
+                dumped_stuck_8d8 = 1;
+                fprintf(stderr, "[DAH-STUCK-8D8] polls=%u unregs=%u\n", stuck_8d8_polls, count);
+                for (i = 0; i < count; ++i) {
+                    fprintf(stderr,
+                            "[DAH-STUCK-8D8-UNREG] index=%u caller=%08X arg=%08X obj=%08X oldcount=%u\n",
+                            i, dah_unreg_8d8_caller[i], dah_unreg_8d8_arg[i],
+                            dah_unreg_8d8_obj[i], dah_unreg_8d8_oldcount[i]);
+                }
+                fflush(stderr);
+            }
+        } else {
+            stuck_8d8_polls = 0;
+        }
+    }
     /* Manual diagnostic (2026-09-19): isolates which of this function's three
      * readiness gates blocks the Area 42/Union/Capitol/cptlboss switch stall.
      * Opt-in via DAH_FINISH_GATE_TRACE so normal runs are unaffected.

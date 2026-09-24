@@ -13,6 +13,16 @@
 
 extern uint32_t dah_monotonic_milliseconds(void);
 
+/* Low-impact lifecycle recorder for the intermittent finish-gate race.  Do
+ * not print from the unregister path: stdio timing is enough to hide the
+ * failure.  recomp_0003.c dumps these records only after the gate has
+ * already remained stuck at 15/16 for multiple polls. */
+uint32_t dah_unreg_8d8_record_count;
+uint32_t dah_unreg_8d8_caller[32];
+uint32_t dah_unreg_8d8_arg[32];
+uint32_t dah_unreg_8d8_obj[32];
+uint32_t dah_unreg_8d8_oldcount[32];
+
 /**
  * sub_000CEEE0
  * Original: 0x000CEEE0 - 0x000CEFF1 (273 bytes, 100 insns)
@@ -2847,6 +2857,16 @@ loc_000D03CF: ;
     if (TEST_Z(_fa, _fb)) goto loc_000D0422; /* je: equal / zero */
 
 loc_000D03DB: ;
+    {
+        uint32_t record = dah_unreg_8d8_record_count++;
+        if (record < 32) {
+            uint32_t old_count = (uint32_t)(uint16_t)MEM16(ecx + 0x8D8);
+            dah_unreg_8d8_caller[record] = MEM32(esp);
+            dah_unreg_8d8_arg[record] = edx;
+            dah_unreg_8d8_obj[record] = old_count ? MEM32(ecx + (old_count - 1) * 4 + 0x858) : 0;
+            dah_unreg_8d8_oldcount[record] = old_count;
+        }
+    }
     eax--;
     MEM16(ecx + 0x8D8) = LO16(eax);
     eax = SX16(LO16(eax));

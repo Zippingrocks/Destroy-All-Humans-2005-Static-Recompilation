@@ -1,0 +1,32 @@
+# Internal-only Farm movement acceptance route.
+# DAH_CONSOLE_AUTOLOAD_LEVEL=farm performs the original level handoff after
+# these front-end inputs select a profile.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Eight isolated user-side left-stick directions. Each four-second hold is
+# followed by two seconds neutral. The PC bridge performs its normal LX
+# compatibility reflection after scripted input, exactly as for a real pad.
+# Forward
+2900 120 0 0 0 0 32767 0 0
+# Backward
+3080 120 0 0 0 0 -32768 0 0
+# Left
+3260 120 0 0 0 -32768 0 0 0
+# Right
+3440 120 0 0 0 32767 0 0 0
+# Forward-left
+3620 120 0 0 0 -32768 32767 0 0
+# Forward-right
+3800 120 0 0 0 32767 32767 0 0
+# Backward-left
+3980 120 0 0 0 -32768 -32768 0 0
+# Backward-right
+4160 120 0 0 0 32767 -32768 0 0

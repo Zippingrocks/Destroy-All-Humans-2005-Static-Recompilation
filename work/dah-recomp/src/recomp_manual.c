@@ -1481,7 +1481,11 @@ void dah_xinput_get_state_bridge(void)
             result = ERROR_SUCCESS;
         }
         dah_apply_keyboard_overlay(&state);
-        state.Gamepad.sThumbLX = (SHORT)(-1 - state.Gamepad.sThumbLX);
+        /* Reflect the horizontal axis without turning an exact neutral value
+         * into -1.  The previous one's-complement mapping made idle input
+         * look active and could trigger movement diagnostics during startup. */
+        state.Gamepad.sThumbLX = state.Gamepad.sThumbLX == (SHORT)-32768 ?
+            (SHORT)32767 : (SHORT)-state.Gamepad.sThumbLX;
         dah_trace_input_lx = state.Gamepad.sThumbLX;
         dah_trace_input_ly = state.Gamepad.sThumbLY;
         dah_trace_input_rx = state.Gamepad.sThumbRX;
