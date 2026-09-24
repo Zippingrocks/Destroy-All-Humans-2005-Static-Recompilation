@@ -6,6 +6,25 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Read only names the original functions immediately pass to their hash lookup.
+ * Keep each event bounded so a long session cannot flood stderr. */
+static void dah_spawn_trace_name(uint32_t ptr)
+{
+    if (!ptr) {
+        fputs("<null>", stderr);
+        return;
+    }
+    for (unsigned i = 0; i < 64u; ++i) {
+        unsigned ch = MEM8(ptr + i);
+        if (!ch) return;
+        fputc(ch >= 32u && ch <= 126u ? (int)ch : '?', stderr);
+    }
+    fputs("...", stderr);
+}
 
 /**
  * sub_0008E650
@@ -8358,6 +8377,9 @@ loc_0009219C: ;
  */
 void sub_000921E0(void)
 {
+    static unsigned dah_spawn_trace_count;
+    static int dah_spawn_trace_enabled = -1;
+    unsigned dah_spawn_trace_id = 0;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -8371,6 +8393,12 @@ void sub_000921E0(void)
     #define fp_st1() fp_st(1)
 
 loc_000921E0: ;
+    if (dah_spawn_trace_enabled < 0) {
+        const char *v = getenv("DAH_SPAWN_TRACE");
+        dah_spawn_trace_enabled = v && strcmp(v, "1") == 0;
+    }
+    if (dah_spawn_trace_enabled && dah_spawn_trace_count < 128u)
+        dah_spawn_trace_id = ++dah_spawn_trace_count;
     esp = esp - 0x18;
     PUSH32(esp, esi);
     PUSH32(esp, edi);
@@ -8383,6 +8411,12 @@ loc_000921EE: ;
     edx = esi;
     ecx = esp + 0x14;
     edi = eax;
+    if (dah_spawn_trace_id) {
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=formation id=%u vm=%08X key=%08X name=",
+                dah_spawn_trace_id, esi, edi);
+        dah_spawn_trace_name(edi);
+        fputc('\n', stderr);
+    }
     PUSH32(esp, 0x000921FDu); sub_00041A80(); /* call 0x00041A80 */
 
 loc_000921FD: ;
@@ -8454,6 +8488,20 @@ loc_00092261: ;
     }
 
 loc_0009226E: ;
+    if (dah_spawn_trace_id) {
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=formation id=%u resource=%08X",
+                dah_spawn_trace_id, eax);
+        if (eax) {
+            unsigned count = MEM32(eax);
+            fprintf(stderr, " entries=%u", count);
+            for (unsigned i = 0; i < count && i < 4u; ++i) {
+                uint32_t key = MEM32(eax + 4u + i * 24u);
+                fprintf(stderr, " member%u=%08X:", i, key);
+                dah_spawn_trace_name(key);
+            }
+        }
+        fputc('\n', stderr);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0009228D; /* je: equal / zero */

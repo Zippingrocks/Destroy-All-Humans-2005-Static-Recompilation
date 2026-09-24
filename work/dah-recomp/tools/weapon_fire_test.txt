@@ -1,0 +1,38 @@
+# start duration hex_buttons A B LX LY RX RY X Y BLACK WHITE LT RT
+# Same proven menu-navigation sequence as menu_probe_input.txt (see that file
+# for the reasoning), followed by sustained right-trigger pulls once gameplay
+# should be active and DAH_CONSOLE_AUTO_EQUIP_WEAPON has had time to equip.
+# Full 15-field rows are only needed for the trigger holds; earlier rows keep
+# the short 9-field form.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2050 25 2 0 0 0 0 0 0
+2090 25 0 255 0 0 0 0 0
+2350 25 2 0 0 0 0 0 0
+2390 25 0 255 0 0 0 0 0
+2650 20 2 0 0 0 0 0 0
+2685 20 1 0 0 0 0 0 0
+2720 200 0 255 0 0 0 0 0
+3050 20 2 0 0 0 0 0 0
+3085 20 1 0 0 0 0 0 0
+3120 200 0 255 0 0 0 0 0
+3450 20 2 0 0 0 0 0 0
+3485 20 1 0 0 0 0 0 0
+3520 200 0 255 0 0 0 0 0
+#
+# Weapon fire test: repeated right-trigger pulls (semi-auto assumption) plus
+# one long hold (full-auto / charge assumption), spread widely in case
+# equip timing drifts run to run, same robustness approach as the menu phases.
+4500 40 0 0 0 0 0 0 0 0 0 0 0 0 255
+4600 40 0 0 0 0 0 0 0 0 0 0 0 0 255
+4700 40 0 0 0 0 0 0 0 0 0 0 0 0 255
+4900 400 0 0 0 0 0 0 0 0 0 0 0 0 255
+5400 40 0 0 0 0 0 0 0 0 0 0 0 0 255
+5500 40 0 0 0 0 0 0 0 0 0 0 0 0 255
+5600 400 0 0 0 0 0 0 0 0 0 0 0 0 255

@@ -1,0 +1,34 @@
+# start duration hex_buttons A B LX LY RX RY
+# Same proven Farm-boot menu-navigation sequence as menu_probe_input.txt
+# (real gameplay reliably active by ~tick 3720), followed by an isolated
+# right-stick-only camera pitch probe: hold hard up, then hard down,
+# repeated 3x. LX/LY/RX stay 0 so only vertical camera input is exercised.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2050 25 2 0 0 0 0 0 0
+2090 25 0 255 0 0 0 0 0
+2350 25 2 0 0 0 0 0 0
+2390 25 0 255 0 0 0 0 0
+2650 20 2 0 0 0 0 0 0
+2685 20 1 0 0 0 0 0 0
+2720 200 0 255 0 0 0 0 0
+3050 20 2 0 0 0 0 0 0
+3085 20 1 0 0 0 0 0 0
+3120 200 0 255 0 0 0 0 0
+3450 20 2 0 0 0 0 0 0
+3485 20 1 0 0 0 0 0 0
+3520 200 0 255 0 0 0 0 0
+#
+# Camera pitch probe
+4000 900 0 0 0 0 0 0 32767
+4900 900 0 0 0 0 0 0 -32768
+5800 900 0 0 0 0 0 0 32767
+6700 900 0 0 0 0 0 0 -32768
+7600 900 0 0 0 0 0 0 32767
+8500 900 0 0 0 0 0 0 -32768

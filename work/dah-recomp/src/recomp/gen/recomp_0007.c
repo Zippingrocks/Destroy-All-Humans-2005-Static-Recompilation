@@ -8,6 +8,8 @@
 #include "xbox_memory_layout.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+extern uint32_t dah_xapi_get_last_error(void);
 
 /**
  * sub_000A3860
@@ -32998,6 +33000,12 @@ loc_000B2591: ;
     PUSH32(esp, 0x000B2596u); sub_000B282D(); /* call 0x000B282D */
 
 loc_000B2596: ;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_collision_count;
+        if (dah_save_collision_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-CONTAINER-COLLISION] call=%u mode=%u dos_error=%08X\n",
+                    dah_save_collision_count, MEM32(ebp + 0x10), eax);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0xB7) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0xB7 (32-bit) */
     MEM32(ebp + 0x14) = eax;
@@ -33026,6 +33034,12 @@ loc_000B25BF: ;
     PUSH32(esp, 0x000B25CEu); sub_000B2408(); /* call 0x000B2408 */
 
 loc_000B25CE: ;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_meta_count;
+        if (dah_save_meta_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-META-RESULT] call=%u mode=%u result=%08X\n",
+                    dah_save_meta_count, MEM32(ebp + 0x10), eax);
+    }
     ebx = eax;
     _fa = (uint32_t)(ebx) & 0xFFFFFFFFu; _fb = (uint32_t)(ebx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test ebx, ebx (32-bit) */
@@ -33052,6 +33066,12 @@ loc_000B25F1: ;
     eax = MEM32(ebp + 0x14);
 
 loc_000B25F4: ;
+    if (getenv("DAH_SAVE_TRACE") && MEM32(ebp + 0x10) != 3u) {
+        static unsigned dah_save_container_result_count;
+        if (dah_save_container_result_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-CONTAINER-RESULT] call=%u mode=%u result=%08X\n",
+                    dah_save_container_result_count, MEM32(ebp + 0x10), eax);
+    }
     POP32(esp, edi);
     POP32(esp, esi);
     POP32(esp, ebx);
@@ -33399,27 +33419,14 @@ loc_000B282A: ;
  */
 void sub_000B282D(void)
 {
-    int _flags = 0; /* fallback flag var */
-    uint32_t _fa = 0, _fb = 0;
-    int32_t _fas = 0, _fbs = 0;
-    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-
-loc_000B282D: ;
-    eax = ZX8(MEM8(0x24));
-    _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(2) & 0xFFu;
-    _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), 2 (8-bit) */
-    if (CMP_AE(_fa, _fb)) goto loc_000B283F; /* jae: above or equal (unsigned >=) */
-
-loc_000B2839: ;
-    eax = MEM32(0x28);
-
-loc_000B283F: ;
-    eax = MEM32(0x270948);
-    ecx = MEM32(4);
-    eax = MEM32(ecx + eax * 4);
-    eax = MEM32(eax + 8);
-    esp += 4; return; /* ret */
-
+    eax = dah_xapi_get_last_error();
+    if (eax == 183u && getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_lasterror_count;
+        if (dah_save_lasterror_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-LASTERROR] call=%u value=%08X\n",
+                    dah_save_lasterror_count, eax);
+    }
+    esp += 4u; /* ret */
 }
 
 /**

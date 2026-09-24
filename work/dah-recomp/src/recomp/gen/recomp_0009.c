@@ -5,6 +5,8 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_trace_flags.h"
+#include <stdlib.h>
 #include <math.h>
 #include "dah_frame.h"
 #include <stdio.h>
@@ -2960,6 +2962,7 @@ loc_000D0479: ;
     PUSH32(esp, 0x000D0492u); sub_0013B0A0(); /* call 0x0013B0A0 */
 
 loc_000D0492: ;
+    { static unsigned trace; if (getenv("DAH_SOUND_SLOT_TRACE") && trace++ < 128) { fprintf(stderr,"[DAH-SLOT-FREED] manager=%08X slot=%u owner=%08X\n",esi,edi,MEM32(esi+edi*4+0xAFC)); } }
     ecx = MEM32(esi + 0xBC0);
     eax = ~eax;
     ecx = ecx & eax;
@@ -3199,6 +3202,7 @@ loc_000D0642: ;
     MEM32(edi + esi * 4 + 0xA3C) = ebx;
 
 loc_000D0649: ;
+    { static unsigned trace; if (getenv("DAH_SOUND_SLOT_TRACE") && trace++ < 128) { fprintf(stderr,"[DAH-SLOT-FAIL] slot=%u eax=%08X\n",esi,eax); } }
     POP32(esp, edi);
     POP32(esp, esi);
     POP32(esp, ebp);
@@ -3208,6 +3212,7 @@ loc_000D0649: ;
     esp += 12; return; /* ret 8 */
 
 loc_000D0656: ;
+    { static unsigned trace; if (getenv("DAH_SOUND_SLOT_TRACE") && trace++ < 128) { fprintf(stderr,"[DAH-SLOT-ALLOC] manager=%08X slot=%u backend=%08X owner=%08X\n",edi,esi,MEM32(edi+esi*4+0xA3C),MEM32(edi+esi*4+0xAFC)); } }
     POP32(esp, edi);
     eax = esi;
     POP32(esp, esi);
@@ -6315,6 +6320,21 @@ loc_000D192F: ;
     eax = (uint32_t)(int32_t)SMEM16(esi + 0x8D8);
     MEM32(esi + eax * 4 + 0x858) = edi;
     MEM16(esi + 0x8D8) = MEM16(esi + 0x8D8) + 1;
+    /* Manual diagnostic (2026-09-19): this is the 16-slot registration array
+     * sub_0005A4F0's readiness check (recomp_0003.c) requires to fill before
+     * a site switch can commit. On a stuck Area 42/Union/Capitol/cptlboss
+     * run this count sits at 15 forever -- traced here to confirm it really
+     * is a registration going missing, not a corrupted comparison. See
+     * README.md "Area 42 / Union / Capitol / cptlboss switch stall": this
+     * turned out to be a timing race (confirmed by controlled test), not a
+     * deterministic bug in this function. Opt-in via the same
+     * DAH_FINISH_GATE_TRACE env var as the gate-check diagnostic. */
+    if (getenv("DAH_FINISH_GATE_TRACE")) {
+        static uint32_t reg_logs;
+        if (++reg_logs <= 200)
+            fprintf(stderr, "[DAH-REG-8D8] call=%u obj=%08X slot=%u newcount=%u type=%08X\n",
+                    reg_logs, edi, eax, (unsigned)MEM16(esi + 0x8D8), MEM32(edi + 0x40));
+    }
     POP32(esp, edi);
     POP32(esp, esi);
     esp += 8; return; /* ret 4 */
@@ -6328,6 +6348,12 @@ loc_000D194B: ;
     eax = (uint32_t)(int32_t)SMEM16(esi + 0x854);
     MEM32(esi + eax * 4 + 0x54) = edi;
     MEM16(esi + 0x854) = MEM16(esi + 0x854) + 1;
+    if (getenv("DAH_FINISH_GATE_TRACE")) {
+        static uint32_t reg_logs;
+        if (++reg_logs <= 200)
+            fprintf(stderr, "[DAH-REG-854] call=%u obj=%08X slot=%u newcount=%u type=%08X\n",
+                    reg_logs, edi, eax, (unsigned)MEM16(esi + 0x854), MEM32(edi + 0x40));
+    }
     POP32(esp, edi);
     POP32(esp, esi);
     esp += 8; return; /* ret 4 */
@@ -8023,6 +8049,7 @@ void sub_000D2480(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_000D2480: ;
+    { static unsigned trace; if (getenv("DAH_SOUND_SLOT_TRACE") && trace++ < 128) { fprintf(stderr,"[DAH-SLOT-DETACH] owner=%08X slot=%u indices=%u,%u,%u\n",ecx,MEM32(esp+4),MEM32(ecx+0x58),MEM32(ecx+0x5C),MEM32(ecx+0x60)); } }
     eax = MEM32(esp + 4);
     PUSH32(esp, esi);
     PUSH32(esp, edi);
@@ -12406,7 +12433,7 @@ loc_000D3FF1: ;
     MEMF(esp + 0x10) = xmm0.f[0]; /* movss */
     xmm0 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x000D4016 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_000D4025; /* jnp: not parity */
@@ -12417,7 +12444,7 @@ loc_000D401F: ;
 loc_000D4025: ;
     xmm1 = XMM_SCALAR(MEMF(esi + 0x18)); /* movss */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x000D402A */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_000D403C; /* jnp: not parity */
@@ -12661,7 +12688,7 @@ void sub_000D4170(void)
 loc_000D4170: ;
     xmm0 = XMM_SCALAR(MEMF(esp + 8)); /* movss */
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x000D417D */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_000D418C; /* jp: parity */
@@ -16139,7 +16166,7 @@ loc_000D5800: ;
     fp_push(MEMF(esp + 0x10)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMIP/LAHF 0x000D581C */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_000D5832; /* jnp: not parity */
@@ -16203,10 +16230,10 @@ loc_000D589A: ;
 void sub_000D58C0(void)
 {
     static unsigned dah_quat_matrix_trace_count;
-    const int dah_trace_title_quat = getenv("DAH_MATRIX_TRACE") &&
+    const int dah_trace_title_quat = dah_matrix_trace_enabled() &&
         fabsf(MEMF(edx) - -0.182409003f) < 0.0001f &&
         fabsf(MEMF(edx + 4) - 0.549685121f) < 0.0001f;
-    if (getenv("DAH_MATRIX_TRACE") && dah_quat_matrix_trace_count < 32) {
+    if (dah_matrix_trace_enabled() && dah_quat_matrix_trace_count < 32) {
         fprintf(stderr,
                 "[DAH-QUAT-MATRIX-IN] caller=%08X src=%08X dst=%08X "
                 "q=%.9g,%.9g,%.9g,%.9g constants=%08X/%.9g,%08X/%.9g\n",
@@ -17050,7 +17077,7 @@ loc_000D60A0: ;
 void sub_000D6100(void)
 {
 
-    if (getenv("DAH_MATRIX_TRACE") && MEM32(0x250E60) &&
+    if (dah_matrix_trace_enabled() && MEM32(0x250E60) &&
         ecx == MEM32(0x250E60) + 0x50u) {
         static unsigned dah_camera_inverse_writes;
         int dah_suspicious_inverse = 0;
@@ -17371,7 +17398,7 @@ void sub_000D64A0(void)
     /* Opt-in, bounded source trace for the collapsed menu MVP. Observe
      * operands before the original scalar-SSE matrix multiply, never replace
      * camera data or adjust the resulting geometry. */
-    if (getenv("DAH_MATRIX_TRACE")) {
+    if (dah_matrix_trace_enabled()) {
         static unsigned traced;
         uint32_t rhs = MEM32(esp + 4);
         int suspicious = 0;
@@ -17389,6 +17416,10 @@ void sub_000D64A0(void)
     }
 
 loc_000D64A0: ;
+    if (dah_model_trace_enabled() && MEM32(esp)==0xF0106u) {
+        static unsigned count;
+        if(count++<96u) { fprintf(stderr,"[DAH-MODEL-MATRIX] object=%08X flags=%08X lhs=%08X values=",edi,MEM32(edi+0x18),edx); for(unsigned j=0;j<16;j++)fprintf(stderr,"%.9g,",MEMF(edx+j*4));fprintf(stderr,"\n"); }
+    }
     eax = MEM32(esp + 4);
     xmm0 = XMM_SCALAR(MEMF(edx)); /* movss */
     xmm0.f[0] = xmm0.f[0] * MEMF(eax); /* mulss */
@@ -17735,7 +17766,7 @@ void sub_000D69B0(void)
 {
     uint32_t ebp;
 
-    if (getenv("DAH_MATRIX_TRACE")) {
+    if (dah_matrix_trace_enabled()) {
         int dah_suspicious_affine = 0;
         for (unsigned dah_i = 0; dah_i < 16u; ++dah_i)
             if (fabsf(MEMF(edx + dah_i * 4u)) > 1000000.0f)
@@ -19633,7 +19664,7 @@ loc_000D7B90: ;
     fp_push(MEMF(esp + 0x10)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMIP/LAHF 0x000D7BAC */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_000D7BC2; /* jnp: not parity */
@@ -23877,6 +23908,8 @@ void sub_000D99A0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_000D99A0: ;
+    if(getenv("DAH_PAIR_TRACE")) {fprintf(stderr,"[DAH-ARENA-REQUEST] arena=%08X low=%08X high=%08X bytes=%u direction=%u caller=%08X outer=%08X\n",ecx,MEM32(ecx+8),MEM32(ecx+12),MEM32(esp+4),MEM8(esp+8),MEM32(esp),MEM32(esp+12));fflush(stderr);}
+
     edx = MEM32(ecx + 0xC);
     eax = MEM32(ecx + 8);
     PUSH32(esp, ebx);
@@ -23914,6 +23947,8 @@ loc_000D99CB: ;
     esp += 12; return; /* ret 8 */
 
 loc_000D99D8: ;
+    if(getenv("DAH_PAIR_TRACE")) {fprintf(stderr,"[DAH-ARENA-FAILED] arena=%08X request=%u available=%u low=%08X high=%08X\n",ecx,esi,ebx,MEM32(ecx+8),MEM32(ecx+12));fflush(stderr);}
+
     eax = edi;
     POP32(esp, edi);
     POP32(esp, esi);
@@ -23936,6 +23971,9 @@ void sub_000D99E0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_000D99E0: ;
+    /* pool trace loc_000D99E0 */
+    if(getenv("DAH_PAIR_TRACE")){if(MEM32(esp+4)<=0x0217E808u && (uint64_t)MEM32(esp+4)+MEM32(esp+8)>0x0217E808u) fprintf(stderr,"[DAH-ARENA-RELEASE] arena=%08X start=%08X size=%u low=%08X high=%08X caller=%08X\n",ecx,MEM32(esp+4),MEM32(esp+8),MEM32(ecx+8),MEM32(ecx+12),MEM32(esp));fflush(stderr);}
+
     edx = MEM32(esp + 4);
     _fa = (uint32_t)(edx) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test edx, edx (32-bit) */
@@ -25839,6 +25877,9 @@ void sub_000DA3A0(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000DA3A0: ;
+    /* pool trace loc_000DA3A0 */
+    if(getenv("DAH_PAIR_TRACE")){if(MEM32(esp+4)<=0x0217E808u && MEM32(esp+8)>0x0217E808u) fprintf(stderr,"[DAH-HEAP-REGION] heap=%08X start=%08X end=%08X caller=%08X\n",ecx,MEM32(esp+4),MEM32(esp+8),MEM32(esp));fflush(stderr);}
+
     PUSH32(esp, edi);
     edi = ecx;
     ecx = MEM32(edi + 4);
@@ -28330,6 +28371,27 @@ void sub_000DB0F0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_000DB0F0: ;
+    if (getenv("DAH_LEVEL_REQUEST_TRACE")) {
+        static unsigned dah_level_request_trace_count;
+        uint32_t dah_level_request_caller = MEM32(esp);
+        if (dah_level_request_caller == 0x000DD2D2u && dah_level_request_trace_count++ < 32u) {
+            uint32_t dah_level_request_arg2 = MEM32(esp + 8);
+            fprintf(stderr, "[DAH-LEVEL-REQUEST-DETAIL] this=%08X descriptor=%08X arg2=%08X arg3=%08X caller=%08X text=",
+                    ecx, MEM32(esp + 4), dah_level_request_arg2, MEM32(esp + 0xC), dah_level_request_caller);
+            if (dah_level_request_arg2 >= 0x10000u && dah_level_request_arg2 < 0x07FFFF00u) {
+                for (unsigned i = 0; i < 128u; ++i) {
+                    unsigned c = MEM8(dah_level_request_arg2 + i);
+                    if (!c) break;
+                    if (c < 0x20u || c > 0x7Eu) { fputc('?', stderr); break; }
+                    fputc((int)c, stderr);
+                }
+                fprintf(stderr, " words=");
+                for (unsigned i = 0; i < 8u; ++i)
+                    fprintf(stderr, "%s%08X", i ? "," : "", MEM32(dah_level_request_arg2 + i * 4u));
+            } else fprintf(stderr, "<invalid guest pointer>");
+            fputc('\n', stderr);
+        }
+    }
     {
         static uint32_t dah_block_load_trace_count;
         if (dah_block_load_trace_count++ < 64u) {

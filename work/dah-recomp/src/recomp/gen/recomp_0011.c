@@ -1052,6 +1052,8 @@ loc_000F640D: ;
  */
 void sub_000F6420(void)
 {
+    static unsigned dah_scene_trace_count;
+    const int dah_scene_trace = getenv("DAH_MODEL_TRACE") && MEM32(ecx+0x1C) && dah_scene_trace_count++ < 4u;
     uint32_t ebp;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
@@ -1502,6 +1504,25 @@ loc_000F687F: ;
     PUSH32(esp, 0x000F689Du); sub_000F2C30(); /* call 0x000F2C30 */
 
 loc_000F689D: ;
+    if(dah_scene_trace && dah_scene_trace_count==1u) {
+        uint32_t grid=MEM32(ebx+0x44), nodes=MEM32(grid), cells=MEM32(grid+4);
+        uint32_t width=MEM32(grid+8), height=MEM32(grid+12), seen[128]; unsigned count=0;
+        fprintf(stderr,"[DAH-GRID] size=%u,%u range=%u,%u..%u,%u origin=%g,%g cell=%g\n",width,height,MEM32(grid+0x24),MEM32(grid+0x28),MEM32(grid+0x2C),MEM32(grid+0x30),MEMF(grid+0x1C),MEMF(grid+0x20),MEMF(grid+0x14));
+        if(width && height && (uint64_t)width*height<65536u)
+        for(unsigned k=0;k<width*height;k++) {
+            unsigned node=MEM16(cells+2*k),guard=0;
+            while(node!=65535u && guard++<512u) {
+                uint32_t object=MEM32(nodes+12*node+8); unsigned j;
+                for(j=0;j<count;j++) if(seen[j]==object)break;
+                if(j==count && count<128u && object>0x1000u && object<0x7FFF000u){
+                    seen[count++]=object;
+                    fprintf(stderr,"[DAH-GRID-OBJECT] object=%08X cell=%u,%u flags=%08X model=%08X position=%g,%g,%g\n",object,k%width,k/width,MEM32(object+0x2C),MEM32(object+0x18),MEMF(object+0x80),MEMF(object+0x84),MEMF(object+0x88));
+                }
+                node=MEM16(nodes+12*node);
+            }
+        }
+    }
+    if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-QUERY] scene=%08X grid=%08X count=%u bounds=%g,%g..%g,%g\n",ebx,MEM32(ebx+0x44),MEM32(esp+0x34),MEMF(esp+0x20),MEMF(esp+0x24),MEMF(esp+0x18),MEMF(esp+0x1C));
     eax = MEM32(0x250E60);
     ecx = MEM32(eax + 0xEC);
     _fa = (uint32_t)(MEM32(esp + 0x34)) & 0xFFFFFFFFu; _fb = (uint32_t)(esi) & 0xFFFFFFFFu;
@@ -1526,6 +1547,7 @@ loc_000F68C0: ;
     if (TEST_NZ(_fa, _fb)) goto loc_000F6D45; /* jne: not equal / not zero */
 
 loc_000F68DE: ;
+    if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-OBJECT] object=%08X flags=%08X model=%08X transform=%g,%g,%g scale=%g\n",esi,MEM32(esi+0x2C),MEM32(esi+0x18),MEMF(esi+0x80),MEMF(esi+0x84),MEMF(esi+0x88),MEMF(esi+0x34));
     edi = MEM32(esi + 0x18);
     eax = MEM32(edi + 0x14);
     ebx = eax + 8;
@@ -1584,6 +1606,7 @@ loc_000F694B: ;
     PUSH32(esp, 0x000F696Cu); sub_000DF0E0(); /* call 0x000DF0E0 */
 
 loc_000F696C: ;
+    if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-CULL] object=%08X visible=%u viewpos=%g,%g,%g\n",esi,LO8(eax),MEMF(esp+0xC0),MEMF(esp+0xC4),MEMF(esp+0xC8));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000F6BAF; /* je: equal / zero */
@@ -1612,6 +1635,7 @@ loc_000F69C8: ;
     xmm1 = xmm0; /* movaps */
 
 loc_000F69CB: ;
+    if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-LOD] object=%08X dist=%g threshold=%g,%g divisor=%g flags=%08X\n",esi,MEMF(esp+0x2C),xmm0.f[0],xmm1.f[0],MEMF(MEM32(edi+0x14)+0x98),MEM32(edi+0x18));
     xmm2 = XMM_SCALAR(MEMF(esp + 0x2C)); /* movss */
     ecx = MEM32(edi + 0x14);
     _fa = (uint32_t)(MEM8(edi + 0x18)) & 0xFFu; _fb = (uint32_t)(2) & 0xFFu;
@@ -5717,6 +5741,10 @@ void sub_000F89A0(void)
     int _flags = 0; /* fallback flag var */
 
 loc_000F89A0: ;
+    if(getenv("DAH_OVERLAY_TRACE")) {uint32_t p=MEM32(esp+4);static unsigned n;
+      if(MEMF(p)==0 && MEMF(p+4)==0 && MEMF(p+8)==640 && MEMF(p+12)==480 && n++<32)
+        fprintf(stderr,"[DAH-OVERLAY-SOURCE] caller=%08X ptr=%08X alpha=%.9g rgb=%.9g,%.9g,%.9g\n",MEM32(esp),p,MEMF(p+0x38),MEMF(p+0x20),MEMF(p+0x24),MEMF(p+0x28));
+    }
     eax = MEM32(esp + 4);
     xmm3 = XMM_SCALAR(MEMF(eax)); /* movss */
     xmm3.f[0] = xmm3.f[0] + MEMF(eax + 8); /* addss */
@@ -7078,8 +7106,141 @@ loc_000F92F3: ;
  * CC: cdecl, 3 params, returns int_or_void
  * Frame: fpo_leaf
  */
+/* Bounded, read-only mothership UI comparison. Enable with DAH_HUB_RENDER_TRACE=1. */
+static int dah_hub_render_trace_enabled = -1;
+static uint32_t dah_hub_render_trace_root;
+static unsigned dah_hub_render_trace_counts[7];
+
+/* Opt-in snapshot of the retail tutorial widget.  The panel animates and
+ * renders, but its two text leaves are currently blank.  Keep this strictly
+ * read-only so a trace build can compare the live text objects with working
+ * shell text without affecting game state. */
+static int dah_tutorial_trace_enabled = -1;
+static uint32_t dah_tutorial_trace_object;
+static unsigned dah_tutorial_trace_samples;
+
+static int dah_ui_name_tutorial(uint32_t object)
+{
+    return object && MEM32(object + 0x0Cu) == 0x6F747574u &&
+        MEM32(object + 0x10u) == 0x6C616972u &&
+        MEM32(object + 0x14u) == 0u;
+}
+
+static int dah_ui_under_tutorial(uint32_t object)
+{
+    unsigned depth;
+    for (depth = 0u; object && depth < 8u; ++depth) {
+        if (dah_ui_name_tutorial(object)) return 1;
+        object = MEM32(object + 8u);
+    }
+    return 0;
+}
+
+static void dah_tutorial_trace_tree(uint32_t object, unsigned depth)
+{
+    uint32_t sentinel, node;
+    unsigned child_count = 0u;
+    if (!object || depth > 5u) return;
+    fprintf(stderr,
+        "[DAH-TUTORIAL-NODE] depth=%u object=%08X vt=%08X active=%u "
+        "name=%08X:%08X:%08X:%08X flags=%08X "
+        "p60=%08X p64=%08X p68=%08X p6C=%08X p70=%08X p74=%08X "
+        "p78=%08X p7C=%08X p80=%08X p84=%08X p88=%08X p8C=%08X "
+        "p90=%08X p94=%08X p98=%08X p9C=%08X pA0=%08X pA4=%08X "
+        "pA8=%08X pAC=%08X pB0=%08X pB4=%08X pB8=%08X pBC=%08X "
+        "pC0=%08X pC4=%08X pC8=%08X pCC=%08X pD0=%08X pD4=%08X\n",
+        depth, object, MEM32(object), MEM8(object + 4u),
+        MEM32(object + 0x0Cu), MEM32(object + 0x10u),
+        MEM32(object + 0x14u), MEM32(object + 0x18u), MEM32(object + 0x5Cu),
+        MEM32(object + 0x60u), MEM32(object + 0x64u),
+        MEM32(object + 0x68u), MEM32(object + 0x6Cu),
+        MEM32(object + 0x70u), MEM32(object + 0x74u),
+        MEM32(object + 0x78u), MEM32(object + 0x7Cu),
+        MEM32(object + 0x80u), MEM32(object + 0x84u),
+        MEM32(object + 0x88u), MEM32(object + 0x8Cu),
+        MEM32(object + 0x90u), MEM32(object + 0x94u),
+        MEM32(object + 0x98u), MEM32(object + 0x9Cu),
+        MEM32(object + 0xA0u), MEM32(object + 0xA4u),
+        MEM32(object + 0xA8u), MEM32(object + 0xACu),
+        MEM32(object + 0xB0u), MEM32(object + 0xB4u),
+        MEM32(object + 0xB8u), MEM32(object + 0xBCu),
+        MEM32(object + 0xC0u), MEM32(object + 0xC4u),
+        MEM32(object + 0xC8u), MEM32(object + 0xCCu),
+        MEM32(object + 0xD0u), MEM32(object + 0xD4u));
+    sentinel = object + 0x44u;
+    node = MEM32(sentinel);
+    while (node && node != sentinel && child_count++ < 32u) {
+        dah_tutorial_trace_tree(MEM32(node + 8u), depth + 1u);
+        node = MEM32(node);
+    }
+}
+
+static int dah_hub_name_main(uint32_t object)
+{
+    return object && MEM32(object + 0x0Cu) == 0x75687474u &&
+        MEM32(object + 0x10u) == 0x69614D62u &&
+        MEM32(object + 0x14u) == 0x0000006Eu;
+}
+
+static int dah_hub_name_legend(uint32_t object)
+{
+    return object && MEM32(object + 0x0Cu) == 0x746E6F63u &&
+        MEM32(object + 0x10u) == 0x6C6C6F72u &&
+        MEM32(object + 0x14u) == 0x656C7265u &&
+        MEM32(object + 0x18u) == 0x646E6567u;
+}
+
+/* 1 main, 2 legend, 3 slot, 4 slot text, 5 slot underline, 6 legend text. */
+static int dah_hub_render_trace_kind(uint32_t object)
+{
+    uint32_t parent, grandparent;
+    if (!object) return 0;
+    if (dah_hub_name_main(object)) return 1;
+    if (dah_hub_name_legend(object)) return 2;
+    parent = MEM32(object + 8u);
+    if (!parent) return 0;
+    if (dah_hub_name_main(parent) &&
+        MEM32(object + 0x0Cu) == 0x746F6C73u) return 3;
+    if (dah_hub_name_legend(parent) &&
+        MEM32(object) == 0x002354ECu) return 6;
+    grandparent = MEM32(parent + 8u);
+    if (dah_hub_name_main(grandparent) &&
+        MEM32(parent + 0x0Cu) == 0x746F6C73u) {
+        if (MEM32(object + 0x0Cu) == 0x74786574u) return 4;
+        if (MEM32(object + 0x0Cu) == 0x65646E75u) return 5;
+    }
+    return 0;
+}
+
+static int dah_hub_render_trace_take(uint32_t object, int *kind_out)
+{
+    uint32_t owner, root;
+    unsigned number;
+    int kind;
+    if (dah_hub_render_trace_enabled < 0)
+        dah_hub_render_trace_enabled = getenv("DAH_HUB_RENDER_TRACE") ? 1 : 0;
+    if (!dah_hub_render_trace_enabled) return 0;
+    owner = MEM32(0x258470u);
+    root = owner ? MEM32(owner) : 0u;
+    if (root != dah_hub_render_trace_root) {
+        dah_hub_render_trace_root = root;
+        memset(dah_hub_render_trace_counts, 0, sizeof(dah_hub_render_trace_counts));
+    }
+    kind = dah_hub_render_trace_kind(object);
+    if (!kind) return 0;
+    number = ++dah_hub_render_trace_counts[kind];
+    if (kind_out) *kind_out = kind;
+    return number <= 16u || (number <= 24000u && number % 1200u == 0u);
+}
+
 void sub_000F9300(void)
 {
+    if (MEM32(esp + 4u) == 9u) {
+        int dah_hub_kind = 0;
+        if (dah_hub_render_trace_take(ecx, &dah_hub_kind))
+            fprintf(stderr, "[DAH-HUB-TRAVERSE] kind=%d object=%08X active=%u flags=%08X parent=%08X\n",
+                    dah_hub_kind, ecx, MEM8(ecx + 4u), MEM32(ecx + 0x5Cu), MEM32(ecx + 8u));
+    }
     static int dah_force_ui_render = -1;
     static int dah_force_ui_child = -1;
     if (dah_force_ui_render < 0) {
@@ -7087,6 +7248,28 @@ void sub_000F9300(void)
     }
     if (dah_force_ui_child < 0) {
         dah_force_ui_child = getenv("DAH_FORCE_UI_CHILD") ? 1 : 0;
+    }
+    if (dah_tutorial_trace_enabled < 0)
+        dah_tutorial_trace_enabled = getenv("DAH_TUTORIAL_TRACE") ? 1 : 0;
+    if (dah_tutorial_trace_enabled && MEM32(esp + 4u) == 9u &&
+        MEM32(0x258470u) && ecx == MEM32(MEM32(0x258470u))) {
+        uint32_t sentinel = ecx + 0x44u;
+        uint32_t node = MEM32(sentinel);
+        uint32_t tutorial = 0u;
+        unsigned count = 0u;
+        while (node && node != sentinel && count++ < 64u) {
+            uint32_t object = MEM32(node + 8u);
+            if (dah_ui_name_tutorial(object)) { tutorial = object; break; }
+            node = MEM32(node);
+        }
+        if (tutorial && MEM8(tutorial + 4u) &&
+            (tutorial != dah_tutorial_trace_object || dah_tutorial_trace_samples < 2u)) {
+            dah_tutorial_trace_object = tutorial;
+            ++dah_tutorial_trace_samples;
+            fprintf(stderr, "[DAH-TUTORIAL-SNAPSHOT] root=%08X tutorial=%08X sample=%u\n",
+                    ecx, tutorial, dah_tutorial_trace_samples);
+            dah_tutorial_trace_tree(tutorial, 0u);
+        }
     }
     if (MEM32(0x258470) && ecx == MEM32(MEM32(0x258470))) {
         static uint32_t dah_last_ui_root;
@@ -7128,6 +7311,99 @@ void sub_000F9300(void)
                 }
                 node = MEM32(node);
                 ++children;
+            }
+        }
+    }
+    /* Opt-in, read-only shell menu state snapshots. The retail Lua handler
+     * activates tthubMain and sets slot text before controllerlegend. Log
+     * both paths at the UI root render boundary to locate the missing list.
+     */
+    static int dah_tthub_trace = -1;
+    static uint32_t dah_tthub_last_root;
+    static uint32_t dah_tthub_root_renders;
+    static uint32_t dah_tthub_samples;
+    if (dah_tthub_trace < 0)
+        dah_tthub_trace = getenv("DAH_TTHUB_TRACE") ? 1 : 0;
+    if (dah_tthub_trace && MEM32(esp + 4u) == 9u &&
+        MEM32(0x258470u) && ecx == MEM32(MEM32(0x258470u))) {
+        if (ecx != dah_tthub_last_root) {
+            dah_tthub_last_root = ecx;
+            dah_tthub_root_renders = 0u;
+            dah_tthub_samples = 0u;
+        }
+        ++dah_tthub_root_renders;
+        if (dah_tthub_samples < 40u &&
+            (dah_tthub_root_renders == 1u ||
+             dah_tthub_root_renders == 30u ||
+             dah_tthub_root_renders == 120u ||
+             dah_tthub_root_renders % 300u == 0u)) {
+            uint32_t sentinel = ecx + 0x44u;
+            uint32_t node = MEM32(sentinel);
+            uint32_t main_obj = 0u, ufo_obj = 0u, legend_obj = 0u;
+            unsigned count = 0u;
+            while (node && node != sentinel && count++ < 64u) {
+                uint32_t obj = MEM32(node + 8u);
+                if (obj) {
+                    if (MEM32(obj + 0x0Cu) == 0x75687474u &&
+                        MEM32(obj + 0x10u) == 0x69614D62u &&
+                        MEM32(obj + 0x14u) == 0x0000006Eu)
+                        main_obj = obj; /* tthubMain */
+                    else if (MEM32(obj + 0x0Cu) == 0x75687474u &&
+                             MEM32(obj + 0x10u) == 0x4F465562u)
+                        ufo_obj = obj; /* tthubUFO */
+                    else if (MEM32(obj + 0x0Cu) == 0x746E6F63u &&
+                             MEM32(obj + 0x10u) == 0x6C6C6F72u &&
+                             MEM32(obj + 0x14u) == 0x656C7265u &&
+                             MEM32(obj + 0x18u) == 0x646E6567u)
+                        legend_obj = obj; /* controllerlegend */
+                }
+                node = MEM32(node);
+            }
+            if (main_obj || ufo_obj) {
+                ++dah_tthub_samples;
+                fprintf(stderr,
+                    "[DAH-TTHUB] root=%08X render=%u sample=%u main=%08X main_active=%u main_flags=%08X main_60=%08X ufo=%08X ufo_active=%u legend=%08X legend_active=%u\n",
+                    ecx, dah_tthub_root_renders, dah_tthub_samples,
+                    main_obj, MEM8(main_obj + 4u), MEM32(main_obj + 0x5Cu),
+                    MEM32(main_obj + 0x60u), ufo_obj,
+                    ufo_obj ? MEM8(ufo_obj + 4u) : 0u,
+                    legend_obj, legend_obj ? MEM8(legend_obj + 4u) : 0u);
+                uint32_t main_sentinel = main_obj ? main_obj + 0x44u : 0u;
+                uint32_t slot_node = main_obj ? MEM32(main_sentinel) : 0u;
+                unsigned slot_count = 0u;
+                while (slot_node && slot_node != main_sentinel && slot_count++ < 32u) {
+                    uint32_t slot = MEM32(slot_node + 8u);
+                    if (slot)
+                        fprintf(stderr,
+                            "[DAH-TTHUB-CHILD] root=%08X object=%08X name_words=%08X:%08X:%08X active=%u flags=%08X\n",
+                            ecx, slot, MEM32(slot + 0x0Cu), MEM32(slot + 0x10u),
+                            MEM32(slot + 0x14u), MEM8(slot + 4u), MEM32(slot + 0x5Cu));
+                    if (slot && MEM32(slot + 0x0Cu) == 0x746F6C73u) {
+                        fprintf(stderr,
+                            "[DAH-TTHUB-SLOT] root=%08X slot=%08X id=%02X active=%u flags=%08X p68=%08X p6C=%08X p70=%08X p74=%08X p78=%08X p7C=%08X\n",
+                            ecx, slot, MEM8(slot + 0x10u), MEM8(slot + 4u),
+                            MEM32(slot + 0x5Cu), MEM32(slot + 0x68u),
+                            MEM32(slot + 0x6Cu), MEM32(slot + 0x70u),
+                            MEM32(slot + 0x74u), MEM32(slot + 0x78u),
+                            MEM32(slot + 0x7Cu));
+                        uint32_t slot_sentinel = slot + 0x44u;
+                        uint32_t text_node = MEM32(slot_sentinel);
+                        unsigned text_count = 0u;
+                        while (text_node && text_node != slot_sentinel && text_count++ < 16u) {
+                            uint32_t text_obj = MEM32(text_node + 8u);
+                            if (text_obj && MEM32(text_obj + 0x0Cu) == 0x74786574u)
+                                fprintf(stderr,
+                                    "[DAH-TTHUB-TEXT] root=%08X slot=%02X text=%08X active=%u flags=%08X p68=%08X p6C=%08X p70=%08X p74=%08X p78=%08X p7C=%08X\n",
+                                    ecx, MEM8(slot + 0x10u), text_obj,
+                                    MEM8(text_obj + 4u), MEM32(text_obj + 0x5Cu),
+                                    MEM32(text_obj + 0x68u), MEM32(text_obj + 0x6Cu),
+                                    MEM32(text_obj + 0x70u), MEM32(text_obj + 0x74u),
+                                    MEM32(text_obj + 0x78u), MEM32(text_obj + 0x7Cu));
+                            text_node = MEM32(text_node);
+                        }
+                    }
+                    slot_node = MEM32(slot_node);
+                }
             }
         }
     }
@@ -7352,6 +7628,14 @@ loc_000F93E2: ;
  */
 void sub_000F93F0(void)
 {
+    if (MEM32(esp + 4u) && MEM32(MEM32(esp + 4u) + 4u) == 9u) {
+        int dah_hub_kind = 0;
+        if (dah_hub_render_trace_take(ecx, &dah_hub_kind))
+            fprintf(stderr, "[DAH-HUB-CONTAINER] kind=%d object=%08X active=%u flags=%08X rect=%.3f,%.3f,%.3f,%.3f scale=%.3f,%.3f\n",
+                    dah_hub_kind, ecx, MEM8(ecx + 4u), MEM32(ecx + 0x5Cu),
+                    MEMF(ecx + 0x78u), MEMF(ecx + 0x7Cu), MEMF(ecx + 0x68u), MEMF(ecx + 0x6Cu),
+                    MEMF(ecx + 0x80u), MEMF(ecx + 0x84u));
+    }
     static uint32_t dah_root_event_calls;
     if (dah_root_event_calls++ < 24u) {
         uint32_t dah_event = MEM32(esp + 4);
@@ -22178,6 +22462,32 @@ loc_000FF891: ;
     MEMF(esi + 0x170) = xmm7.f[0]; /* movss */
 
 loc_000FF899: ;
+    {
+        static int dah_stick_trace_enabled = -1;
+        static unsigned dah_stick_trace_count;
+        if (dah_stick_trace_enabled < 0) {
+            const char *v = getenv("DAH_STICK_CONDITION_TRACE");
+            dah_stick_trace_enabled = v ? (strcmp(v, "0") != 0) :
+                (getenv("DAH_INTERNAL_RUN") == NULL);
+        }
+        if (dah_stick_trace_enabled && dah_stick_trace_count < 2000000u) {
+            int16_t raw1 = (int16_t)SMEM16(esp + 0x26);
+            int16_t raw2 = (int16_t)SMEM16(esp + 0x20);
+            int16_t raw3 = (int16_t)SMEM16(esp + 0x22);
+            int16_t raw4 = (int16_t)SMEM16(esp + 0x24);
+            int big = (raw1 > 1000 || raw1 < -1000 || raw2 > 1000 || raw2 < -1000 ||
+                       raw3 > 1000 || raw3 < -1000 || raw4 > 1000 || raw4 < -1000);
+            if (big || (dah_stick_trace_count % 6000u) == 0u) {
+                fprintf(stderr,
+                    "[DAH-STICK-CONDITION] raw=%d,%d,%d,%d smoothed=%.6g,%.6g,%.6g,%.6g\n",
+                    (int)raw1, (int)raw2, (int)raw3, (int)raw4,
+                    (double)MEMF(esi + 0x14C), (double)MEMF(esi + 0x158),
+                    (double)MEMF(esi + 0x164), (double)MEMF(esi + 0x170));
+                fflush(stderr);
+            }
+            ++dah_stick_trace_count;
+        }
+    }
     eax = MEM32(esi + 0x15C);
     ecx = MEM32(esi + 0x158);
     PUSH32(esp, eax);
@@ -24033,6 +24343,16 @@ loc_00100777: ;
  */
 void sub_00100790(void)
 {
+    int dah_hub_sprite_trace = 0;
+    if (MEM32(esp + 4u) && MEM32(MEM32(esp + 4u) + 4u) == 9u) {
+        int dah_hub_sprite_kind = 0;
+        dah_hub_sprite_trace = dah_hub_render_trace_take(ecx, &dah_hub_sprite_kind);
+        if (dah_hub_sprite_trace)
+            fprintf(stderr, "[DAH-HUB-SPRITE-ENTER] kind=%d object=%08X active=%u flags=%08X rect=%.3f,%.3f,%.3f,%.3f viewport=%.3f,%.3f\n",
+                    dah_hub_sprite_kind, ecx, MEM8(ecx + 4u), MEM32(ecx + 0x5Cu),
+                    MEMF(ecx + 0x78u), MEMF(ecx + 0x7Cu), MEMF(ecx + 0x68u), MEMF(ecx + 0x6Cu),
+                    MEMF(0x285D50u), MEMF(0x285D54u));
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -24097,6 +24417,10 @@ loc_001007EE: ;
     }
 
 loc_001007F5: ;
+    if (dah_hub_sprite_trace)
+        fprintf(stderr, "[DAH-HUB-SPRITE-SUBMIT] object=%08X texture=%08X quad=%.3f,%.3f,%.3f,%.3f alpha=%.3f renderer=%08X\n",
+                esi, eax, MEMF(esi + 0xB0u), MEMF(esi + 0xB4u),
+                MEMF(esi + 0xB8u), MEMF(esi + 0xBCu), MEMF(esi + 0xE8u), MEM32(0x250E60u));
     PUSH32(esp, eax);
     ecx = esi + 0xB0;
     PUSH32(esp, ecx);
@@ -26216,6 +26540,36 @@ loc_00101752: ;
  */
 void sub_00101760(void)
 {
+    int dah_hub_text_trace = 0;
+    int dah_hub_text_kind = 0;
+    int dah_tutorial_text_trace = 0;
+    static unsigned dah_tutorial_text_calls;
+    if (MEM32(esp + 4u) && MEM32(MEM32(esp + 4u) + 4u) == 9u) {
+        dah_hub_text_trace = dah_hub_render_trace_take(ecx, &dah_hub_text_kind);
+        if (dah_hub_text_trace)
+            fprintf(stderr, "[DAH-HUB-TEXT-ENTER] kind=%d object=%08X active=%u flags=%08X font=%08X str=%.16S rect=%.3f,%.3f,%.3f,%.3f alpha=%.3f viewport=%.3f,%.3f\n",
+                    dah_hub_text_kind, ecx, MEM8(ecx + 4u), MEM32(ecx + 0x5Cu), MEM32(ecx + 0xB0u),
+                    (const wchar_t *)XBOX_PTR(ecx + 0xB4u), MEMF(ecx + 0x1B4u), MEMF(ecx + 0x1B8u),
+                    MEMF(ecx + 0x1E8u), MEMF(ecx + 0x1ECu), MEMF(ecx + 0x1E4u),
+                    MEMF(0x285D50u), MEMF(0x285D54u));
+    }
+    if (dah_tutorial_trace_enabled > 0 && dah_ui_under_tutorial(ecx) &&
+        dah_tutorial_text_calls++ < 24u) {
+        uint32_t dah_event = MEM32(esp + 4u);
+        dah_tutorial_text_trace = 1;
+        fprintf(stderr,
+            "[DAH-TUTORIAL-TEXT1-ENTER] call=%u object=%08X event=%08X code=%u "
+            "font=%08X text=%.48S active=%u flags=%08X rect=%.3f,%.3f,%.3f,%.3f "
+            "drawrect=%.3f,%.3f,%.3f,%.3f rgba=%.3f,%.3f,%.3f,%.3f mode=%u\n",
+            dah_tutorial_text_calls, ecx, dah_event,
+            dah_event ? MEM32(dah_event + 4u) : 0u, MEM32(ecx + 0xB0u),
+            (const wchar_t *)XBOX_PTR(ecx + 0xB4u), MEM8(ecx + 4u),
+            MEM32(ecx + 0x5Cu), MEMF(ecx + 0x68u), MEMF(ecx + 0x6Cu),
+            MEMF(ecx + 0x78u), MEMF(ecx + 0x7Cu), MEMF(ecx + 0x1B4u),
+            MEMF(ecx + 0x1B8u), MEMF(ecx + 0x1E8u), MEMF(ecx + 0x1ECu),
+            MEMF(ecx + 0x1CCu), MEMF(ecx + 0x1D0u), MEMF(ecx + 0x1D4u),
+            MEMF(ecx + 0x1E4u), MEM32(ecx + 0x1F0u));
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -26277,11 +26631,25 @@ loc_001017A4: ;
     PUSH32(esp, 0x001017B9u); sub_000F88F0(); /* call 0x000F88F0 */
 
 loc_001017B9: ;
+    if (dah_tutorial_text_trace)
+        fprintf(stderr, "[DAH-TUTORIAL-TEXT1-CULL] object=%08X result=%08X\n", esi, eax);
+    if (dah_hub_text_trace)
+        fprintf(stderr, "[DAH-HUB-TEXT-CULL] kind=%d object=%08X result=%08X\n",
+                dah_hub_text_kind, esi, eax);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_00101931; /* je: equal / zero */
 
 loc_001017C1: ;
+    if (dah_tutorial_text_trace)
+        fprintf(stderr,
+            "[DAH-TUTORIAL-TEXT1-DRAW] object=%08X font=%08X font_vt=%08X font_fn=%08X\n",
+            esi, MEM32(esi + 0xB0u), MEM32(MEM32(esi + 0xB0u)),
+            MEM32(MEM32(MEM32(esi + 0xB0u)) + 8u));
+    if (dah_hub_text_trace)
+        fprintf(stderr, "[DAH-HUB-TEXT-DRAW] kind=%d object=%08X font=%08X font_fn=%08X\n",
+                dah_hub_text_kind, esi, MEM32(esi + 0xB0u),
+                MEM32(MEM32(MEM32(esi + 0xB0u)) + 8u));
     ecx = MEM32(esi + 0xB0);
     edx = MEM32(ecx);
     { uint32_t _icall_esp = g_esp;
@@ -29805,6 +30173,25 @@ void sub_00103420(void)
     if (dah_child_event_calls++ < 24u) {
         fprintf(stderr, "[DAH-UI-CHILD-EVENT] call=%u object=%08X arg=%08X active=%u state=%08X\n",
                 dah_child_event_calls, ecx, MEM32(esp + 4), MEM8(ecx + 4), MEM32(ecx + 0x134));
+    }
+    static unsigned dah_tutorial_text2_calls;
+    if (dah_tutorial_trace_enabled > 0 && dah_ui_under_tutorial(ecx) &&
+        dah_tutorial_text2_calls++ < 24u) {
+        uint32_t dah_event = MEM32(esp + 4u);
+        fprintf(stderr,
+            "[DAH-TUTORIAL-TEXT2-ENTER] call=%u object=%08X event=%08X code=%u "
+            "font=%08X active=%u flags=%08X state=%u lines=%d chars=%d "
+            "rect=%.3f,%.3f,%.3f,%.3f rgba=%.3f,%.3f,%.3f,%.3f "
+            "scale=%.3f,%.3f alpha=%.3f list=%08X:%08X\n",
+            dah_tutorial_text2_calls, ecx, dah_event,
+            dah_event ? MEM32(dah_event + 4u) : 0u, MEM32(ecx + 0x120u),
+            MEM8(ecx + 4u), MEM32(ecx + 0x5Cu), MEM32(ecx + 0x138u),
+            (int)SMEM16(ecx + 0x13Cu), (int)SMEM16(ecx + 0x13Eu),
+            MEMF(ecx + 0x68u), MEMF(ecx + 0x6Cu), MEMF(ecx + 0x78u),
+            MEMF(ecx + 0x7Cu), MEMF(ecx + 0x104u), MEMF(ecx + 0x108u),
+            MEMF(ecx + 0x10Cu), MEMF(ecx + 0x11Cu), MEMF(ecx + 0xF4u),
+            MEMF(ecx + 0xF8u), MEMF(ecx + 0x158u), MEM32(ecx + 0xB8u),
+            MEM32(ecx + 0xBCu));
     }
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */

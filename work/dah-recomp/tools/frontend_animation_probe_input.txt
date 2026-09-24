@@ -1,0 +1,5 @@
+# start duration hex_buttons A B LX LY RX RY
+# The internal runner injects START at input call 1050. Confirm the default
+# "New Game" entry once the two-item frontend menu has settled, then leave the
+# save-slot screen untouched so its animated panel can be traced.
+1320 30 0 255 0 0 0 0 0

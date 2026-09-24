@@ -5,8 +5,18 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_trace_flags.h"
+extern double dah_frame_profile_now(void);
+extern void dah_frame_record_guest_render(double start_seconds);
+extern void dah_frame_record_render_stage(unsigned stage, double start_seconds);
+#include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
+extern volatile int dah_trace_input_lx;
+extern volatile int dah_trace_input_ly;
+extern volatile int dah_trace_input_rx;
+extern volatile int dah_trace_input_ry;
+extern void dah_camera_pitch_compat_apply(void);
 
 /**
  * sub_000DDA20
@@ -373,6 +383,23 @@ loc_000DDC2B: ;
     PUSH32(esp, edi);
     ecx = eax;
     script_native_target = MEM32(edx + 0x54);
+    {
+        static unsigned dah_active_native_trace_count;
+        if ((dah_trace_input_lx || dah_trace_input_ly ||
+             dah_trace_input_rx || dah_trace_input_ry) &&
+            dah_active_native_trace_count++ < 4096u) {
+            fprintf(stderr,
+                    "[DAH-ACTIVE-NATIVE] sticks=%d,%d,%d,%d owner=%08X object=%08X "
+                    "vtable=%08X target=%08X words=%08X,%08X,%08X,%08X,%08X,%08X,%08X,%08X "
+                    "arg=%08X:%08X\n",
+                    dah_trace_input_lx, dah_trace_input_ly,
+                    dah_trace_input_rx, dah_trace_input_ry,
+                    esi, eax, edx, script_native_target,
+                    MEM32(eax), MEM32(eax + 4u), MEM32(eax + 8u), MEM32(eax + 0xCu),
+                    MEM32(eax + 0x10u), MEM32(eax + 0x14u), MEM32(eax + 0x18u), MEM32(eax + 0x1Cu),
+                    MEM32(edi), MEM32(edi + 4u));
+        }
+    }
     if (esi >= 0x01458000u && esi < 0x01459000u && script_native_trace_count++ < 32u) {
         fprintf(stderr, "[DAH-SCRIPT-NATIVE-CALL] phase=dispatch owner=%08X object=%08X vtable=%08X target=%08X arg=%08X:%08X\n",
                 esi, eax, edx, script_native_target, MEM32(edi), MEM32(edi + 4u));
@@ -2555,6 +2582,8 @@ loc_000DEBD3: ;
     if (TEST_Z(_fa, _fb)) goto loc_000DEBF4; /* je: equal / zero */
 
 loc_000DEBE9: ;
+    if(getenv("DAH_PAIR_TRACE")) {fprintf(stderr,"[DAH-STREAM-DISPATCH] metadata=%08X base=%08X size=%u offset=%08X callback=%08X vt=%08X entry=%08X block=%u\n",esi,MEM32(esi+0x14),MEM32(esi+8),MEM32(eax+0xC),ecx,MEM32(ecx),MEM32(MEM32(ecx)),MEM32(ebp));fflush(stderr);}
+
     eax = MEM32(eax + 0xC);
     eax = eax + MEM32(esi + 0x14);
     edx = MEM32(ecx);
@@ -5071,6 +5100,7 @@ loc_000E02CE: ;
  */
 void sub_000E02E0(void)
 {
+    double dah_render_start = dah_frame_profile_now();
     static uint32_t calls;
     if (calls++ < 12 || calls % 300 == 0) {
         uint32_t queue = MEM32(0x251D6C);
@@ -5088,6 +5118,7 @@ loc_000E02EB: ;
     PUSH32(esp, 0x000E02F2u); sub_001DC620(); /* call 0x001DC620 */
 
 loc_000E02F2: ;
+    dah_frame_record_guest_render(dah_render_start);
     esp += 4; return; /* ret */
 
 }
@@ -20293,6 +20324,16 @@ void sub_000E7150(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_000E7150: ;
+    if (dah_model_trace_enabled()) {
+        static uint32_t seen[64]; static unsigned count;
+        unsigned i; for(i=0;i<count;++i) if(seen[i]==ecx) break;
+        if(i==count && count<64u) {
+            seen[count++]=ecx;
+            fprintf(stderr,"[DAH-MODEL] object=%08X caller=%08X arg=%08X words=",ecx,MEM32(esp),MEM32(esp+4));
+            for(i=0;i<24u;++i) fprintf(stderr,"%08X,",MEM32(ecx+i*4));
+            fprintf(stderr,"\n");
+        }
+    }
     PUSH32(esp, ebp);
     ebp = esp;
     g_ebp = ebp; /* publish frame for frameless callees */
@@ -20343,6 +20384,7 @@ loc_000E7150: ;
     esi = esi + edi;
     ecx++;
     MEM16(eax) = LO16(ecx);
+    dah_camera_pitch_compat_apply();
     edx = MEM32(0x250E60);
     edx = edx + 0x50;
     ecx = esp + 0x90;
@@ -24974,49 +25016,7 @@ loc_000E9920: ;
     if (TEST_Z(_fa, _fb)) goto loc_000E9956; /* je: equal / zero */
 
 loc_000E9944: ;
-    /* Rebuild a malformed cached camera world transform from its authoritative
-     * retail local TRS before the original affine-inverse path consumes it. */
-    {
-        int dah_bad_camera_world = 0;
-        for (unsigned dah_i = 0; dah_i < 12u; ++dah_i) {
-            float dah_v = MEMF(edi + 0x50u + dah_i * 4u);
-            if (!isfinite(dah_v) || fabsf(dah_v) > 1000000.0f)
-                dah_bad_camera_world = 1;
-        }
-        if (dah_bad_camera_world) {
-            const float dah_x = MEMF(edi + 0x40u), dah_y = MEMF(edi + 0x44u);
-            const float dah_z = MEMF(edi + 0x48u), dah_w = MEMF(edi + 0x4Cu);
-            const float dah_s = MEMF(edi + 0x30u);
-            float dah_local[16] = {
-                (1.0f-2.0f*(dah_y*dah_y+dah_z*dah_z))*dah_s,
-                2.0f*(dah_x*dah_y+dah_z*dah_w)*dah_s,
-                2.0f*(dah_x*dah_z-dah_y*dah_w)*dah_s, 0.0f,
-                2.0f*(dah_x*dah_y-dah_z*dah_w)*dah_s,
-                (1.0f-2.0f*(dah_x*dah_x+dah_z*dah_z))*dah_s,
-                2.0f*(dah_y*dah_z+dah_x*dah_w)*dah_s, 0.0f,
-                2.0f*(dah_x*dah_z+dah_y*dah_w)*dah_s,
-                2.0f*(dah_y*dah_z-dah_x*dah_w)*dah_s,
-                (1.0f-2.0f*(dah_x*dah_x+dah_y*dah_y))*dah_s, 0.0f,
-                MEMF(edi+0x20u), MEMF(edi+0x24u), MEMF(edi+0x28u), 1.0f
-            };
-            float dah_world[16];
-            uint32_t dah_parent = MEM32(edi + 8u);
-            if (dah_parent) {
-                const float *dah_p = (const float *)XBOX_PTR(dah_parent + 0x50u);
-                for (unsigned dah_r = 0; dah_r < 4u; ++dah_r)
-                    for (unsigned dah_c = 0; dah_c < 4u; ++dah_c) {
-                        float dah_sum = 0.0f;
-                        for (unsigned dah_k = 0; dah_k < 4u; ++dah_k)
-                            dah_sum += dah_local[dah_r*4u+dah_k] * dah_p[dah_k*4u+dah_c];
-                        dah_world[dah_r*4u+dah_c] = dah_sum;
-                    }
-            } else memcpy(dah_world, dah_local, sizeof(dah_world));
-            memcpy(XBOX_PTR(edi + 0x50u), dah_world, sizeof(dah_world));
-            static unsigned dah_camera_world_repairs;
-            if (dah_camera_world_repairs++ < 4u)
-                fprintf(stderr, "[DAH-CAMERA-WORLD] rebuilt malformed retail cache object=%08X\n", edi);
-        }
-    }
+    /* Camera normalization now follows the restored original UCOMISS/LAHF. */
     edx = edi + 0x50;
     ecx = edi + 0x90;
     g_ebp = ebp; /* frame stays current across calls */
@@ -25028,7 +25028,7 @@ loc_000E9952: ;
 loc_000E9956: ;
     edx = MEM32(esp + 0x14);
     edi = esi + 0x50;
-    if (getenv("DAH_MATRIX_TRACE")) {
+    if (dah_matrix_trace_enabled()) {
         uint32_t dah_camera_object = edx;
         int dah_bad_camera_basis = 0;
         for (unsigned dah_i = 0; dah_i < 12u; ++dah_i)
@@ -28783,6 +28783,7 @@ loc_000EBD4B: ;
  */
 void sub_000EBE00(void)
 {
+    double dah_queue_start = 0, dah_post_start = 0;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
@@ -28794,10 +28795,12 @@ loc_000EBE00: ;
     PUSH32(esp, 0x000EBE0Au); sub_001D93A0(); /* call 0x001D93A0 */
 
 loc_000EBE0A: ;
+    dah_queue_start = dah_frame_profile_now();
     ecx = esi;
     PUSH32(esp, 0x000EBE11u); sub_000EBB40(); /* call 0x000EBB40 */
 
 loc_000EBE11: ;
+    dah_frame_record_render_stage(0, dah_queue_start);
     eax = MEM32(0x250E5C);
     edx = 1;
     ecx = 0x4035C;
@@ -28822,10 +28825,12 @@ loc_000EBE5E: ;
     PUSH32(esp, 0x000EBE6Fu); sub_001D93A0(); /* call 0x001D93A0 */
 
 loc_000EBE6F: ;
+    dah_post_start = dah_frame_profile_now();
     ecx = esi;
     PUSH32(esp, 0x000EBE76u); sub_000EBD40(); /* call 0x000EBD40 */
 
 loc_000EBE76: ;
+    dah_frame_record_render_stage(1, dah_post_start);
     ecx = MEM32(0x250E5C);
     POP32(esp, esi);
     g_seh_ebp = ebp; sub_000E0370(); return; /* tail jmp 0x000E0370 */
@@ -36575,6 +36580,8 @@ void sub_000F09A0(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000F09A0: ;
+    /* fixup trace loc_000F09A0 */
+    if(getenv("DAH_PAIR_TRACE")) {static unsigned n;if(n++<64) {fprintf(stderr,"[DAH-RESOURCE-FIXUP] object=%08X rows=%08X count=%u caller=%08X\n",ecx,MEM32(ecx+0x24),MEM32(ecx+0x28),MEM32(esp));fflush(stderr);}}
     esp = esp - 8;
     PUSH32(esp, ebp);
     ebp = ecx;
@@ -36601,6 +36608,8 @@ loc_000F09C0: ;
     PUSH32(esp, 0x000F09D3u); sub_0006B6F0(); /* call 0x0006B6F0 */
 
 loc_000F09D3: ;
+    /* fixup trace loc_000F09D3 */
+    if(getenv("DAH_PAIR_TRACE")) {static unsigned n;if(n++<64) {fprintf(stderr,"[DAH-RESOURCE-FIXUP-ALLOC0] owner=%08X row=%08X prior=%08X result=%08X esp=%08X\n",ebp,esi,edi,eax,esp);fflush(stderr);}}
     esp = esp + 4;
     PUSH32(esp, 0xC);
     edx = 0; /* xor self */
@@ -36622,6 +36631,8 @@ loc_000F09F4: ;
     PUSH32(esp, 0x000F09FEu); sub_0006B6F0(); /* call 0x0006B6F0 */
 
 loc_000F09FE: ;
+    /* fixup trace loc_000F09FE */
+    if(getenv("DAH_PAIR_TRACE")) {static unsigned n;if(n++<64) {fprintf(stderr,"[DAH-RESOURCE-FIXUP-ALLOC1] owner=%08X row=%08X prior=%08X result=%08X esp=%08X\n",ebp,esi,edi,eax,esp);fflush(stderr);}}
     esp = esp + 4;
     PUSH32(esp, 0xC);
     edx = 0; /* xor self */
@@ -36652,6 +36663,8 @@ loc_000F0A31: ;
     PUSH32(esp, 0x000F0A38u); sub_0006B6F0(); /* call 0x0006B6F0 */
 
 loc_000F0A38: ;
+    /* fixup trace loc_000F0A38 */
+    if(getenv("DAH_PAIR_TRACE")) {static unsigned n;if(n++<64) {fprintf(stderr,"[DAH-RESOURCE-FIXUP-ALLOC2] owner=%08X row=%08X items=%08X count=%u index=%u prior=%08X result=%08X esp=%08X\n",ebp,esi,MEM32(esi+8),MEM32(esi+12),edi,ebx,eax,esp);fflush(stderr);}}
     edx = MEM32(esi + 8);
     MEM32(edx + edi * 4) = eax;
     eax = MEM32(esi + 8);
@@ -40117,7 +40130,8 @@ loc_000F2970: ;
     xmm0 = XMM_SCALAR(MEMF(esi + 0x30)); /* movss */
 
 loc_000F2975: ;
-    if (getenv("DAH_MATRIX_TRACE") &&
+
+    if (dah_matrix_trace_enabled() &&
         fabsf(MEMF(esi + 0x40) - -0.182409003f) < 0.0001f &&
         fabsf(MEMF(esi + 0x44) - 0.549685121f) < 0.0001f) {
         static unsigned dah_title_world_matrix_logs;

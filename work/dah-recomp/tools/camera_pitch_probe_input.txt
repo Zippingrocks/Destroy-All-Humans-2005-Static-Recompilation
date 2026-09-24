@@ -1,0 +1,11 @@
+# start duration hex_buttons A B LX LY RX RY
+# Isolated right-stick-only test: hold camera Y hard up, then hard down,
+# repeated 3x, once Rockwell autoload + gameplay should be settled (tick
+# 3200+ is the earliest the DAH-ROCKWELL-POSE trace will log anything).
+# LX/LY/RX left at 0 so only vertical camera input is exercised.
+4000 900 0 0 0 0 0 0 32767
+4900 900 0 0 0 0 0 0 -32768
+5800 900 0 0 0 0 0 0 32767
+6700 900 0 0 0 0 0 0 -32768
+7600 900 0 0 0 0 0 0 32767
+8500 900 0 0 0 0 0 0 -32768

@@ -7,6 +7,7 @@
 #include "recomp_funcs.h"
 #include <math.h>
 #include "dah_x87_classify.h"
+#include "dah_x87_round.h"
 
 /**
  * sub_001301F0
@@ -33,7 +34,7 @@ loc_001301F0: ;
     esp = esp - 0x18;
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
     PUSH32(esp, ebx);
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x001301F9 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     PUSH32(esp, esi);
@@ -88,7 +89,7 @@ loc_00130285: ;
     fp_push(MEMD(0x237870)); /* fld double */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x0013028F */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_00130351; /* jp: parity */
@@ -243,7 +244,7 @@ loc_001303F0: ;
     esp = esp - 0xC;
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
     PUSH32(esp, ebx);
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x001303F9 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     PUSH32(esp, esi);
@@ -291,7 +292,7 @@ loc_00130469: ;
     fp_push(MEMD(0x237870)); /* fld double */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x00130473 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_00130511; /* jp: parity */
@@ -4660,7 +4661,7 @@ loc_00132613: ;
     xmm1 = XMM_SCALAR(MEMF(esi + 0x2C)); /* movss */
     xmm0 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0013261B */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_00132630; /* jnp: not parity */
@@ -15261,7 +15262,7 @@ loc_00137743: ;
     fp_push(MEMF(0x225C20)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x00137749 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_00137757; /* jnp: not parity */
@@ -20742,6 +20743,7 @@ loc_00139910: ;
 loc_0013991A: ;
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(0x10000) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0x10000 (32-bit) */
+    _cf = (int)(_fa < _fb); /* original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     POP32(esp, edi);
     _cf = (int)((eax) != 0);
@@ -24919,7 +24921,7 @@ loc_0013B0A5: ;
     if (CMP_AE(_fa, _fb)) goto loc_0013B0B0; /* jae: above or equal (unsigned >=) */
 
 loc_0013B0AA: ;
-    edx = (edx << LO8(ecx)) | (eax >> (32 - LO8(ecx))); /* shld */
+    if ((LO8(ecx) & 31u) != 0) edx = (edx << (LO8(ecx) & 31u)) | (eax >> (32u - (LO8(ecx) & 31u))); /* shld: zero count preserves destination */
     eax = eax << LO8(ecx);
     esp += 4; return; /* ret */
 
@@ -26244,7 +26246,7 @@ void sub_0013B79D(void)
 
 loc_0013B79D: ;
     { double _t = fp_top(); fp_push(_t); } /* fld st(0) */
-    fp_top() = rint(fp_top()); /* frndint */
+    fp_top() = dah_x87_round(fp_top(), g_fp_control_word); /* frndint: guest RC */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fcomp st(1) */
     SET_LO8(ecx, 0);
     /* wait - FPU sync */
@@ -26256,7 +26258,7 @@ loc_0013B7AB: ;
     fp_top() = fp_top() * MEMD(0x259820); /* fmul qword ptr [0x259820] */
     SET_LO8(ecx, LO8(ecx) + 1);
     { double _t = fp_top(); fp_push(_t); } /* fld st(0) */
-    fp_top() = rint(fp_top()); /* frndint */
+    fp_top() = dah_x87_round(fp_top(), g_fp_control_word); /* frndint: guest RC */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); fp_pop(); /* fcompp  */
     /* wait - FPU sync */
     eax = (eax & 0xFFFF0000u) | (uint32_t)(uint16_t)(((g_fp_top & 7u) << 11) | (g_fp_cmp == 2 ? 0x4500u : g_fp_cmp < 0 ? 0x0100u : g_fp_cmp > 0 ? 0x0000u : 0x4000u)); /* fnstsw ax <- fpu status */
@@ -35447,6 +35449,7 @@ loc_0013E792: ;
     SET_LO8(eax, LO8(eax) - 0x41);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(0x1A) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), 0x1A (8-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     SET_LO8(ecx, _cf ? 0xFFFFFFFF : 0); /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     SET_LO8(ecx, LO8(ecx) & 0x20);
@@ -35461,6 +35464,7 @@ loc_0013E792: ;
     SET_LO8(eax, LO8(eax) - 0x41);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(0x1A) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), 0x1A (8-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     SET_LO8(ecx, _cf ? 0xFFFFFFFF : 0); /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     SET_LO8(ecx, LO8(ecx) & 0x20);
@@ -35470,6 +35474,7 @@ loc_0013E792: ;
     SET_LO8(eax, LO8(eax) + 0x41);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(HI8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), HI8(eax) (8-bit) */
+    _cf = (int)(_fa < _fb); /* original string ordering CMP carry crosses JE */
     if (CMP_EQ(_fa, _fb)) goto loc_0013E780; /* je: equal / zero */
 
 loc_0013E7B2: ;
@@ -38086,7 +38091,7 @@ void sub_0013F53C(void)
 
 loc_0013F53C: ;
     { double _t = fp_top(); fp_push(_t); } /* fld st(0) */
-    fp_top() = rint(fp_top()); /* frndint */
+    fp_top() = dah_x87_round(fp_top(), g_fp_control_word); /* frndint: guest RC */
     fp_st1() = fp_top() - fp_st1(); /* fsubr st(1), st(0) */
     { double _t = fp_top(); fp_top() = fp_st1(); fp_st1() = _t; } /* fxch st(1) */
     fp_top() = -fp_top(); /* fchs */
@@ -38847,7 +38852,7 @@ loc_0013F84B: ;
     PUSH32(esp, ecx);
     PUSH32(esp, ecx);
     fp_push(MEMD(esp + 0xC)); /* fld double */
-    fp_top() = rint(fp_top()); /* frndint */
+    fp_top() = dah_x87_round(fp_top(), g_fp_control_word); /* frndint: guest RC */
     MEMD(esp) = fp_top(); fp_pop(); /* fstp */
     fp_push(MEMD(esp)); /* fld double */
     POP32(esp, ecx);

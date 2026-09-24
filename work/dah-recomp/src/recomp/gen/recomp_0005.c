@@ -6,6 +6,10 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+extern int dah_dev_npc_accept_spawn(uint32_t resource_hash, uint32_t actor);
 
 /**
  * sub_00079170
@@ -11655,6 +11659,7 @@ loc_0007E6C8: ;
  */
 void sub_0007E6D0(void)
 {
+    const uint32_t dah_position_caller = MEM32(esp);
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -11682,6 +11687,21 @@ loc_0007E6EE: ;
     PUSH32(esp, 0x0007E6F9u); sub_0004C310(); /* call 0x0004C310 */
 
 loc_0007E6F9: ;
+    if (MEM32(edi + 8u) == 0xFF7FFFFFu && getenv("DAH_GROUND_TRACE")) {
+        static unsigned dah_position_sentinel_calls;
+        if (dah_position_sentinel_calls < 32u) {
+            const uint32_t transform = MEM32(esi + 0x10u);
+            const uint32_t world = MEM32(0x286768);
+            fprintf(stderr,
+                    "[DAH-POSITION-SENTINEL] call=%u caller=%08X actor=%08X vtable=%08X "
+                    "transform=%08X old_xyz=%f,%f,%f source=%08X new_xyz=%f,%f,%f flags=%08X world_time=%f\n",
+                    ++dah_position_sentinel_calls, dah_position_caller, esi, MEM32(esi), transform,
+                    (double)MEMF(transform + 0x2Cu), (double)MEMF(transform + 0x30u),
+                    (double)MEMF(transform + 0x34u), edi,
+                    (double)MEMF(edi), (double)MEMF(edi + 4u), (double)MEMF(edi + 8u),
+                    ebx, world ? (double)MEMF(world + 0xCu) : -1.0);
+        }
+    }
     eax = MEM32(esi + 0x10);
     ecx = MEM32(edi);
     MEM32(eax + 0x2C) = ecx;
@@ -24257,6 +24277,20 @@ loc_00083A60: ;
 loc_00083A6B: ;
     eax = MEM32(0x25FCEC);
     edi = MEM32(eax + 0x38);
+    /* Manual diagnostic (2026-09-19): opt-in, read-only trace of every
+     * property hash this generic Lua-binding dispatcher is called with
+     * during real gameplay -- lets Character/Ship focus-switch usage (and
+     * anything else routed here) be observed rather than guessed at from
+     * static analysis alone. Never changes behavior. DAH_FOCUS_TRACE_ALL
+     * is separate from DAH_FOCUS_TRACE (the SetFocusShip-specific hook
+     * below) because this one is much noisier -- every property access
+     * through this dispatcher, not just focus-switch calls. */
+    if (getenv("DAH_FOCUS_TRACE_ALL")) {
+        static uint32_t trace_calls;
+        if (++trace_calls <= 2000)
+            fprintf(stderr, "[DAH-DISPATCH-HASH] call=%u hash=%08X edi=%08X esi=%08X\n",
+                    trace_calls, ebx, edi, esi);
+    }
     PUSH32(esp, 1);
     ecx = esi;
     ebp = 0; /* xor self */
@@ -24444,6 +24478,16 @@ loc_00083BC5: ;
     if (CMP_NE(_fa, _fb)) goto loc_00084B9B; /* jne: not equal / not zero */
 
 loc_00083BD1: ;
+    /* Manual diagnostic (2026-09-19): opt-in, read-only trace of the retail
+     * game's OWN calls into this SetFocusShip case (hash 0x1D6E74FA), so its
+     * real argument/state usage can be observed instead of guessed. Never
+     * changes behavior. See README.md "Saucer weapons" for context. */
+    if (getenv("DAH_FOCUS_TRACE")) {
+        static uint32_t trace_calls;
+        if (++trace_calls <= 500)
+            fprintf(stderr, "[DAH-FOCUS-SHIP] call=%u edi=%08X ebp=%08X esi=%08X esp=%08X\n",
+                    trace_calls, edi, ebp, esi, g_esp);
+    }
     ebx = MEM32(edi + 0x30);
     ecx = edi;
     PUSH32(esp, 0x00083BDBu); sub_00082550(); /* call 0x00082550 */
@@ -26510,6 +26554,14 @@ loc_00084972: ;
     esp += 4; return; /* ret */
 
 loc_0008497F: ;
+    /* Manual diagnostic (2026-09-19): companion to the DAH_FOCUS_TRACE hook
+     * on SetFocusShip -- same opt-in, read-only, never changes behavior. */
+    if (getenv("DAH_FOCUS_TRACE")) {
+        static uint32_t trace_calls;
+        if (++trace_calls <= 500)
+            fprintf(stderr, "[DAH-FOCUS-CHARACTER] call=%u edi=%08X ebp=%08X esi=%08X esp=%08X\n",
+                    trace_calls, edi, ebp, esi, g_esp);
+    }
     _cf = (int)((((uint64_t)(ebp) + (uint64_t)(2)) >> 32) & 1);
     ebp = ebp + 2;
     PUSH32(esp, ebp);
@@ -36928,6 +36980,16 @@ loc_0008925C: ;
 
 loc_00089269: ;
     esi = eax;
+    /* DAH_DEV_NPC_SPAWN: a private test request uses the retail pedestrian
+     * dispatcher but must skip the powerup-only event below. */
+    { int _dev_npc = dah_dev_npc_accept_spawn(edi, esi);
+      if (_dev_npc != 0) {
+        MEM32(esp + 0x14) = _dev_npc > 0 ? esi : 0;
+        PUSH32(esp, ebx);
+        PUSH32(esp, ebp);
+        goto loc_00089342;
+      }
+    }
     edx = MEM32(esi);
     { uint32_t _icall_esp = g_esp;
     PUSH32(esp, 0xCDEF6718u);
@@ -38851,6 +38913,13 @@ loc_00089DA0: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, 3 (32-bit) */
     MEM32(esi + 0x10) = eax;
     MEM32(esi + 0x18) = ecx;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_select_count;
+        if (dah_save_select_count++ < 24u)
+            fprintf(stderr, "[DAH-SAVE-SELECT] call=%u controller=%08X slot_ref=%08X slot=%u mode=%u state=%u flags=%02X\n",
+                    dah_save_select_count, esi, eax, eax ? MEM32(eax) : 0u,
+                    ecx, MEM32(esi + 8), MEM8(esi + 0x14));
+    }
     if (CMP_NE(_fa, _fb)) goto loc_00089DD7; /* jne: not equal / not zero */
 
 loc_00089DBF: ;
@@ -39348,6 +39417,13 @@ loc_0008A16A: ;
     MEM32(eax + 8) = ecx;
     edx = MEM32(esi + 0x10);
     eax = MEM32(edx);
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_create_count;
+        if (dah_save_create_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-GUEST-CREATE] call=%u controller=%08X slot=%u mode=%u state=%u flags=%02X output=%08X\n",
+                    dah_save_create_count, esi, eax, MEM32(esi + 0x18),
+                    MEM32(esi + 8), MEM8(esi + 0x14), MEM32(esi + 0x38));
+    }
     PUSH32(esp, 0x100);
     ecx = esp + 0x10;
     PUSH32(esp, ecx);
@@ -39364,6 +39440,12 @@ loc_0008A196: ;
     PUSH32(esp, 0x0008A1A1u); sub_000B24E4(); /* call 0x000B24E4 */
 
 loc_0008A1A1: ;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_result_count;
+        if (dah_save_result_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-GUEST-RESULT] call=%u controller=%08X slot=%u result=%08X\n",
+                    dah_save_result_count, esi, MEM32(MEM32(esi + 0x10)), eax);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_0008A22A; /* jne: not equal / not zero */
@@ -47126,6 +47208,20 @@ loc_0008D52E: ;
  */
 void sub_0008D540(void)
 {
+    static int dah_af_trace_enabled = -1;
+    static unsigned dah_af_trace_count;
+    unsigned dah_af_trace_id = 0;
+    uint32_t dah_af_type = ecx, dah_af_context = edx;
+    uint32_t dah_af_placement = MEM32(esp + 4);
+    if (dah_af_trace_enabled < 0) {
+        const char *v = getenv("DAH_ACTOR_FACTORY_TRACE");
+        dah_af_trace_enabled = v && v[0] == '1' && v[1] == 0;
+    }
+    if (dah_af_trace_enabled && dah_af_trace_count < 128u) {
+        dah_af_trace_id = ++dah_af_trace_count;
+        fprintf(stderr, "[DAH-ACTOR-FACTORY] id=%u enter type=%08X context=%08X placement=%08X\n",
+                dah_af_trace_id, dah_af_type, dah_af_context, dah_af_placement);
+    }
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -47152,12 +47248,16 @@ loc_0008D54E: ;
     }
 
 loc_0008D55B: ;
+    if (dah_af_trace_id)
+        fprintf(stderr, "[DAH-ACTOR-FACTORY] id=%u resource=%08X\n", dah_af_trace_id, eax);
     edi = eax;
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(edi) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test edi, edi (32-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_0008D569; /* jne: not equal / not zero */
 
 loc_0008D561: ;
+    if (dah_af_trace_id)
+        fprintf(stderr, "[DAH-ACTOR-FACTORY] id=%u result=missing-resource\n", dah_af_trace_id);
     POP32(esp, edi);
     POP32(esp, esi);
     esp = esp + 0x1C;
@@ -47276,6 +47376,8 @@ loc_0008D623: ;
     PUSH32(esp, 0x0008D62Du); sub_0008D230(); /* call 0x0008D230 */
 
 loc_0008D62D: ;
+    if (dah_af_trace_id)
+        fprintf(stderr, "[DAH-ACTOR-FACTORY] id=%u actor=%08X render=%08X\n", dah_af_trace_id, eax, edi);
     POP32(esp, ebp);
     MEM32(eax + 0x144) = edi;
     POP32(esp, edi);
@@ -47284,6 +47386,8 @@ loc_0008D62D: ;
     esp += 8; return; /* ret 4 */
 
 loc_0008D63C: ;
+    if (dah_af_trace_id)
+        fprintf(stderr, "[DAH-ACTOR-FACTORY] id=%u result=allocation-failed render=%08X\n", dah_af_trace_id, edi);
     eax = 0; /* xor self */
     POP32(esp, ebp);
     MEM32(eax + 0x144) = edi;

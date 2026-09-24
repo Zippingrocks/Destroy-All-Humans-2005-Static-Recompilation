@@ -62,7 +62,8 @@ function run(exe, envValue, enabled, mustPass) {
   console.log(mustPass ? `env=${JSON.stringify(envValue)} ${result.stdout.trim()}` : `PASS negative control: ${result.stderr.trim()}`);
 }
 const productionExe = compile('production', fixture);
-for (const value of [undefined, '', '0', 'true', '01', '10', '1 ']) run(productionExe, value, false, true);
+run(productionExe, undefined, true, true); // Normal launches use the proven adapter.
+for (const value of ['', '0', 'true', '01', '10', '1 ']) run(productionExe, value, false, true);
 run(productionExe, '1', true, true);
 for (const [label, oldText, replacement] of [
   ['missing-pending-defer', 'dah_movie_nonblock && dah_movie_update_call', 'dah_movie_nonblock > 1 && dah_movie_update_call'],

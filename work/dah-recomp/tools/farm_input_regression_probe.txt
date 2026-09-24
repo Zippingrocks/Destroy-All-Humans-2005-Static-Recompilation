@@ -1,0 +1,18 @@
+# Internal-only input regression route. The explicit Farm autoload takes over
+# once the profile is selected, so no later menu presses can disturb gameplay.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Pitch down first, settle, then pitch up. This catches a stuck upper clamp.
+2300 240 0 0 0 0 0 0 -32768
+2580 240 0 0 0 0 0 0 32767
+
+# Settle, then forward movement. Crypto must face his travel direction.
+2900 240 0 0 0 0 32767 0 0

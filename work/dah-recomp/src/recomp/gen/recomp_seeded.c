@@ -3,6 +3,20 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern volatile int dah_trace_input_lx;
+extern volatile int dah_trace_input_ly;
+extern volatile int dah_trace_input_rx;
+extern volatile int dah_trace_input_ry;
+
+/* Armed by the script-facing controller callback for the first non-zero
+ * sample of each sign.  Keeping the trace in the central dispatcher lets us
+ * follow the returned float through the real bytecode without changing it. */
+int dah_vm_axis_trace_budget;
+float dah_vm_axis_trace_value;
+unsigned dah_vm_axis_trace_serial;
 
 /* Retail movie.Start Lua native (0x00122980..0x00122AA1).  Its address is
  * registered by 0x00122B50 as data, so the original function discovery did
@@ -518,6 +532,17 @@ static void dah_script_dispatch_next(uint32_t frame)
             continue;
         }
         target = MEM32(0x00197090u + opcode * 4u);
+        if (dah_vm_axis_trace_budget > 0) {
+            fprintf(stderr,
+                    "[DAH-AXIS-VM] serial=%u left=%d input=%.9g opcode=%02X token=%08X target=%08X frame=%08X stream=%08X stack=%08X:%08X %08X:%08X %08X:%08X %08X:%08X\n",
+                    dah_vm_axis_trace_serial, dah_vm_axis_trace_budget,
+                    dah_vm_axis_trace_value, opcode, esi, target, frame, stream,
+                    MEM32(frame - 8u), MEM32(frame - 4u),
+                    MEM32(frame - 0x10u), MEM32(frame - 0x0Cu),
+                    MEM32(frame - 0x18u), MEM32(frame - 0x14u),
+                    MEM32(frame - 0x20u), MEM32(frame - 0x1Cu));
+            --dah_vm_axis_trace_budget;
+        }
         /* Intro opcode tracing is intentionally disabled after the handoff
          * was identified; leaving it hot makes the idle front-end spend its
          * time formatting the same script loop instead of presenting frames. */
@@ -774,12 +799,34 @@ void sub_00196815(void)
 {
     static uint32_t call_trace_count;
     static uint32_t main_handoff_trace_count;
+    static int active_call_trace_enabled = -1;
+    static uint32_t active_negative_count;
+    static uint32_t active_positive_count;
     uint32_t frame = g_seh_ebp;
     uint32_t argument = (esi >> 6) & 0x1FFu;
     uint32_t base = MEM32(esp + 0x34u);
     uint32_t value = base + (esi >> 15) * 8u;
     if (argument == 0xFFu)
         argument = 0xFFFFFFFFu;
+    if (active_call_trace_enabled < 0)
+        active_call_trace_enabled = getenv("DAH_ACTIVE_SCRIPT_CALL_TRACE") ? 1 : 0;
+    if (active_call_trace_enabled && dah_trace_input_ry) {
+        uint32_t *count = dah_trace_input_ry < 0 ?
+            &active_negative_count : &active_positive_count;
+        if (*count < 4096u) {
+            fprintf(stderr,
+                    "[DAH-ACTIVE-SCRIPT-CALL] sign=%c n=%u sticks=%d,%d,%d,%d token=%08X frame=%08X owner=%08X base=%08X value=%08X words=%08X:%08X arg=%08X stream=%08X stack=%08X:%08X:%08X:%08X:%08X:%08X:%08X:%08X\n",
+                    dah_trace_input_ry < 0 ? '-' : '+', (*count)++,
+                    dah_trace_input_lx, dah_trace_input_ly,
+                    dah_trace_input_rx, dah_trace_input_ry,
+                    esi, frame, edi, base, value, MEM32(value),
+                    MEM32(value + 4u), argument, MEM32(esp + 0x10u),
+                    MEM32(frame - 0x20u), MEM32(frame - 0x1Cu),
+                    MEM32(frame - 0x18u), MEM32(frame - 0x14u),
+                    MEM32(frame - 0x10u), MEM32(frame - 0x0Cu),
+                    MEM32(frame - 0x08u), MEM32(frame - 0x04u));
+        }
+    }
     if (MEM32(MEM32(esp + 0x10u)) == 0x00000044u && main_handoff_trace_count < 8u) {
         fprintf(stderr,
                 "[DAH-MAIN-HANDOFF-CALL] phase=enter token=%08X frame=%08X owner=%08X value=%08X:%08X arg=%08X stream=%08X\n",
@@ -936,10 +983,32 @@ void sub_000FE7B0(void)
     esp += 4u;
 }
 
-/* Retail ui.FindKey Lua native, registered as data at 0x0008BF65 and therefore
+static int dah_dev_story_private_session(void)
+{
+    static const char *const aliases[] = {
+        "farm", "rockwell", "santa", "area42", "union", "capitol", "cptlboss"
+    };
+    const char *level = getenv("DAH_DEV_LEVEL");
+    const char *save_dir = getenv("DAH_SAVE_DIR");
+    size_t i, size;
+    if (!level || !save_dir || !*save_dir) return 0;
+    for (i = 0; i < sizeof(aliases) / sizeof(aliases[0]); ++i)
+        if (strcmp(level, aliases[i]) == 0) break;
+    if (i == sizeof(aliases) / sizeof(aliases[0])) return 0;
+    /* The launcher copies the profile into its own session before starting
+     * the internal game. Refuse to unlock story rows for the ordinary save. */
+    if (!strstr(save_dir, "\\dev_commands\\sessions\\") &&
+        !strstr(save_dir, "/dev_commands/sessions/")) return 0;
+    size = strlen(save_dir);
+    return size >= 6u && (strcmp(save_dir + size - 6u, "\\saves") == 0 ||
+                          strcmp(save_dir + size - 6u, "/saves") == 0);
+}
+
+/* Retail progress.FindKey Lua native, registered as data at 0x0008BF65 and therefore
  * absent from the original discovered function set (0x0008B9A0..0x0008B9D4). */
 void sub_0008B9A0(void)
 {
+    static int story_cheat_added;
     PUSH32(esp, esi);
     PUSH32(esp, 1u);
     esi = ecx;
@@ -947,6 +1016,25 @@ void sub_0008B9A0(void)
     edx = 0u;
     ecx = eax;
     PUSH32(esp, 0x0008B9B3u); sub_000D54A0();
+    if (eax == 0x16D57502u && !story_cheat_added &&
+        dah_dev_story_private_session() && MEM32(0x249AE4u)) {
+        uint32_t query_hash = eax;
+        uint32_t callback_esp = esp;
+        uint32_t descriptor;
+        esp -= 8u;
+        descriptor = esp;
+        MEM32(descriptor) = query_hash;
+        MEM32(descriptor + 4u) = 1u; /* original one-arg AddKey persistent flag */
+        PUSH32(esp, descriptor);
+        ecx = MEM32(0x249AE4u);
+        PUSH32(esp, 0x0008B9B9u); sub_0008B230();
+        if (esp == descriptor && LO8(eax)) {
+            story_cheat_added = 1;
+            fprintf(stderr, "[DAH-DEV-STORY] added story.cheat through original progress key store\n");
+        }
+        esp = callback_esp;
+        eax = query_hash;
+    }
     PUSH32(esp, eax);
     PUSH32(esp, 0x0008B9B9u); sub_00089840();
     ecx = eax;
@@ -1032,7 +1120,8 @@ void sub_00196DA7(void)
 
     stream += (esi >> 6) * 4u - 0x07FFFFFCu;
     MEM32(esp + 0x10u) = stream;
-    fprintf(stderr,
+    static unsigned jump_trace_count;
+    if (jump_trace_count++ < 32u) fprintf(stderr,
             "[DAH-SCRIPT-JUMP] token=%08X frame=%08X stream=%08X\n",
             esi, frame, stream);
     dah_script_dispatch_next(frame);
@@ -1062,7 +1151,7 @@ void sub_00196D66(void)
         stream += (esi >> 6) * 4u - 0x07FFFFFCu;
         MEM32(esp + 0x10u) = stream;
     }
-    fprintf(stderr,
+    if (equality_trace_count <= 32u) fprintf(stderr,
             "[DAH-SCRIPT-EQ-BRANCH] token=%08X equal=%u frame=%08X stream=%08X\n",
             esi, eax != 0u, frame, MEM32(esp + 0x10u));
     if (equality_trace_count <= 32u) {

@@ -21,6 +21,7 @@ const sections = Array.from({ length: xbe.readUInt32LE(0x11c) }, (_, i) => {
 const instructions = [...asm.matchAll(/^\s*0x([0-9A-F]+)\s+([0-9a-f]+)[ \t]+(\S+)[ \t]*([^\r\n]*)/gm)]
   .map(m => ({ va: parseInt(m[1], 16), bytes: m[2], op: m[3], args: m[4].trim() }));
 const targets = [
+  [0xD417D, '0f2e05205c2200'],
   [0xFA3DB, '0f2ec8'], [0xFA504, '0f2ec8'], [0xFA627, '0f2ec8'],
   [0xFA74D, '0f2ec1'], [0xFA844, '0f2ec8'], [0xFAA8E, '0f2ec1'],
   [0xFAB64, '0f2ec8'], [0xFCE7D, '0f2e052c5c2200'],
@@ -29,7 +30,7 @@ const targets = [
   [0x197A75, '0f2ec8'], [0x197BF1, '0f2ec8'],
   [0x198B3F, '0f2e442418'], [0x1994B2, '0f2ec8'],
 ];
-const generated = new Map(['0011', '0018'].map(n => [n,
+const generated = new Map(['0009', '0011', '0018'].map(n => [n,
   fs.readFileSync(path.join(here, `../src/recomp/gen/recomp_${n}.c`), 'utf8')]));
 let bytesValidated = 0;
 function validateBytes(insn) {
@@ -64,7 +65,7 @@ const sites = targets.map(([va, bytes]) => {
   for (const insn of [compare, lahf, test, ...between.slice(0, jumpIndex + 1)]) validateBytes(insn);
   const operands = compare.args.split(', ').map(scalarOperand);
   const statement = `SET_HI8(eax, RECOMP_COMISS_LAHF(${operands.join(', ')})); /* UCOMISS/LAHF 0x${marker} */`;
-  const source = generated.get(va < 0x190000 ? '0011' : '0018');
+  const source = generated.get(va < 0xE0000 ? '0009' : va < 0x190000 ? '0011' : '0018');
   assert.equal(source.split(statement).length, 2, `Exact single production restoration ${marker}`);
   const tail = source.slice(source.indexOf(statement)).split(/\r?\n/);
   const branchIndex = tail.findIndex(line => line.trim().startsWith('if ('));
@@ -122,7 +123,7 @@ function run(label, source, wanted) {
   assert.equal(result.status, wanted, `${label}: ${result.error || result.stdout || result.stderr}`);
   console.log(wanted ? `PASS: rejected ${label}: ${result.stderr.trim()}` : result.stdout.trim());
 }
-console.log(`PASS: 16 exact LAHF sites and original compare/test/branch operands; ${bytesValidated} retail XBE bytes validated`);
+console.log(`PASS: ${targets.length} exact LAHF sites and original compare/test/branch operands; ${bytesValidated} retail XBE bytes validated`);
 run('current', fixture, 0);
 for (const s of sites) run(`missing-lahf-${s.marker}`, fixture.replace(s.statement, '/* original missing LAHF */'), 1);
 console.log(`TEST_OUTPUT ${temp}`);

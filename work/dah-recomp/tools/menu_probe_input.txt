@@ -1,0 +1,39 @@
+# start duration hex_buttons A B LX LY RX RY
+# Robustness rewrite: the old script used single narrow pulses at exact ticks
+# calibrated from one specific run and did not reproduce for a different
+# level/run (real-time pacing during boot drifts run to run). This version
+# repeats each step's input pattern several times across a wide window
+# instead of once at one guessed tick, so it tolerates that drift: whichever
+# repetition actually lands on the right screen does the job, and repeats
+# landing on an already-passed screen are harmless (either ignored or just
+# re-confirm the same state).
+#
+# Phase 1: A repeated across a wide window covering intro/legal skip timing
+# variance, to land on "New Game" at the shell main menu.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+#
+# Phase 2: Down then A, repeated, for the "overwrite existing saved game?"
+# dialog (defaults to No; Down moves the highlight to Yes).
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2050 25 2 0 0 0 0 0 0
+2090 25 0 255 0 0 0 0 0
+2350 25 2 0 0 0 0 0 0
+2390 25 0 255 0 0 0 0 0
+#
+# Phase 3: Down, Up, then a longer A hold, repeated, for the post-save
+# "Select Game" list (it ignored plain A pulses/holds without this nudge).
+2650 20 2 0 0 0 0 0 0
+2685 20 1 0 0 0 0 0 0
+2720 200 0 255 0 0 0 0 0
+3050 20 2 0 0 0 0 0 0
+3085 20 1 0 0 0 0 0 0
+3120 200 0 255 0 0 0 0 0
+3450 20 2 0 0 0 0 0 0
+3485 20 1 0 0 0 0 0 0
+3520 200 0 255 0 0 0 0 0

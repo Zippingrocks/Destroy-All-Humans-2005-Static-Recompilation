@@ -6,6 +6,25 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Read only names the original functions immediately pass to their hash lookup.
+ * Keep each event bounded so a long session cannot flood stderr. */
+static void dah_spawn_trace_name(uint32_t ptr)
+{
+    if (!ptr) {
+        fputs("<null>", stderr);
+        return;
+    }
+    for (unsigned i = 0; i < 64u; ++i) {
+        unsigned ch = MEM8(ptr + i);
+        if (!ch) return;
+        fputc(ch >= 32u && ch <= 126u ? (int)ch : '?', stderr);
+    }
+    fputs("...", stderr);
+}
 
 /**
  * sub_0010BBA0
@@ -20934,96 +20953,6 @@ loc_00113B6E: ;
  * CC: thiscall, 1 params, returns int_or_void
  * Frame: fpo_leaf
  */
-void sub_00113B90(void)
-{
-    uint32_t ebp;
-    ebp = g_ebp;  /* frameless: caller's frame */
-    int _flags = 0; /* fallback flag var */
-    uint32_t _fa = 0, _fb = 0;
-    int32_t _fas = 0, _fbs = 0;
-    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-    ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
-
-loc_00113B90: ;
-    PUSH32(esp, esi);
-    esi = ecx;
-    eax = MEM32(esi + 0x44);
-    ecx = eax;
-    ecx = ecx & 0xF;
-    ecx--;
-    _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(5) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, 5 (32-bit) */
-    if (CMP_A(_fa, _fb)) goto loc_00113C31; /* ja: above (unsigned >) */
-
-loc_00113BA5: ;
-    PUSH32(esp, edi);
-    g_seh_ebp = ebp; RECOMP_ITAIL(MEM32(ecx * 4 + 0x113C90)); return; /* indirect tail jmp */
-
-    PUSH32(esp, 0);
-    ecx = esi + 0x54;
-    PUSH32(esp, 0x00113BB7u); sub_00104690(); /* call 0x00104690 */
-
-loc_00113BB7: ;
-    POP32(esp, edi);
-    POP32(esp, esi);
-    esp += 8; return; /* ret 4 */
-
-    ecx = esi + 0x58;
-    PUSH32(esp, 0x00113BCBu); sub_000CFCE0(); /* call 0x000CFCE0 */
-
-loc_00113BCB: ;
-    POP32(esp, edi);
-    POP32(esp, esi);
-    esp += 8; return; /* ret 4 */
-
-    ecx = MEM32(esp + 0xC);
-    PUSH32(esp, 0);
-    PUSH32(esp, 0x00113BE2u); sub_00109D50(); /* call 0x00109D50 */
-
-loc_00113BE2: ;
-    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
-    if (TEST_Z(_fa, _fb)) goto loc_00113BFA; /* je: equal / zero */
-
-loc_00113BE6: ;
-    ecx = (uint32_t)(int32_t)SMEM16(esi + 0x64);
-    edx = MEM32(eax + 8);
-    ecx = ecx + ecx * 2;
-    ecx = ecx << 4;
-    ecx = ecx + edx;
-    PUSH32(esp, 0x00113BFAu); sub_0010F810(); /* call 0x0010F810 */
-
-loc_00113BFA: ;
-    POP32(esp, edi);
-    MEM16(esi + 0x64) = 0xFFFF;
-    POP32(esp, esi);
-    esp += 8; return; /* ret 4 */
-
-    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(MEM32(esi + 0x48)) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, MEM32(esi + 0x48) (32-bit) */
-    if (CMP_NE(_fa, _fb)) goto loc_00113C2F; /* jne: not equal / not zero */
-
-loc_00113C1F: ;
-    ecx = MEM32(ebx + 0x28);
-    PUSH32(esp, 0);
-    PUSH32(esp, 0);
-    PUSH32(esp, edi);
-    PUSH32(esp, ebx);
-    PUSH32(esp, 0);
-    PUSH32(esp, 0x00113C2Fu); sub_00108EA0(); /* call 0x00108EA0 */
-
-loc_00113C2F: ;
-    POP32(esp, ebx);
-
-loc_00113C30: ;
-    POP32(esp, edi);
-
-loc_00113C31: ;
-    POP32(esp, esi);
-    esp += 8; return; /* ret 4 */
-
-}
-
 /**
  * sub_00113CB0
  * Original: 0x00113CB0 - 0x00113D7F (207 bytes, 77 insns)
@@ -23191,6 +23120,9 @@ loc_00114977: ;
  */
 void sub_00114980(void)
 {
+    static unsigned dah_spawn_trace_count;
+    static int dah_spawn_trace_enabled = -1;
+    unsigned dah_spawn_trace_id = 0;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -23200,6 +23132,12 @@ void sub_00114980(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_00114980: ;
+    if (dah_spawn_trace_enabled < 0) {
+        const char *v = getenv("DAH_SPAWN_TRACE");
+        dah_spawn_trace_enabled = v && strcmp(v, "1") == 0;
+    }
+    if (dah_spawn_trace_enabled && dah_spawn_trace_count < 128u)
+        dah_spawn_trace_id = ++dah_spawn_trace_count;
     esp = esp - 0x14;
     PUSH32(esp, esi);
     PUSH32(esp, edi);
@@ -23214,6 +23152,9 @@ loc_0011498E: ;
     PUSH32(esp, 0x00114999u); sub_001392D0(); /* call 0x001392D0 */
 
 loc_00114999: ;
+    if (dah_spawn_trace_id)
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=spawnsite id=%u vm=%08X type=%08X arg1_type=%08X\n",
+                dah_spawn_trace_id, esi, edi, eax);
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(0xB3DDDF37u) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0xB3DDDF37u (32-bit) */
     if (CMP_EQ(_fa, _fb)) goto loc_00114A33; /* je: equal / zero */
@@ -23240,6 +23181,14 @@ loc_001149C7: ;
     PUSH32(esp, 3);
     ecx = esi;
     edi = eax;
+    if (dah_spawn_trace_id) {
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=spawnsite id=%u branch=ED105324 arg1=%08X:",
+                dah_spawn_trace_id, ebp);
+        dah_spawn_trace_name(ebp);
+        fprintf(stderr, " arg2=%08X:", edi);
+        dah_spawn_trace_name(edi);
+        fputc('\n', stderr);
+    }
     PUSH32(esp, 0x001149D2u); sub_00139410(); /* call 0x00139410 */
 
 loc_001149D2: ;
@@ -23280,6 +23229,9 @@ loc_001149FB: ;
     }
 
 loc_00114A0A: ;
+    if (dah_spawn_trace_id)
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=spawnsite id=%u branch=ED105324 resource=%08X\n",
+                dah_spawn_trace_id, eax);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_00114A29; /* je: equal / zero */
@@ -23310,6 +23262,12 @@ loc_00114A3C: ;
     PUSH32(esp, 2);
     ecx = esi;
     edi = eax;
+    if (dah_spawn_trace_id) {
+        fprintf(stderr, "[DAH-SPAWN-TRACE] api=spawnsite id=%u branch=B3DDDF37 arg1=%08X:",
+                dah_spawn_trace_id, edi);
+        dah_spawn_trace_name(edi);
+        fputc('\n', stderr);
+    }
     PUSH32(esp, 0x00114A47u); sub_00139410(); /* call 0x00139410 */
 
 loc_00114A47: ;

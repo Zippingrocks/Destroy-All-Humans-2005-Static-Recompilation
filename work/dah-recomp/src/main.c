@@ -6,6 +6,8 @@
 #include <tlhelp32.h>
 #include <io.h>
 #include <xbox/xboxrecomp.h>
+#include "dah_frame.h"
+#include "dah_crashlog.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
 
@@ -24,6 +26,9 @@ static uint32_t g_dah_ltcg_ring;
 static uintptr_t g_kpcr_watch_base;
 static RECOMP_TLS int g_kpcr_watch_rearm;
 
+#include "dah_console.h"
+
+
 static int dah_internal_run(void)
 {
     static int internal_run = -1;
@@ -34,11 +39,23 @@ static int dah_internal_run(void)
     return internal_run;
 }
 
+/* A test-only presentation option. It deliberately does not change the
+ * normal input initialization, save paths, or renderer/runtime defaults. */
+static int dah_test_window_hidden(void)
+{
+    static int hidden = -1;
+    if (hidden < 0) {
+        const char *value = getenv("DAH_TEST_WINDOW_HIDDEN");
+        hidden = value && !strcmp(value, "1");
+    }
+    return hidden;
+}
+
 static void dah_report_startup_error(const char *message, UINT flags)
 {
     fprintf(stderr, "[DAH-STARTUP] %s\n", message);
     fflush(stderr);
-    if (!dah_internal_run())
+    if (!dah_internal_run() && !dah_test_window_hidden())
         MessageBoxA(NULL, message, "Destroy All Humans! Recomp", flags);
 }
 
@@ -83,6 +100,7 @@ void dah_reset_ltcg_context(void)
         (uint32_t *)((uintptr_t)memory_offset + 0x001E8968u);
     uint32_t *device = (uint32_t *)((uintptr_t)memory_offset + context);
 
+    dah_retail_pushbuffer_reset();
     memset(device, 0, 0x928u * sizeof(uint32_t));
     *global_device = context;
     device[0x00 / 4] = g_dah_ltcg_ring;
@@ -98,17 +116,11 @@ void dah_reset_ltcg_context(void)
 
 static void paint_diagnostic_surface(HDC dc, const RECT *client)
 {
-    HBRUSH background = CreateSolidBrush(RGB(8, 20, 42));
+    /* Developer bring-up text used to live here. Keep startup neutral until
+     * the first frame from the retail renderer arrives. */
+    HBRUSH background = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dc, client, background);
     DeleteObject(background);
-    SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, RGB(96, 240, 240));
-    SelectObject(dc, GetStockObject(DEFAULT_GUI_FONT));
-    DrawTextA(dc,
-              "DESTROY ALL HUMANS!\r\n\r\n"
-              "RECOMP WINDOW ONLINE\r\n"
-              "WAITING FOR RETAIL UI / MOVIE GEOMETRY",
-              -1, (RECT *)client, DT_CENTER | DT_VCENTER | DT_WORDBREAK);
 }
 
 static LRESULT CALLBACK diagnostic_overlay_proc(HWND hwnd, UINT message,
@@ -155,6 +167,16 @@ static LRESULT CALLBACK diagnostic_overlay_proc(HWND hwnd, UINT message,
 static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT message,
                                          WPARAM wparam, LPARAM lparam)
 {
+    if (message == WM_KEYDOWN && wparam == VK_OEM_3) {
+        if (!(lparam & (1L << 30))) dah_console_toggle(!dah_console_is_open());
+        return 0;
+    }
+    if (message == WM_CHAR && (wparam == '`' || wparam == '~')) return 0;
+    if (message == WM_SETFOCUS && dah_console_is_open()) {
+        SetFocus(g_dah_console_window);
+        return 0;
+    }
+    if (message == WM_SIZE) dah_console_resize();
     if (message == WM_TIMER) {
         if (!InterlockedCompareExchange(&g_dah_has_real_draw, 0, 0))
             InvalidateRect(hwnd, NULL, FALSE);
@@ -202,6 +224,7 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
     WNDCLASSA overlay_class = {0};
     RECT rect = {0, 0, 640, 480};
     int internal_run = dah_internal_run();
+    int hidden_window = internal_run || dah_test_window_hidden();
 
     window_class.lpfnWndProc = game_window_proc;
     window_class.hInstance = instance;
@@ -230,7 +253,7 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
     g_game_window = CreateWindowA(window_class.lpszClassName,
         "Destroy All Humans! (2005) - Native Recomp",
-        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
         rect.right - rect.left, rect.bottom - rect.top,
         NULL, NULL, instance, NULL);
     if (!g_game_window) {
@@ -240,7 +263,10 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
         return 0;
     }
 
-    if (!internal_run) {
+    if (!dah_console_create(instance))
+        fprintf(stderr, "[DAH-CONSOLE] failed to create console error=%lu\n", GetLastError());
+
+    if (!hidden_window) {
         ShowWindow(g_game_window, SW_SHOW);
         SetForegroundWindow(g_game_window);
         BringWindowToTop(g_game_window);
@@ -249,7 +275,7 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
     /* An opaque owned popup covers the DXGI target and can itself make
      * Present report occlusion. Use the swapchain diagnostic clear normally;
      * retain this popup only for explicit window-composition diagnostics. */
-    if (!internal_run && getenv("DAH_DIAGNOSTIC_OVERLAY") && atoi(getenv("DAH_DIAGNOSTIC_OVERLAY")))
+    if (!hidden_window && getenv("DAH_DIAGNOSTIC_OVERLAY") && atoi(getenv("DAH_DIAGNOSTIC_OVERLAY")))
         g_game_overlay = CreateWindowExA(
         WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         overlay_class.lpszClassName, "",
@@ -456,6 +482,8 @@ static DWORD WINAPI sample_guest_threads(LPVOID unused)
     DWORD sampler_id = GetCurrentThreadId();
     uintptr_t module_base = (uintptr_t)GetModuleHandleA(NULL);
     (void)unused;
+    const char *delay = getenv("DAH_WATCHDOG_DELAY_MS");
+    if (delay) { unsigned ms = (unsigned)strtoul(delay, NULL, 10); Sleep(ms > 120000u ? 120000u : ms); }
     for (int sample = 0; sample < 8; ++sample) {
         Sleep(3000);
         FILE *log = fopen("recomp_watchdog.log", sample ? "a" : "w");
@@ -513,6 +541,35 @@ static int load_file(const char *path, void **data, size_t *size)
     return 1;
 }
 
+
+static uintptr_t dah_watched_address;
+static DWORD dah_watched_thread;
+static HANDLE dah_watch_ready;
+static DWORD dah_watch_delay;
+static LONG CALLBACK dah_model_write_exception(EXCEPTION_POINTERS *e)
+{
+    if(e->ExceptionRecord->ExceptionCode!=EXCEPTION_SINGLE_STEP || !(e->ContextRecord->Dr6&1u)) return EXCEPTION_CONTINUE_SEARCH;
+    static unsigned count;
+    fprintf(stderr,"[DAH-MODEL-WRITE] count=%u rva=%llX value=%.9g regs=%08X,%08X,%08X,%08X,%08X,%08X esp=%08X stack=",
+        ++count,(unsigned long long)(e->ContextRecord->Rip-(uintptr_t)GetModuleHandleA(NULL)),*(float*)dah_watched_address,g_eax,g_ecx,g_edx,g_ebx,g_esi,g_edi,g_esp);
+    if(g_esp>=0x10000u && g_esp<0x10000000u)for(unsigned i=0;i<12;i++)fprintf(stderr,"%08X,",*(uint32_t*)(xbox_GetMemoryOffset()+g_esp+i*4));
+    fprintf(stderr,"\n");e->ContextRecord->Dr6=0;if(count>=128)e->ContextRecord->Dr7=0;return EXCEPTION_CONTINUE_EXECUTION;
+}
+static DWORD WINAPI dah_install_model_watch(LPVOID unused)
+{
+    if(dah_watch_delay)Sleep(dah_watch_delay);
+    HANDLE h=OpenThread(THREAD_SUSPEND_RESUME|THREAD_GET_CONTEXT|THREAD_SET_CONTEXT,FALSE,dah_watched_thread);
+    if(h){if(SuspendThread(h)!=(DWORD)-1){CONTEXT c={0};c.ContextFlags=CONTEXT_DEBUG_REGISTERS;if(GetThreadContext(h,&c)){c.Dr0=dah_watched_address;c.Dr6=0;c.Dr7=0xD0001;fprintf(stderr,"[DAH-MODEL-WATCH] address=%p installed=%d\n",(void*)dah_watched_address,SetThreadContext(h,&c));}ResumeThread(h);}CloseHandle(h);}SetEvent(dah_watch_ready);if(dah_watch_delay)CloseHandle(dah_watch_ready);return 0;
+}
+static void dah_start_model_watch(void)
+{
+    const char *v=getenv("DAH_WATCH_MODEL_ADDRESS");if(!v)return;
+    uint32_t address=(uint32_t)strtoul(v,NULL,0);if(address<0x10000u||address>0x8ffffffcu)return;
+    const char *delay=getenv("DAH_WATCH_MODEL_DELAY_MS");dah_watch_delay=delay?strtoul(delay,NULL,10):0;
+    dah_watched_address=xbox_GetMemoryOffset()+address;dah_watched_thread=GetCurrentThreadId();dah_watch_ready=CreateEventA(NULL,TRUE,FALSE,NULL);AddVectoredExceptionHandler(1,dah_model_write_exception);
+    HANDLE h=CreateThread(NULL,0,dah_install_model_watch,NULL,0,NULL);if(h){if(!dah_watch_delay)WaitForSingleObject(dah_watch_ready,5000);CloseHandle(h);}if(!dah_watch_delay)CloseHandle(dah_watch_ready);
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, int show)
 {
     void *xbe = NULL;
@@ -553,8 +610,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     /* GUI launches need only the game window. Both diagnostic streams go
      * to recomp.log, so allocating a separate console creates an empty
      * second window without providing any diagnostic output. */
-    freopen("recomp.log", "w", stdout);
-    freopen("recomp.log", "a", stderr);
+    const char *dah_log_path=getenv("DAH_LOG_PATH");
+    if(!dah_log_path || !*dah_log_path)dah_log_path="furonlog.log";
+    freopen(dah_log_path, "w", stdout);
+    freopen(dah_log_path, "a", stderr);
     /* Both FILE streams must exist even for a hidden GUI process, then
      * share the descriptor's file position to avoid overwriting each other. */
     if (_dup2(_fileno(stdout), _fileno(stderr)) != 0) return 1;
@@ -567,6 +626,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
         if (kpcr_watch && atoi(kpcr_watch) != 0)
             AddVectoredExceptionHandler(1, watch_kpcr_writes);
     }
+    /* crashlog is a separate persistent crash-only archive.  Keep the
+     * existing recomp crash handler and detailed runtime log intact. */
+    dah_crashlog_initialize(dah_log_path);
     AddVectoredExceptionHandler(0, log_unhandled_exception);
     /* Stack-sampling suspends the game thread by design.  Keep it available
      * for crash investigations, but do not let the diagnostic distort normal
@@ -578,14 +640,20 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     }
 
     if (!load_file("default.xbe", &xbe, &xbe_size)) {
-        dah_report_startup_error("default.xbe must be beside DestroyAllHumans.exe", MB_ICONERROR);
+        dah_report_startup_error("default.xbe must be beside dah.exe", MB_ICONERROR);
         return 1;
     }
     /* Keep physical-memory probes and the host-side XAPI heap in distinct
      * headroom. The original unified allocator otherwise fragments retail
      * 64 MiB during the title's startup probe before its main arena is made. */
     xbox_SetTotalRam(XBOX_DEVKIT_RAM);
-    xbox_SetContiguousAllocationLimit(48u * 1024u * 1024u);
+    /* The XBE occupies physical pages; the relocated heap's address gap does
+     * not. Keep the retail budget while allowing separate host address space. */
+    {
+        uint32_t image_bytes = *(const uint32_t *)((const uint8_t *)xbe + 0x10C);
+        uint32_t image_pages = (image_bytes + 4095u) & ~4095u;
+        xbox_SetContiguousAllocationLimit(XBOX_TOTAL_RAM - image_pages);
+    }
     if (!xbox_MemoryLayoutInit(xbe, xbe_size)) {
         dah_report_startup_error("Xbox memory initialization failed", MB_ICONERROR);
         free(xbe);
@@ -593,7 +661,23 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     }
 
     xbox_kernel_init();
-    xbox_path_init(".", ".\\saves");
+    /* Internal level automation uses a copy of the build's test saves.
+     * Normal desktop launches retain the original per-build save directory. */
+    {
+        const char *save_override = internal_run ? getenv("DAH_SAVE_DIR") : NULL;
+        if (save_override && *save_override) {
+            size_t length = strlen(save_override);
+            if (length >= MAX_PATH || length < 3u || save_override[1] != ':' ||
+                (save_override[2] != '\\' && save_override[2] != '/')) {
+                dah_report_startup_error("DAH_SAVE_DIR must be an absolute local path shorter than MAX_PATH.", MB_ICONERROR);
+                return 1;
+            }
+            xbox_path_init(".", save_override);
+            fprintf(stderr, "[DAH-SAVE] internal save directory=%s\n", save_override);
+        } else {
+            xbox_path_init(".", ".\\saves");
+        }
+    }
     xbox_kernel_bridge_init();
     if (!init_dah_ltcg_bootstrap_ring()) {
         dah_report_startup_error("Xbox D3D bootstrap ring allocation failed", MB_ICONERROR);
@@ -633,6 +717,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
         return 3;
     }
     printf("Launching translated entry point 0x%08X...\n", DAH_ENTRY_POINT);
+    dah_start_model_watch();
     entry();
     printf("The translated game returned to the host.\n");
     xbox_kernel_shutdown();

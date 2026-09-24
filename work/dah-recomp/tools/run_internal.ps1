@@ -10,6 +10,7 @@ param(
     [switch]$ForceUiRender,
     [switch]$ForceUiChild,
     [switch]$MatrixTrace,
+    [switch]$Watchdog,
     [ValidateRange(1, 1000000)][int]$MenuStartDelay = 1050
 )
 $ErrorActionPreference = 'Stop'
@@ -42,7 +43,7 @@ $dahChildSettings = @{
     DAH_FRAME_CAPTURE_INTERVAL = [string]$CaptureInterval
     DAH_FRAME_CAPTURE_START = [string]$CaptureStart
     DAH_PB_CAPTURE = [string]$PushbufferCaptures
-    DAH_WATCHDOG = '0'
+    DAH_WATCHDOG = $(if ($Watchdog) { '1' } else { '0' })
     DAH_KPCR_WATCH = '0'
 }
 foreach ($dahSetting in $dahChildSettings.Keys) {
@@ -84,9 +85,10 @@ try {
         $dahRun.Kill()
         $dahRun.WaitForExit()
     }
-    $dahArchive = Join-Path $dahInternal "recomp-internal-$($dahRun.Id).log"
-    if (Test-Path -LiteralPath (Join-Path $dahInternal 'recomp.log')) {
-        Copy-Item -LiteralPath (Join-Path $dahInternal 'recomp.log') -Destination $dahArchive
+    $dahLogSource = if ($env:DAH_LOG_PATH) { $env:DAH_LOG_PATH } else { Join-Path $dahInternal 'recomp.log' }
+    $dahArchive = Join-Path ([IO.Path]::GetDirectoryName($dahLogSource)) "recomp-internal-$($dahRun.Id).log"
+    if (Test-Path -LiteralPath $dahLogSource) {
+        Copy-Item -LiteralPath $dahLogSource -Destination $dahArchive
         Write-Output "INTERNAL_LOG $dahArchive"
     }
     $dahCrashSource = Join-Path $dahInternal 'recomp_crash.log'

@@ -8,6 +8,12 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+extern void dah_player_velocity_compat(uint32_t physics_body, uint32_t vector);
+
+extern void d3d8_ClearMovieBackground(void);
+extern void d3d8_BeginFullScreenMovieTransition(void);
+extern void d3d8_EndFullScreenMovieTransition(void);
+extern void d3d8_SetFullScreenMovieOpaque(int enabled);
 
 /* Temporary, bounded diagnostics at the retail movie boundary. */
 static void dah_movie_trace(const char *stage, uint32_t *calls)
@@ -11533,6 +11539,10 @@ loc_00122798: ;
 
 loc_0012279C: ;
     ecx = esi;
+    /* The retail fade has reached black before opening Bink.  Keep the host
+     * presentation black while the first frame is decoded so the alternating
+     * scene render target cannot flash for one frame. */
+    d3d8_BeginFullScreenMovieTransition();
     PUSH32(esp, 0x001227A3u); sub_00123180(); /* call 0x00123180 */
 
 loc_001227A3: ;
@@ -11541,6 +11551,7 @@ loc_001227A3: ;
     if (TEST_NZ(_fa, _fb)) goto loc_001227AB; /* jne: not equal / not zero */
 
 loc_001227A7: ;
+    d3d8_EndFullScreenMovieTransition();
     SET_LO8(eax, 0); /* xor self */
     POP32(esp, esi);
     esp += 4; return; /* ret */
@@ -12210,6 +12221,7 @@ void sub_00122CA0(void)
 {
     static uint32_t calls;
     dah_movie_trace("CLOSE", &calls);
+    d3d8_EndFullScreenMovieTransition();
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -12390,13 +12402,14 @@ void sub_00122D70(void)
 {
     static uint32_t calls;
     static int dah_movie_nonblock = -1;
-    /* Optional host scheduling adapter, NOT a change to the native Bink clock.
+    /* Host scheduling adapter (DAH_MOVIE_NONBLOCK=0 opts out).
+     * This does not change the native Bink clock.
      * Only the regular update caller (via the 122890 tail-call) may defer.
      * The 123180 open/preload call must still prepare its first frame here. */
     const int dah_movie_update_call = MEM32(esp) == 0x0005A46Du;
     if (dah_movie_nonblock < 0) {
         const char *setting = getenv("DAH_MOVIE_NONBLOCK");
-        dah_movie_nonblock = setting && setting[0] == '1' && setting[1] == '\0';
+        dah_movie_nonblock = !setting || (setting[0] == '1' && setting[1] == '\0');
         if (dah_movie_nonblock)
             fprintf(stderr, "[DAH-MOVIE-SCHEDULE] nonblocking update enabled; native movie clock and preload retained\n");
     }
@@ -12554,6 +12567,9 @@ loc_00122E69: ;
     if (TEST_Z(_fa, _fb)) goto loc_00123178; /* je: equal / zero */
 
 loc_00122E76: ;
+    /* movie.FullScreen replaces the frame. Clear the previously rendered
+     * mothership scene before drawing its presentation quad. */
+    d3d8_ClearMovieBackground();
     ecx = MEM32(0x250E60);
     eax = MEM32(ecx + 0x228);
     xmm4.f[0] = (float)(int32_t)MEM32(ecx + 0x22C); /* cvtsi2ss */
@@ -12692,8 +12708,10 @@ loc_0012302C: ;
     MEMF(esp + 0x110) = xmm0.f[0]; /* movss */
     edx = MEM32(ecx);
     PUSH32(esp, eax);
+    d3d8_SetFullScreenMovieOpaque(1);
     { uint32_t _icall_target = MEM32(edx + 0x34); PUSH32(esp, 0x00123178u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
+    d3d8_SetFullScreenMovieOpaque(0);
 
 loc_00123178: ;
     esp = esp + 0x10C;
@@ -13802,7 +13820,7 @@ loc_00123860: ;
 loc_00123931: ;
     xmm0 = XMM_SCALAR(MEMF(esi + 0xC4)); /* movss */
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x00123939 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     eax = esi;
@@ -14281,7 +14299,7 @@ loc_00123CC0: ;
 loc_00123D95: ;
     xmm0 = XMM_SCALAR(MEMF(esi + 0xC4)); /* movss */
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x00123D9D */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     eax = esi;
@@ -15861,7 +15879,7 @@ loc_001248B4: ;
     xmm0 = XMM_SCALAR(MEMF(eax + 0x2C)); /* movss */
     xmm1 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm0.f[0], xmm1.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], xmm1.f[0])); /* UCOMISS/LAHF 0x001248BC */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_001248D1; /* jnp: not parity */
@@ -16564,7 +16582,7 @@ loc_00124B9F: ;
     fp_push(MEMF(0x225C20)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x00124BA5 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_00124BB3; /* jnp: not parity */
@@ -16605,7 +16623,7 @@ loc_00124C09: ;
     fp_push(MEMF(0x225C20)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x00124C0F */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_00124C1D; /* jnp: not parity */
@@ -31838,8 +31856,7 @@ loc_0012BA20: ;
 
 loc_0012BA31: ;
     xmm0 = XMM_SCALAR(MEMF(esi + 0xB4)); /* movss */
-    /* ucomiss xmm0.f[0], MEMF(0x227D24) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x227D24))); /* UCOMISS/LAHF 0x0012BA40 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012BA54; /* jnp: not parity */
@@ -31981,6 +31998,7 @@ void sub_0012BB30(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_0012BB30: ;
+    dah_player_velocity_compat(ecx, MEM32(esp + 4));
     PUSH32(esp, ebp);
     ebp = esp;
     g_ebp = ebp; /* publish frame for frameless callees */
@@ -32081,7 +32099,7 @@ loc_0012BBF0: ;
 loc_0012BC04: ;
     xmm0 = XMM_SCALAR(MEMF(ecx + 0x18)); /* movss */
     /* ucomiss xmm0.f[0], xmm4.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], xmm4.f[0])); /* UCOMISS/LAHF 0x0012BC09 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_0012BC1B; /* jp: parity */
@@ -32286,7 +32304,7 @@ loc_0012BE19: ;
     xmm1 = XMM_SCALAR(MEMF(esp + 0x20)); /* movss */
     xmm0 = XMM_SCALAR(MEMF(0x2305E0)); /* movss */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0012BE33 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_0012BE5E; /* jp: parity */
@@ -32294,7 +32312,7 @@ loc_0012BE19: ;
 loc_0012BE3C: ;
     xmm1 = XMM_SCALAR(MEMF(esp + 0x24)); /* movss */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0012BE42 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_0012BE5E; /* jp: parity */
@@ -32302,7 +32320,7 @@ loc_0012BE3C: ;
 loc_0012BE4B: ;
     xmm1 = XMM_SCALAR(MEMF(esp + 0x28)); /* movss */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0012BE51 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012BF8A; /* jnp: not parity */
@@ -32841,7 +32859,7 @@ loc_0012C1F3: ;
     xmm1 = XMM_SCALAR(MEMF(esi + 0x2C)); /* movss */
     xmm0 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0012C1FB */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012C210; /* jnp: not parity */
@@ -33309,7 +33327,7 @@ loc_0012C4FF: ;
     xmm0 = XMM_SCALAR(MEMF(eax + 0x2C)); /* movss */
     xmm1 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm0.f[0], xmm1.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], xmm1.f[0])); /* UCOMISS/LAHF 0x0012C507 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012C51C; /* jnp: not parity */
@@ -34912,7 +34930,7 @@ loc_0012CEC9: ;
     xmm1 = XMM_SCALAR(MEMF(ecx + 0x2C)); /* movss */
     xmm0 = XMM_ZERO(); /* xorps self = zero */
     /* ucomiss xmm1.f[0], xmm0.f[0] - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], xmm0.f[0])); /* UCOMISS/LAHF 0x0012CED7 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012CEF6; /* jnp: not parity */
@@ -37940,7 +37958,7 @@ loc_0012E15F: ;
 loc_0012E161: ;
     xmm0 = XMM_SCALAR(MEMF(esp + 0x14)); /* movss */
     /* ucomiss xmm0.f[0], MEMF(0x225C20) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x0012E167 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012E180; /* jnp: not parity */
@@ -38958,7 +38976,7 @@ loc_0012EA7B: ;
     fp_push(MEMF(0x225C20)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x0012EA81 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012EA8F; /* jnp: not parity */
@@ -39013,7 +39031,7 @@ loc_0012EB0C: ;
     fp_push(MEMF(0x225C20)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), fp_st1()); fp_pop(); /* fucompi */
     fp_pop(); /* fstp st(0) */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, (g_fp_cmp == 2 ? 0x47u : g_fp_cmp < 0 ? 0x03u : g_fp_cmp == 0 ? 0x42u : 0x02u)); /* FUCOMPI/LAHF 0x0012EB12 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_0012EB20; /* jnp: not parity */

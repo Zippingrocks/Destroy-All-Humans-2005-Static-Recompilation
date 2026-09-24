@@ -5,12 +5,19 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_trace_flags.h"
 #include <math.h>
 #include <stdio.h>
 
 extern void pgraph_d3d11_submit_pushbuffer(const uint32_t *data,
                                            uint32_t num_dwords);
 extern void dah_reset_ltcg_context(void);
+extern uint32_t dah_retail_pushbuffer_commit(uint32_t device, uint32_t put);
+extern void dah_retail_pushbuffer_reset(void);
+extern double dah_frame_profile_now(void);
+extern void dah_frame_record_ring_submit(double start_seconds, uint32_t dwords);
+extern void pgraph_d3d11_poll_reports(void);
+extern void pgraph_d3d11_register_report(uint32_t parameter, void *record);
 
 /**
  * sub_001AABC0
@@ -18267,6 +18274,7 @@ loc_001B7588: ;
     ecx = ecx + MEM32(ebp + -4);
     _fa = (uint32_t)(MEM32(ebp + -8)) & 0xFFFFFFFFu; _fb = (uint32_t)(ecx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(ebp + -8), ecx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     ecx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     ecx++;
     _cf = (int)((((uint64_t)(eax) + (uint64_t)(ecx)) >> 32) & 1);
@@ -18276,6 +18284,7 @@ loc_001B7588: ;
     ecx = ecx + edx;
     _fa = (uint32_t)(MEM32(ebp + -8)) & 0xFFFFFFFFu; _fb = (uint32_t)(ecx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(ebp + -8), ecx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     ecx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     ecx++;
     _cf = (int)((((uint64_t)(eax) + (uint64_t)(ecx)) >> 32) & 1);
@@ -18305,6 +18314,7 @@ loc_001B760A: ;
     ecx = ecx + ecx;
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(ebx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, ebx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     ecx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     ecx++;
     _cf = (int)((((uint64_t)(edx) + (uint64_t)(ecx)) >> 32) & 1);
@@ -18672,6 +18682,7 @@ loc_001B780D: ;
     ecx = ecx + ecx;
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     edx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     edx++;
     _cf = (int)((((uint64_t)(eax) + (uint64_t)(edx)) >> 32) & 1);
@@ -18700,6 +18711,7 @@ loc_001B787D: ;
     eax = eax + eax;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     eax++;
     _cf = (int)((((uint64_t)(ecx) + (uint64_t)(eax)) >> 32) & 1);
@@ -18715,6 +18727,7 @@ loc_001B787D: ;
     eax = eax + eax;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     eax++;
     _cf = (int)((((uint64_t)(ecx) + (uint64_t)(eax)) >> 32) & 1);
@@ -18745,6 +18758,7 @@ loc_001B787D: ;
     eax = eax + eax;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     eax++;
     _cf = (int)((((uint64_t)(eax) + (uint64_t)(MEM32(ebp + -24))) >> 32) & 1);
@@ -21031,6 +21045,14 @@ void sub_001D8070(void)
             MEM32(0x001E8970u + 0x1A18),
             MEM32(0x001E8970u + 0x1A20));
     fflush(stderr);
+    /* Complete the initial target selection omitted by host GPU bring-up.
+     * Use the retail-created surfaces so GetRenderTarget/GetDepthStencilSurface
+     * return the same descriptors that later scene passes restore. */
+    PUSH32(esp, MEM32(0x001E8970u + 0x1A20));
+    PUSH32(esp, MEM32(0x001E8970u + 0x1A18));
+    PUSH32(esp, 0x001D80EEu); sub_001DABD0();
+    fprintf(stderr, "[DAH-D3D-CREATE] initial targets status=%08X color=%08X depth=%08X\n",
+            eax, MEM32(0x001E8970u + 0x1A04), MEM32(0x001E8970u + 0x1A08));
     MEM32(0x1EB11C) = 0x80000;
     MEM32(0x1EB118) = 0x8000;
     MEM32(0x1E92A8) = 1;
@@ -22558,6 +22580,7 @@ loc_001D8BF9: ;
     edx = MEM32(0x1E84C8);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x19) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0x19 (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     ecx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     ecx = ecx & 0xFFFFBFF1u;
@@ -25129,7 +25152,7 @@ void sub_001D9E70(void)
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-    if (getenv("DAH_MATRIX_TRACE") && ecx <= 2u) {
+    if (dah_matrix_trace_enabled() && ecx <= 2u) {
         static unsigned dah_low_constant_traces;
         if (dah_low_constant_traces++ < 16u)
             fprintf(stderr, "[DAH-CONSTANT-UPLOAD] c=%u caller=%08X value=%.9g,%.9g,%.9g,%.9g\n",
@@ -26480,6 +26503,7 @@ void sub_001DA880(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_001DA880: ;
+    pgraph_d3d11_poll_reports();
     eax = MEM32(esp + 4);
     ecx = MEM32(0x1E8968);
     edx = eax;
@@ -26490,6 +26514,7 @@ loc_001DA880: ;
     eax = eax << 4;
     edx = MEM32(eax + esi + 0xC);
     eax = eax + esi;
+    { static unsigned dah_report_reads; if (dah_report_reads++ < 8u) fprintf(stderr, "[DAH-REPORT-READ] record=%08X words=%08X,%08X,%08X,%08X\n", eax, MEM32(eax),MEM32(eax+4),MEM32(eax+8),MEM32(eax+12)); }
     _fa = (uint32_t)(edx) & 0xFFFFFFFFu; _fb = (uint32_t)(0xFFFFFFFFu) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edx, 0xFFFFFFFFu (32-bit) */
     POP32(esp, esi);
@@ -26510,6 +26535,7 @@ loc_001DA8B9: ;
     esp += 16; return; /* ret 12 */
 
 loc_001DA8C1: ;
+
     ecx = MEM32(eax + 8);
     edx = MEM32(esp + 8);
     MEM32(edx) = ecx;
@@ -27004,6 +27030,15 @@ void sub_001DABD0(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_001DABD0: ;
+    if (getenv("DAH_RT_TRACE")) {
+        static unsigned rt_trace_count;
+        if (rt_trace_count++ < 100u) {
+            uint32_t rt = MEM32(esp+4), zs = MEM32(esp+8);
+            fprintf(stderr, "[DAH-RT-CALL] caller=%08X color=%08X zeta=%08X", MEM32(esp), rt, zs);
+            if (rt) for (unsigned i=0;i<6u;++i) fprintf(stderr," %08X",MEM32(rt+i*4u));
+            fprintf(stderr,"\n");
+        }
+    }
     esp = esp - 0xC;
     PUSH32(esp, ebx);
     PUSH32(esp, ebp);
@@ -27288,6 +27323,10 @@ loc_001DAE1C: ;
     edx = 0x1E6850;
     ecx = edi;
     MEM32(edi + 0x1A0C) = eax;
+    if (getenv("DAH_RT_TRACE")) {
+        static unsigned format_logs;
+        if(format_logs++<32u) fprintf(stderr,"[DAH-RT-ENCODE] encoded=%08X color=%08X depth=%08X colorfmt=%08X depthfmt=%08X\n",eax,MEM32(edi+0x1A04),MEM32(edi+0x1A08),MEM32(MEM32(edi+0x1A04)+12),MEM32(edi+0x1A08)?MEM32(MEM32(edi+0x1A08)+12):0);
+    }
     PUSH32(esp, 0x001DAE2Eu); sub_001D9040(); /* call 0x001D9040 */
 
 loc_001DAE2E: ;
@@ -27480,6 +27519,7 @@ loc_001DAF17: ;
     eax = 0; /* xor self */
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     eax = eax & edx;
@@ -27489,6 +27529,7 @@ loc_001DAF17: ;
     ebx = MEM32(ebp + 4);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(ebx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, ebx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     eax = eax & ebx;
@@ -28201,6 +28242,7 @@ loc_001DB44D: ;
     PUSH32(esp, 0x001DB452u); sub_001DF810(); /* call 0x001DF810 */
 
 loc_001DB452: ;
+    pgraph_d3d11_register_report((esi & 0x0EFFFFFFu) | 0x01000000u, (void *)&MEM32(esi));
     MEM32(eax) = 0x817CC;
     esi = esi & 0xEFFFFFF;
     MEM32(eax + 4) = 0;
@@ -32557,6 +32599,7 @@ loc_001DD4A4: ;
     ecx = 0x20;
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, eax (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = (int)((eax) != 0);
     eax = (uint32_t)(-(int32_t)eax);
@@ -36686,6 +36729,7 @@ loc_001DF26C: ;
     esi = MEM32(ecx + 0x40);
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, eax (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     edx = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = (int)((edx) != 0);
     edx = (uint32_t)(-(int32_t)edx);
@@ -36925,6 +36969,7 @@ loc_001DF3CC: ;
     ecx = MEM32(esi + 0x1C20);
     edx = edx & 0xFFFFFFF;
     MEM32(ecx + 0x40) = edx;
+    dah_retail_pushbuffer_commit(esi, edx);
     eax = MEM32(0x1E84C0);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
@@ -36973,6 +37018,7 @@ loc_001DF42E: ;
  */
 void sub_001DF430(void)
 {
+    uint32_t dah_commit_device = ecx;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -37018,6 +37064,7 @@ loc_001DF47C: ;
     ecx = MEM32(ecx + 0x1C20);
     esi = esi & 0xFFFFFFF;
     MEM32(ecx + 0x40) = esi;
+    dah_retail_pushbuffer_commit(dah_commit_device, esi);
     goto loc_001DF490;
 
     /* nop */
@@ -37393,9 +37440,15 @@ void sub_001DF6D0(void)
             device ? MEM32(device + 4) : 0, base, physical_end, requested);
     }
 
-    if (base && current > base && current <= physical_end) {
-        pgraph_d3d11_submit_pushbuffer(
-            (const uint32_t *)XBOX_PTR(base), (current - base) / 4u);
+    {
+        double dah_ring_start = dah_frame_profile_now();
+        uint32_t dah_ring_dwords = dah_retail_pushbuffer_commit(device, current);
+        if (dah_ring_dwords == UINT32_MAX) {
+            fprintf(stderr, "[DAH-RETAIL-PUT] reserve drain rejected; preserving ring and stopping before buffer reuse\n");
+            fflush(stderr);
+            ExitProcess(1u);
+        }
+        dah_frame_record_ring_submit(dah_ring_start, dah_ring_dwords);
     }
 
     if (device && base && physical_end > base) {
@@ -37403,6 +37456,7 @@ void sub_001DF6D0(void)
         uint32_t capacity = physical_end - base;
         if (reserve >= capacity) reserve = capacity > 4u ? capacity - 4u : 0u;
         MEM32(device) = base;
+        dah_retail_pushbuffer_reset();
         MEM32(device + 4) = physical_end - reserve;
         eax = base;
     } else {
@@ -38746,7 +38800,8 @@ loc_001E02E0: ;
     PUSH32(esp, ecx);
     MEM32(esp) = ecx;
     ecx = MEM32(esp);
-    /* TODO: bsf eax, ecx */
+    /* BSF: nonzero input returns the least-significant set-bit index. */
+    if (ecx) { uint32_t bits=ecx; eax=0; while (!(bits & 1u)) { ++eax; bits >>= 1u; } }
     POP32(esp, ecx);
     esp += 4; return; /* ret */
 
@@ -42127,6 +42182,7 @@ loc_001E1B0E: ;
     esi = MEM32(ecx);
     eax = eax >> 4;
     eax = eax + esi;
+    { static unsigned dah_report_reads; if (dah_report_reads++ < 8u) fprintf(stderr, "[DAH-REPORT-READ] record=%08X words=%08X,%08X,%08X,%08X\n", eax, MEM32(eax),MEM32(eax+4),MEM32(eax+8),MEM32(eax+12)); }
     _fa = (uint32_t)(edx) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test edx, edx (32-bit) */
     MEM32(ecx) = eax;
@@ -50116,7 +50172,7 @@ void sub_001EB19C(void)
 loc_001EB19C: ;
     PUSH32(esp, ecx);
     MEM32(esp) = ecx;
-    /* TODO: bsf eax, dword ptr [esp] */
+    { uint32_t bits=MEM32(esp); if (bits) { eax=0; while (!(bits & 1u)) { ++eax; bits >>= 1u; } } }
     POP32(esp, ecx);
     esp += 4; return; /* ret */
 
@@ -53481,6 +53537,7 @@ loc_001EC730: ;
     SET_LO8(ecx, 2);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(ecx)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), LO8(ecx) (8-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = (int)((eax) != 0);
     eax = (uint32_t)(-(int32_t)eax);
@@ -53725,7 +53782,8 @@ void sub_001EC834(void)
 {
 
 loc_001EC834: ;
-    /* TODO: bsf eax, ecx */
+    /* BSF: nonzero input returns the least-significant set-bit index. */
+    if (ecx) { uint32_t bits=ecx; eax=0; while (!(bits & 1u)) { ++eax; bits >>= 1u; } }
     esp += 4; return; /* ret */
 
 }
@@ -53775,3 +53833,4 @@ loc_001EC85D: ;
     #undef fp_st
     #undef fp_st1
 }
+

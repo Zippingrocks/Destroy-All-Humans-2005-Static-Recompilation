@@ -1,0 +1,5 @@
+# start duration hex_buttons A B LX LY RX RY
+# Enter the slot menu, let its entrance animation settle, then move selection
+# down once so the selector's own transition can be captured independently.
+1320 30 0 255 0 0 0 0 0
+1500 20 2 0 0 0 0 0 0

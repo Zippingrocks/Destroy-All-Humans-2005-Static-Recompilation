@@ -6,8 +6,24 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include "dah_timing.h"
+#include "apu.h"
 #include <math.h>
 #include <stdio.h>
+
+/* DAH currently does not attach its native MCPX command stream to a backend.
+ * In that explicit null-device state there can be no audible release tail.
+ * Only accepted release/stop requests receive their original completion path;
+ * a real initialized backend always owns its own timing and notifications. */
+static int dah_native_audio_is_null(void)
+{
+    static int logged;
+    if (mcpx_apu_is_initialized()) return 0;
+    if (!logged) {
+        logged = 1;
+        fprintf(stderr, "[DAH-AUDIO-NULL] No MCPX audio backend is initialized; sound output is unavailable. Accepted stop/release requests complete through original voice cleanup.\n");
+    }
+    return 1;
+}
 
 /**
  * sub_001EC861
@@ -13708,7 +13724,7 @@ loc_001F0F8C: ;
  */
 void sub_001F0F91(void)
 {
-    uint32_t ebp;
+    uint32_t ebp = g_ebp;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -13814,6 +13830,10 @@ loc_001F1020: ;
     if (CMP_EQ(_fa, _fb)) goto loc_001F1035; /* je: equal / zero */
 
 loc_001F102E: ;
+    /* No hardware exists to reset in the explicit silent backend. Keep all
+     * preceding DoWork software callbacks and list processing. A real MCPX
+     * backend retains the original error recovery and 10 ms hardware delay. */
+    if (!mcpx_apu_is_initialized()) goto loc_001F1035;
     ecx = ebx;
     g_ebp = ebp; /* frame stays current across calls */
     PUSH32(esp, 0x001F1035u); sub_001F0D51(); /* call 0x001F0D51 */
@@ -18137,6 +18157,7 @@ loc_001F28F0: ;
     POP32(esp, ecx);
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(edx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, edx (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     edi = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = (int)((edi) != 0);
     edi = (uint32_t)(-(int32_t)edi);
@@ -20387,6 +20408,18 @@ loc_001F354F: ;
     PUSH32(esp, 0x001F3557u); sub_001EC752(); /* call 0x001EC752 */
 
 loc_001F3557: ;
+    /* A null device has no release tail to drain. Complete only the retail
+     * accepted-release state through its original Stop/unlink operations. */
+    if (dah_native_audio_is_null() &&
+        (MEM16(esi + 0x12) & 0xBu) == 0xBu && MEM8(esi + 0x65) < 3u) {
+        static unsigned release_completions;
+        if (release_completions++ < 16u)
+            fprintf(stderr, "[DAH-APU-NULL-RELEASE] voice=%08X flags=%04X\n", esi, (unsigned)MEM16(esi+0x12));
+        ecx = esi;
+        PUSH32(esp, 0);
+        g_ebp = ebp;
+        PUSH32(esp, 0x001F3557u); sub_001F4003();
+    }
     POP32(esp, esi);
     esp = ebp;
     POP32(esp, ebp); /* leave */
@@ -22180,6 +22213,19 @@ loc_001F4092: ;
     if (CMP_B(_fa, _fb)) goto loc_001F407C; /* jb: below (unsigned <) */
 
 loc_001F40AC: ;
+    /* The null device acknowledges accepted voice-off immediately. The
+     * original unlink and pending-stop cleanup perform all guest state changes. */
+    if (dah_native_audio_is_null() && (MEM16(esi + 0x12) & 0x8000u) &&
+        MEM8(esi + 0x65) < 3u) {
+        static unsigned dah_stop_completions;
+        if (dah_stop_completions++ < 8u)
+            fprintf(stderr, "[DAH-APU-STOP-COMPLETE] voice=%08X flags=%04X list=%u\n",
+                    esi, (unsigned)MEM16(esi+0x12), (unsigned)MEM8(esi+0x65));
+        ecx = esi;
+        PUSH32(esp, 0);
+        g_ebp = ebp;
+        PUSH32(esp, 0x001F40ACu); sub_001F3295();
+    }
     eax = MEM32(esi + 8);
     MEM32(eax + 0x84) = MEM32(eax + 0x84) - 1;
     eax = esi + 0x78;
@@ -41208,6 +41254,7 @@ loc_0020F4A2: ;
 loc_0020F4AC: ;
     _fa = (uint32_t)(ebp) & 0xFFFFFFFFu; _fb = (uint32_t)(0x5622) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ebp, 0x5622 (32-bit) */
+    _cf = (int)(_fa < _fb); /* byte-verified original CMP carry consumed by SBB */
     eax = _cf ? 0xFFFFFFFF : 0; /* sbb self (CF extend) */
     _cf = 0; /* logical op clears CF */
     eax = eax & 0xFFFFFE00u;
@@ -50327,3 +50374,4 @@ loc_00213B41: ;
     esp += 8; return; /* ret 4 */
 
 }
+
