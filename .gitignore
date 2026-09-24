@@ -55,3 +55,8 @@ _git_import/
 third_party/xboxrecomp/tools/**/output/
 third_party/xboxrecomp/**/__pycache__/
 *.pyc
+
+# Local references and generated analysis workspaces
+main_menu_reference.png
+work/dah-extraction-audit/
+work/disasm-inputfix/
