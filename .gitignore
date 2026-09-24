@@ -49,6 +49,7 @@ Thumbs.db
 # Local third-party reference clones
 Repos/*
 !Repos/RECOMP_REFERENCE_REPOS.md
+_git_import/
 
 # Generated analysis output from the vendored runtime
 third_party/xboxrecomp/tools/**/output/
