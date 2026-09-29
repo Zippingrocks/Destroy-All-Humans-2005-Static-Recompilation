@@ -16,10 +16,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_MOVE_DEADZONE 7849u
-#define DEFAULT_AIM_DEADZONE  8689u
+/* The retail title already applies its own deadzones, response and temporal
+ * smoothing to original-Xbox stick samples.  Conditioning the host sample
+ * here as well double-applies that policy: small motion is discarded, the
+ * remaining range is expanded, and the game's acceleration becomes abrupt.
+ * Keep the host bridge transparent by default.  Environment overrides remain
+ * available for controller-specific diagnostics. */
+#define DEFAULT_MOVE_DEADZONE 0u
+#define DEFAULT_AIM_DEADZONE  0u
 #define DEFAULT_MOVE_CURVE    1.0
-#define DEFAULT_AIM_CURVE     1.35
+#define DEFAULT_AIM_CURVE     1.0
 
 static unsigned g_move_deadzone = DEFAULT_MOVE_DEADZONE;
 static unsigned g_aim_deadzone = DEFAULT_AIM_DEADZONE;

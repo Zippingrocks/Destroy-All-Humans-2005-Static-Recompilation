@@ -45,8 +45,9 @@ cmake -S work/dah-recomp -B work/dah-recomp/build-ninja -G Ninja
 cmake --build work/dah-recomp/build-ninja --config Release
 ```
 
-The resulting executable is normally
-`work/dah-recomp/build-ninja/DestroyAllHumans.exe`. See
+The generated working executable is normally
+`work/dah-recomp/build-ninja/dah_recomp_working.exe`. The single player-facing
+launcher is `DestroyAllHumans.exe` at the repository root. See
 `work/dah-recomp/README.md` and `work/dah-recomp/INTERNAL_BRINGUP.md` for current
 runtime switches, probes, known issues, and bring-up notes.
 

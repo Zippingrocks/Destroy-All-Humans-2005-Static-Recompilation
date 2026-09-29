@@ -1,0 +1,6 @@
+@frame
+# Reach the New Game / Load Game selector, enter the New Game slot panel, and
+# return. These are the same three logical actions seen in the live session.
+2300 6 10 0 0 0 0 0 0
+2350 6 0 255 0 0 0 0 0
+2400 6 0 0 255 0 0 0 0

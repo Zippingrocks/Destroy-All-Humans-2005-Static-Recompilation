@@ -396,8 +396,31 @@ def _make_condition(jcc, flag_setter, flag_ops):
     if lhs is None:
         return None
 
-    # ── comiss/ucomiss: float comparison, sets CF/ZF/PF ──
-    if flag_setter in ("comiss", "comisd", "ucomiss", "ucomisd"):
+    # COMISS/UCOMISS operands are sampled where the instruction executes.
+    # POP/LEA, SSE arithmetic, or a memory write can change those operands
+    # without changing EFLAGS. In DAH's acos, POP ESI between COMISS and JBE
+    # made a deferred [esp+14] read test the caller's next stack word instead
+    # of the input sign, reflecting the resulting movement heading.
+    if flag_setter in ("comiss", "ucomiss"):
+        conditions = {
+            "ja": "!(_flags & 0x41)", "jnbe": "!(_flags & 0x41)",
+            "jae": "!(_flags & 1)", "jnb": "!(_flags & 1)", "jnc": "!(_flags & 1)",
+            "jb": "(_flags & 1)", "jnae": "(_flags & 1)", "jc": "(_flags & 1)",
+            "jbe": "(_flags & 0x41)", "jna": "(_flags & 0x41)",
+            "je": "(_flags & 0x40)", "jz": "(_flags & 0x40)",
+            "jne": "!(_flags & 0x40)", "jnz": "!(_flags & 0x40)",
+            "jp": "(_flags & 4)", "jnp": "!(_flags & 4)",
+            # COMISS also clears SF and OF. Keep signed consumers exact.
+            "js": "0", "jns": "1", "jo": "0", "jno": "1",
+            "jl": "0", "jge": "1",
+            "jle": "(_flags & 0x40)", "jg": "!(_flags & 0x40)",
+        }
+        condition = conditions.get(jcc)
+        return (condition, desc) if condition is not None else None
+
+    # Double-precision lowering remains separate; the single-precision flag
+    # helper must not silently narrow its operands to float.
+    if flag_setter in ("comisd", "ucomisd"):
         def _sse_op(op):
             if op.type == "reg" and op.reg and op.reg.startswith("xmm"):
                 return f"{op.reg}.f[0]"
@@ -1903,7 +1926,14 @@ class Lifter:
                 return [_sse_write(ops[0], f"(float){_sse_read(ops[1])}") + " /* cvtsd2ss */"]
 
         # ── Comparison ──
-        if m in ("comiss", "comisd", "ucomiss", "ucomisd"):
+        if m in ("comiss", "ucomiss"):
+            if nops >= 2:
+                lines = [f"_flags = RECOMP_COMISS_LAHF({_sse_read(ops[0])}, {_sse_read(ops[1])});"
+                         f" /* {m} flags snapshot */"]
+                if self.needs_cf:
+                    lines.append("_cf = (int)(_flags & 1u); /* compare CF */")
+                return lines
+        if m in ("comisd", "ucomisd"):
             if nops >= 2:
                 return [f"/* {m} {_sse_read(ops[0])}, {_sse_read(ops[1])} - sets EFLAGS */"]
 
@@ -2146,8 +2176,11 @@ class Lifter:
 
             def _combine(dst, src):
                 if cop in ("+", "*") or not reverse:
-                    return f"{dst} = {dst} {cop} {src};"
-                return f"{dst} = {src} {cop} {dst};"   # reversed sub/div
+                    expr = f"{dst} {cop} {src}"
+                else:
+                    expr = f"{src} {cop} {dst}"   # reversed sub/div
+                return (f"{dst} = RECOMP_X87_APPLY_PRECISION({expr}, "
+                        f"g_fp_control_word);")
 
             # Memory operand: dst is st0, no pop (memory forms never pop).
             if ops and ops[0].type == "mem":
@@ -2194,7 +2227,8 @@ class Lifter:
         if m == "fabs":
             return [f"fp_top() = fabs(fp_top()); /* fabs */"]
         if m == "fsqrt":
-            return [f"fp_top() = sqrt(fp_top()); /* fsqrt */"]
+            return [f"fp_top() = RECOMP_X87_APPLY_PRECISION(sqrt(fp_top()), "
+                    f"g_fp_control_word); /* fsqrt */"]
         # x87 transcendentals. None of these were implemented, so every one fell
         # through to the unknown-op path and left the FP stack untouched --
         # silently, because an unimplemented FPU op looks exactly like an
@@ -2404,14 +2438,24 @@ def lift_basic_block(lifter, bb, flag_state=None):
             args = [scalar_float_operand(op) for op in curr.operands]
             if all(arg is not None for arg in args):
                 stmts.append(
-                    f"SET_HI8(eax, RECOMP_COMISS_LAHF({args[0]}, {args[1]}));"
-                    f" /* {curr.mnemonic}; lahf */")
+                    f"_flags = RECOMP_COMISS_LAHF({args[0]}, {args[1]});"
+                    f" /* {curr.mnemonic} flags snapshot */")
+                stmts.append("SET_HI8(eax, _flags); /* lahf */")
                 if lifter.needs_cf:
-                    stmts.append("_cf = (int)(HI8(eax) & 1u); /* compare CF */")
+                    stmts.append("_cf = (int)(_flags & 1u); /* compare CF */")
                 last_flag_setter = curr.mnemonic
                 last_flag_ops = list(curr.operands)
                 i += 2
                 continue
+
+        # A preserved SSE snapshot also serves LAHF after POP/MOV/SSE work.
+        # Never re-read an operand here: LAHF itself can modify an address
+        # register (AH in EAX) used by the preceding comparison.
+        if (curr.mnemonic == "lahf"
+                and last_flag_setter in ("comiss", "ucomiss")):
+            stmts.append("SET_HI8(eax, _flags); /* lahf */")
+            i += 1
+            continue
 
         # Try cmp/test + jcc pattern first (2-instruction match)
         match = try_match_cmp_jcc(insns, i, lifter=lifter)

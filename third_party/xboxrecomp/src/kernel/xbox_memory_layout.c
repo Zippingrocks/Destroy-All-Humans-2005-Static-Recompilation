@@ -15,6 +15,7 @@
 #include "xbox_memory_layout.h"
 #include "kernel.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* XBE header field offsets (per xboxdevwiki.net/Xbe) */
@@ -1191,6 +1192,9 @@ uint32_t xbox_HeapRealloc(uint32_t xbox_va, uint32_t size, uint32_t alignment)
 void xbox_HeapFree(uint32_t xbox_va)
 {
     static int frees = 0, matched = 0;
+    static int runtime_profile = -1;
+    if (runtime_profile < 0)
+        runtime_profile = getenv("DAH_RUNTIME_PROFILE") != NULL;
     if (!xbox_va) return;
     ++frees;
     if (frees <= 8) {
@@ -1201,7 +1205,8 @@ void xbox_HeapFree(uint32_t xbox_va)
     for (int i = 0; i < g_heap_block_count; ++i) {
         if (g_heap_blocks[i].addr != xbox_va || g_heap_blocks[i].free) continue;
         g_heap_blocks[i].free = 1;
-        if (++matched % 512 == 0) {
+        ++matched;
+        if (runtime_profile && matched % 512 == 0) {
             fprintf(stderr, "  [HEAP] frees=%d matched=%d blocks=%d\n",
                     frees, matched, g_heap_block_count);
             fflush(stderr);

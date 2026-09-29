@@ -4666,7 +4666,6 @@ void sub_00090AB0(void)
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
-
 loc_00090AB0: ;
     eax = MEM32(esp + 4);
     edx = MEM32(ecx);
@@ -43988,6 +43987,51 @@ loc_000A1288: ;
 }
 
 /**
+ * sub_000A1290
+ * Original: 0x000A1290 - 0x000A12C0 (48 bytes, 17 insns)
+ * Category: game_vtable
+ * CC: thiscall, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_000A1290(void)
+{
+    uint32_t ebp;
+    ebp = g_ebp;  /* frameless: caller's frame */
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+    ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+
+loc_000A1290: ;
+    PUSH32(esp, esi);
+    esi = ecx;
+    ecx = MEM32(esi + 0x20);
+    eax = MEM32(ecx + 0xD0);
+    eax = eax >> 8;
+    _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(1) & 0xFFu;
+    _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), 1 (8-bit) */
+    if (TEST_NZ(_fa, _fb)) goto loc_000A12B8; /* jne: not equal / not zero */
+
+loc_000A12A3: ;
+    edx = MEM32(ecx);
+    { uint32_t _icall_esp = g_esp;
+    PUSH32(esp, 1);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0xC3200DC8u);
+    { uint32_t _icall_target = MEM32(edx + 0x140); PUSH32(esp, 0x000A12B8u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
+    }
+
+loc_000A12B8: ;
+    ecx = esi;
+    POP32(esp, esi);
+    g_seh_ebp = ebp; sub_00099A10(); return; /* tail jmp 0x00099A10 */
+
+}
+
+/**
  * sub_000A12D0
  * Original: 0x000A12D0 - 0x000A131E (78 bytes, 22 insns)
  * Category: game_vtable
@@ -48300,6 +48344,38 @@ void sub_000A3000(void)
     #define fp_st(i) g_fp_stack[(g_fp_top + (i)) & 7u]
     #define fp_st1() fp_st(1)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+    static unsigned dah_holobob_target_attempts;
+    unsigned dah_holobob_target_attempt=++dah_holobob_target_attempts;
+    int dah_holobob_target_trace=getenv("DAH_HOLOBOB_TRACE")&&dah_holobob_target_attempt<=32u;
+    if(dah_holobob_target_trace&&dah_holobob_target_attempt==1u){
+        unsigned dah_holobob_allowed_count=0u,dah_holobob_allowed_logged=0u;
+        /* Diagnostic inventory only: locate live heap objects whose metadata
+         * carries the exact retail Holobob-allowed byte checked by A33C0.
+         * This lets the acquisition route aim at a real eligible actor rather
+         * than mistaking the tutorial marker for a selector target. */
+        for(uint32_t object=0x02800000u;object<0x03000000u;object+=4u){
+            uint32_t vtable=MEM32(object),meta=MEM32(object+0x1Cu);
+            if(vtable<0x00200000u||vtable>=0x00250000u||
+               meta<0x00010000u||meta>=0x03FFF000u)continue;
+            if(MEM8(meta+0x51Bu)!=1u)continue;
+            if(dah_holobob_allowed_logged<128u){
+                uint32_t transform=MEM32(object+0x28u);
+                float px=NAN,py=NAN,pz=NAN;
+                if(transform>=0x00010000u&&transform<0x03FFFFC0u){
+                    px=MEMF(transform+0x2Cu);py=MEMF(transform+0x30u);
+                    pz=MEMF(transform+0x34u);
+                }
+                fprintf(stderr,"[DAH-HOLOBOB-ELIGIBLE] object=%08X vtable=%08X meta=%08X words=%08X,%08X,%08X,%08X pos=%g,%g,%g\n",
+                    object,vtable,meta,MEM32(object+0x18u),MEM32(object+0x20u),
+                    MEM32(object+0x24u),MEM32(object+0x28u),
+                    (double)px,(double)py,(double)pz);
+                ++dah_holobob_allowed_logged;
+            }
+            ++dah_holobob_allowed_count;
+        }
+        fprintf(stderr,"[DAH-HOLOBOB-ELIGIBLE] total=%u logged=%u\n",
+            dah_holobob_allowed_count,dah_holobob_allowed_logged);
+    }
 
 loc_000A3000: ;
     esp = esp - 0xC4;
@@ -48316,6 +48392,9 @@ loc_000A3000: ;
     PUSH32(esp, 0x000A302Au); sub_000A6F60(); /* call 0x000A6F60 */
 
 loc_000A302A: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=direct-query query=%08X node=%08X\n",
+        dah_holobob_target_attempt,ebx,eax);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A30B5; /* je: equal / zero */
@@ -48329,6 +48408,9 @@ loc_000A3032: ;
 
 loc_000A3039: ;
     ebp = eax;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=direct-object object=%08X\n",
+        dah_holobob_target_attempt,ebp);
     _fa = (uint32_t)(ebp) & 0xFFFFFFFFu; _fb = (uint32_t)(ebp) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test ebp, ebp (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A30B5; /* je: equal / zero */
@@ -48342,6 +48424,9 @@ loc_000A303F: ;
     }
 
 loc_000A304C: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=direct-class object=%08X allowed=%u\n",
+        dah_holobob_target_attempt,ebp,(unsigned)(LO8(eax)!=0));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A30B5; /* je: equal / zero */
@@ -48354,6 +48439,9 @@ loc_000A3050: ;
     }
 
 loc_000A305F: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=direct-state object=%08X blocked=%u\n",
+        dah_holobob_target_attempt,ebp,(unsigned)(LO8(eax)!=0));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_000A30B5; /* jne: not equal / not zero */
@@ -48382,6 +48470,9 @@ loc_000A306E: ;
     PUSH32(esp, 0x000A309Bu); sub_000D4E40(); /* call 0x000D4E40 */
 
 loc_000A309B: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=direct-distance object=%08X distance=%g limit=%g\n",
+        dah_holobob_target_attempt,ebp,(double)fp_top(),(double)MEMF(esi+0x108));
     g_fp_cmp = RECOMP_FCMP(fp_top(), MEMF(esi + 0x108)); fp_pop(); /* fcomp dword ptr [esi + 0x108] */
     eax = (eax & 0xFFFF0000u) | (uint32_t)(uint16_t)(((g_fp_top & 7u) << 11) | (g_fp_cmp == 2 ? 0x4500u : g_fp_cmp < 0 ? 0x0100u : g_fp_cmp > 0 ? 0x0000u : 0x4000u)); /* fnstsw ax <- fpu status */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(5) & 0xFFu;
@@ -48389,6 +48480,9 @@ loc_000A309B: ;
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_000A30B5; /* jp: parity */
 
 loc_000A30A8: ;
+    if(dah_holobob_target_trace){fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=result-direct object=%08X\n",
+        dah_holobob_target_attempt,ebp);fflush(stderr);}
     eax = ebp;
     POP32(esp, edi);
     POP32(esp, esi);
@@ -48510,6 +48604,16 @@ loc_000A3198: ;
     PUSH32(esp, 0x000A31D1u); sub_000D5010(); /* call 0x000D5010 */
 
 loc_000A31D1: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=fallback-geometry "
+        "origin=%g,%g,%g forward=%g,%g,%g spread=%g step=%g limit=%g "
+        "focus=%g,%g,%g focusHandle=%08X mode=%u\n",
+        dah_holobob_target_attempt,
+        (double)MEMF(esp+0x30),(double)MEMF(esp+0x34),(double)MEMF(esp+0x38),
+        (double)MEMF(esp+0x3C),(double)MEMF(esp+0x40),(double)MEMF(esp+0x44),
+        (double)MEMF(esp+0x4C),(double)MEMF(esp+0x10),(double)MEMF(esp+0x14),
+        (double)MEMF(ebx),(double)MEMF(ebx+4),(double)MEMF(ebx+8),
+        MEM32(ebx+0x10),(unsigned)MEM8(MEM32(MEM32(MEM32(esp+0x1C)+0x20)+0x138)+0x48));
     fp_push(MEMF(esp + 0x10)); /* fld float */
     g_fp_cmp = RECOMP_FCMP(fp_top(), MEMF(esp + 0x14)); fp_pop(); /* fcomp dword ptr [esp + 0x14] */
     eax = (eax & 0xFFFF0000u) | (uint32_t)(uint16_t)(((g_fp_top & 7u) << 11) | (g_fp_cmp == 2 ? 0x4500u : g_fp_cmp < 0 ? 0x0100u : g_fp_cmp > 0 ? 0x0000u : 0x4000u)); /* fnstsw ax <- fpu status */
@@ -48618,6 +48722,9 @@ loc_000A32D5: ;
     PUSH32(esp, 0x000A32EAu); sub_00129AF0(); /* call 0x00129AF0 */
 
 loc_000A32EA: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=fallback-query ok=%u count=%u list=%08X\n",
+        dah_holobob_target_attempt,(unsigned)(LO8(eax)!=0),MEM32(esp+0x24),MEM32(esp+0x2C));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A3330; /* je: equal / zero */
@@ -48651,6 +48758,9 @@ loc_000A3308: ;
 
 loc_000A330F: ;
     esi = eax;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=fallback-object index=%u object=%08X\n",
+        dah_holobob_target_attempt,edi,esi);
     _fa = (uint32_t)(esi) & 0xFFFFFFFFu; _fb = (uint32_t)(esi) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test esi, esi (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A3325; /* je: equal / zero */
@@ -48664,6 +48774,9 @@ loc_000A3315: ;
     }
 
 loc_000A3321: ;
+    if(dah_holobob_target_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=fallback-class index=%u object=%08X allowed=%u\n",
+        dah_holobob_target_attempt,edi,esi,(unsigned)(LO8(eax)!=0));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_000A3327; /* jne: not equal / not zero */
@@ -48737,6 +48850,9 @@ loc_000A3396: ;
     if ((!RECOMP_PARITY8((_fa) & (_fb)))) goto loc_000A31E6; /* jnp: not parity */
 
 loc_000A33A9: ;
+    if(dah_holobob_target_trace){fprintf(stderr,
+        "[DAH-HOLOBOB-TARGET] attempt=%u stage=result object=%08X\n",
+        dah_holobob_target_attempt,esi);fflush(stderr);}
     POP32(esp, edi);
     eax = esi;
     POP32(esp, esi);
@@ -48767,6 +48883,10 @@ void sub_000A33C0(void)
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+    static unsigned dah_holobob_activate_attempts;
+    unsigned dah_holobob_activate_attempt = ++dah_holobob_activate_attempts;
+    int dah_holobob_activate_trace = getenv("DAH_HOLOBOB_TRACE") &&
+        dah_holobob_activate_attempt <= 64u;
 
 loc_000A33C0: ;
     PUSH32(esp, esi);
@@ -48779,6 +48899,12 @@ loc_000A33CD: ;
     PUSH32(esp, 0x000A33D4u); sub_0008AD10(); /* call 0x0008AD10 */
 
 loc_000A33D4: ;
+    if (dah_holobob_activate_trace) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-ACTIVATE] attempt=%u stage=global self=%08X result=%08X "
+                "owner=%08X state=%08X\n",
+                dah_holobob_activate_attempt,esi,eax,MEM32(esi+0x20),MEM32(esi+0x44));
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A3494; /* je: equal / zero */
@@ -48812,12 +48938,24 @@ loc_000A33F9: ;
     ebx = 0; /* xor self */
 
 loc_000A33FB: ;
+    if (dah_holobob_activate_trace) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-ACTIVATE] attempt=%u stage=owner raw=%08X accepted=%08X\n",
+                dah_holobob_activate_attempt,edi,ebx);
+    }
     PUSH32(esp, ebp);
     ebp = MEM32(esi + 0x10);
     ecx = ebx;
     PUSH32(esp, 0x000A3406u); sub_0007E650(); /* call 0x0007E650 */
 
 loc_000A3406: ;
+    if (dah_holobob_activate_trace) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-ACTIVATE] attempt=%u stage=owner-eligibility owner=%08X "
+                "blocked=%u ownerState=%08X\n",
+                dah_holobob_activate_attempt,ebx,(unsigned)(LO8(eax)!=0),
+                ebx ? MEM32(ebx+0x2FC) : 0xFFFFFFFFu);
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_000A3491; /* jne: not equal / not zero */
@@ -48844,6 +48982,14 @@ loc_000A342E: ;
 
 loc_000A3435: ;
     edi = eax;
+    if (dah_holobob_activate_trace) {
+        uint32_t dah_target_meta = edi ? MEM32(edi+0x1C) : 0u;
+        fprintf(stderr,
+                "[DAH-HOLOBOB-ACTIVATE] attempt=%u stage=target target=%08X meta=%08X "
+                "holobobFlag=%u\n",
+                dah_holobob_activate_attempt,edi,dah_target_meta,
+                dah_target_meta ? (unsigned)MEM8(dah_target_meta+0x51B) : 0u);
+    }
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(edi) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test edi, edi (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A34B2; /* je: equal / zero */
@@ -48868,6 +49014,12 @@ loc_000A345C: ;
     PUSH32(esp, 0x000A3463u); sub_00097C90(); /* call 0x00097C90 */
 
 loc_000A3463: ;
+    if (dah_holobob_activate_trace) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-ACTIVATE] attempt=%u stage=commit-check target=%08X allowed=%u\n",
+                dah_holobob_activate_attempt,edi,(unsigned)(LO8(eax)!=0));
+        fflush(stderr);
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000A3496; /* je: equal / zero */
@@ -48967,6 +49119,15 @@ loc_000A3650: ;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x1E8B523C) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0x1E8B523C (32-bit) */
     esi = ecx;
+    if (getenv("DAH_HOLOBOB_TRACE") && eax == 0x1E8B523Cu &&
+        MEM32(edi+8) == 0xBBB07510u) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-MAIN-EVENT] self=%08X event=%08X hash=%08X "
+                "value=%08X state=%08X active34=%u target=%08X token=%08X\n",
+                esi,edi,eax,MEM32(edi+8),MEM32(esi+0x44),
+                (unsigned)MEM8(esi+0x34),MEM32(esi+0x178),MEM32(esi+0x17C));
+        fflush(stderr);
+    }
     if (CMP_EQ(_fa, _fb)) goto loc_000A3679; /* je: equal / zero */
 
 loc_000A3662: ;

@@ -117,13 +117,19 @@ static DWORD hash_blend_states(const DWORD *rs)
 
 static DWORD hash_ds_states(const DWORD *rs)
 {
-    return rs[D3DRS_ZENABLE] ^
-           (rs[D3DRS_ZWRITEENABLE] << 2) ^
-           (rs[D3DRS_ZFUNC] << 4) ^
-           (rs[D3DRS_STENCILENABLE] << 8) ^
-           (rs[D3DRS_STENCILFUNC] << 10) ^
-           (rs[D3DRS_STENCILREF] << 14) ^
-           (rs[D3DRS_STENCILMASK] << 18);
+    static const D3DRENDERSTATETYPE keys[] = {
+        D3DRS_ZENABLE, D3DRS_ZWRITEENABLE, D3DRS_ZFUNC,
+        D3DRS_STENCILENABLE, D3DRS_STENCILFAIL, D3DRS_STENCILZFAIL,
+        D3DRS_STENCILPASS, D3DRS_STENCILFUNC, D3DRS_STENCILMASK,
+        D3DRS_STENCILWRITEMASK
+    };
+    DWORD hash = 2166136261u;
+    size_t i;
+    for (i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i) {
+        hash ^= rs[keys[i]];
+        hash *= 16777619u;
+    }
+    return hash;
 }
 
 static DWORD hash_raster_states(const DWORD *rs)

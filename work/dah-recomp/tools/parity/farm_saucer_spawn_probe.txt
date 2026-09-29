@@ -1,0 +1,42 @@
+# intro.bik blocks the retail frame clock while controller polling continues.
+3600 6 0 255 0 0 0 0 0
+
+@frame
+# Fresh-profile retail route into Turnipseed Farm.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+3400 6 0 255 0 0 0 0 0
+4300 6 0 255 0 0 0 0 0
+4700 6 0 255 0 0 0 0 0
+
+@gameplay
+# Crypto begins 6.3 world units from his saucer after the readiness probe.
+# Three short measured movements close the remaining X/Y gap before the
+# context presses without teleporting or writing guest state.
+0 15 0 0 0 -32768 0 0 0
+15 12 0 0 0 0 -32768 0 0
+27 8 0 0 0 -32768 0 0 0
+35 7 0 0 0 -32768 0 0 0
+60 6 0 255 0 0 0 0 0
+160 6 0 255 0 0 0 0 0
+260 6 0 255 0 0 0 0 0
+360 6 0 255 0 0 0 0 0
+
+# When focus is the ship: RT primary fire, X cycles the UFO weapon, B/Y use
+# auxiliary slots, movement exercises flight, and A tests landing/takeoff.
+800 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+900 6 0 0 0 0 0 0 0 255 0 0 0 0 0
+960 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+1080 6 0 0 255 0 0 0 0 0 0 0 0 0 0
+1200 6 0 0 0 0 0 0 0 0 255 0 0 0 0
+1350 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+1700 6 0 255 0 0 0 0 0
+1950 6 0 0 0 0 0 0 0
+2300 6 0 0 0 0 0 0 0
+2700 6 0 0 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0

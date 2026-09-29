@@ -12,6 +12,7 @@
 #include "dah_frame.h"
 #include "dah_retail_ring.h"
 #include "dah_timing.h"
+#include "dah_renderdoc.h"
 
 uint64_t dah_read_tsc(void)
 {
@@ -183,13 +184,28 @@ static int guest_text_is(uint32_t address, const char *expected)
                   expected, length + 1u) == 0;
 }
 
-/* Keep the last loading image on screen while Farm commits all three of its
- * retail packages. Once the active backend is complete, render a short hidden
- * warm-up so the first newly presented site frame already has its initial GPU
- * resources, Crypto, camera, and world installed. Simulation is never paused. */
+static int dah_farm_visible_gameplay;
+static int dah_presentation_held;
+
+int dah_frame_presentation_held(void)
+{
+    return dah_presentation_held;
+}
+
+int dah_frame_gameplay_visual_ready(void)
+{
+    return dah_farm_visible_gameplay;
+}
+
+/* Legacy diagnostic only. Retail owns loading/titlecard/cinematic presentation
+ * through its backbuffer and UI draws. Freezing the host surface concealed the
+ * entire 88-loop titlecard and the beginning of the cinematic while simulation
+ * kept advancing. Leave presentation live; retain the old heuristic only for
+ * explicitly requested internal A/B reproductions. */
 static int dah_farm_presentation_hold(int real_draw)
 {
     enum { IDLE, HOLDING, REVEALED };
+    static int legacy_diagnostic = -1;
     static int state;
     static unsigned warm_frames;
     static int visual_ready;
@@ -198,6 +214,15 @@ static int dah_farm_presentation_hold(int real_draw)
     const uint32_t driver = 0x0025B1D0u;
     uint32_t current, pending, system, player, actor, camera, world;
     int current_farm, pending_farm, ready;
+
+    if (legacy_diagnostic < 0) {
+        const char *internal = getenv("DAH_INTERNAL_RUN");
+        const char *hold = getenv("DAH_FARM_PRESENTATION_HOLD");
+        legacy_diagnostic = internal && !strcmp(internal, "1") && hold && !strcmp(hold, "1");
+        if (legacy_diagnostic)
+            fprintf(stderr, "[DAH-FARM-PRELOAD] legacy internal A/B hold enabled; not retail presentation\n");
+    }
+    if (!legacy_diagnostic) return 0;
 
     if (guest_u32(driver) != 0x0022B510u) return 0;
     current = guest_u32(driver + 0x4A28u);
@@ -209,20 +234,25 @@ static int dah_farm_presentation_hold(int real_draw)
 
     if (state == IDLE && (current_farm || pending_farm)) {
         state = HOLDING;
+        dah_farm_visible_gameplay = 0;
         warm_frames = 0;
         visual_ready = 0;
         blank_samples = 0;
         transition_blank_seen = 0;
-        fprintf(stderr, "[DAH-FARM-PRELOAD] hold=1 current=%08X pending=%08X\n",
-                current, pending);
+        fprintf(stderr, "[DAH-FARM-PRELOAD] hold=1 current=%08X pending=%08X loop=%u host-frame=%llu\n",
+                current, pending,guest_u32(0x0025B1DCu),dah_frame_serial());
     }
     if (state == REVEALED) {
-        if (!current_farm && !pending_farm) state = IDLE;
+        if (!current_farm && !pending_farm) {
+            state = IDLE;
+            dah_farm_visible_gameplay = 0;
+        }
         return 0;
     }
     if (state != HOLDING) return 0;
     if (!current_farm && !pending_farm) {
         state = IDLE;
+        dah_farm_visible_gameplay = 0;
         warm_frames = 0;
         visual_ready = 0;
         blank_samples = 0;
@@ -253,9 +283,11 @@ static int dah_farm_presentation_hold(int real_draw)
     }
     if ((warm_frames >= 12u && visual_ready) || warm_frames >= 360u) {
         state = REVEALED;
+        dah_farm_visible_gameplay = 1;
         fprintf(stderr,
-                "[DAH-FARM-PRELOAD] hold=0 backend=%08X state=22 warm-frames=%u blank-seen=%d visual-ready=%d actor=%08X camera=%08X world=%08X\n",
-                current, warm_frames, transition_blank_seen, visual_ready, actor, camera, world);
+                "[DAH-FARM-PRELOAD] hold=0 backend=%08X state=22 warm-frames=%u blank-seen=%d visual-ready=%d actor=%08X camera=%08X world=%08X loop=%u host-frame=%llu\n",
+                current, warm_frames, transition_blank_seen, visual_ready, actor, camera, world,
+                guest_u32(0x0025B1DCu),dah_frame_serial());
         return 0;
     }
     return 1;
@@ -326,7 +358,10 @@ static void sample_policy(void)
     if (rate_override < 0) {
         const char *value = getenv("DAH_FPS");
         int parsed = value ? atoi(value) : 0;
-        rate_override = (parsed == 60) ? 60 : 30;
+        /* Production follows the title's own renderer divisor.  30/60 are
+         * explicit diagnostic overrides only; an unset or invalid value must
+         * never silently replace a retail-selected rate. */
+        rate_override = (parsed == 30 || parsed == 60) ? parsed : 0;
     }
 
     if (guest_range(renderer, 0x2CCu)) {
@@ -352,8 +387,9 @@ static void sample_policy(void)
     if (hz != frame.hz || divisor != frame.divisor ||
         renderer != frame.renderer || variable_step != frame.variable_step) {
         fprintf(stderr,
-                "[DAH-FRAME-POLICY] renderer=%08X world=%08X refresh=%u divisor=%u target=%.3f update-mode=%s interval=%08X\n",
+                "[DAH-FRAME-POLICY] renderer=%08X world=%08X refresh=%u divisor=%u target=%.3f rate-source=%s update-mode=%s interval=%08X\n",
                 renderer, world, hz, divisor, (double)hz / divisor,
+                rate_override ? "diagnostic-override" : "retail",
                 variable_step ? "measured-delta" : "retail-fixed-step",
                 renderer ? guest_u32(renderer + 0x2C8u) : 0u);
         fflush(stderr);
@@ -374,9 +410,14 @@ void dah_frame_begin(void)
     if (!frame.thread_id) {
         frame.thread_id = GetCurrentThreadId();
         {
-            BOOL process_priority = SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-            BOOL thread_priority = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-            fprintf(stderr, "[DAH-FRAME-PRIORITY] process-high=%d thread-highest=%d error=%lu\n",
+            const char *internal = getenv("DAH_INTERNAL_RUN");
+            int background = internal && !strcmp(internal, "1");
+            BOOL process_priority = SetPriorityClass(GetCurrentProcess(),
+                background ? BELOW_NORMAL_PRIORITY_CLASS : HIGH_PRIORITY_CLASS);
+            BOOL thread_priority = SetThreadPriority(GetCurrentThread(),
+                background ? THREAD_PRIORITY_NORMAL : THREAD_PRIORITY_HIGHEST);
+            fprintf(stderr, "[DAH-FRAME-PRIORITY] mode=%s process-set=%d thread-set=%d error=%lu\n",
+                    background ? "background-below-normal" : "foreground-high",
                     process_priority != FALSE, thread_priority != FALSE,
                     (unsigned long)GetLastError());
         }
@@ -453,6 +494,7 @@ void dah_frame_begin(void)
     pgraph_d3d11_get_stats(&stats);
     frame.draws_before = stats.draw_calls;
     frame.active = 1;
+    dah_renderdoc_begin(dah_frame_serial()+1u,guest_u32(0x0025B1DCu));
     dah_console_poll_game_thread();
 }
 
@@ -503,6 +545,8 @@ static void drain_retail_pushbuffer(void)
 
 static uint64_t g_dah_frame_serial;
 
+#include "dah_parity_state.h"
+
 uint64_t dah_frame_serial(void)
 {
     return g_dah_frame_serial;
@@ -538,10 +582,13 @@ void dah_frame_end(void)
 
     /* QPC pacing owns the title's 50/60 Hz timing, independent of a PC
      * monitor's refresh rate and of DXGI occlusion behavior. */
-    d3d8_SetPresentationHold(dah_farm_presentation_hold(real_draw));
+    dah_presentation_held=dah_farm_presentation_hold(real_draw);
+    d3d8_SetPresentationHold(dah_presentation_held);
+    dah_parity_trace_state(g_dah_frame_serial);
     present_start=clock_seconds();
     render_ms += (present_start-phase_start)*1000.0;
     result = d3d8_PresentFrameWithInterval(0u);
+    dah_renderdoc_end(g_dah_frame_serial,guest_u32(0x0025B1DCu));
     present_ms += (clock_seconds()-present_start)*1000.0;
     if (result == S_OK && real_draw) dah_host_set_render_activity(1);
     if (result == DXGI_STATUS_OCCLUDED) frame.occluded_presents++;

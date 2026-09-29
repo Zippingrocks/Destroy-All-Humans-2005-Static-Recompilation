@@ -60,3 +60,11 @@ third_party/xboxrecomp/**/__pycache__/
 main_menu_reference.png
 work/dah-extraction-audit/
 work/disasm-inputfix/
+work/disasm-cortex/
+
+# Local parity captures and one-off callback recovery scratch
+work/dah-recomp/build-parity-visible/
+work/dah-recomp/build-parity-xemu/
+work/dah-recomp/regen-one/
+/dah_pb_indexed_*.bin
+/dah_resource_*.bin

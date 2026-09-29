@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_x87_round.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8739,7 +8740,7 @@ loc_0010EE1F: ;
 
 loc_0010EE30: ;
     fp_push(MEMF(esp + 4)); /* fld float */
-    fp_top() = fp_top() + MEMF(0x22897C); /* fadd dword ptr [0x22897c] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() + MEMF(0x22897C), g_fp_control_word); /* fadd dword ptr [0x22897c] */
     MEMF(esp + 4) = (float)fp_top(); fp_pop(); /* fstp */
 
 loc_0010EE3E: ;
@@ -8758,7 +8759,7 @@ loc_0010EE4D: ;
 
 loc_0010EE5E: ;
     fp_push(MEMF(esp + 8)); /* fld float */
-    fp_top() = fp_top() + MEMF(0x22897C); /* fadd dword ptr [0x22897c] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() + MEMF(0x22897C), g_fp_control_word); /* fadd dword ptr [0x22897c] */
     MEMF(esp + 8) = (float)fp_top(); fp_pop(); /* fstp */
 
 loc_0010EE6C: ;
@@ -8771,18 +8772,18 @@ loc_0010EE6C: ;
 
 loc_0010EE7B: ;
     fp_push(MEMF(esp + 8)); /* fld float */
-    fp_top() = fp_top() - MEMF(esp + 4); /* fsub dword ptr [esp + 4] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() - MEMF(esp + 4), g_fp_control_word); /* fsub dword ptr [esp + 4] */
     fp_push(MEMF(0x22897C)); /* fld float */
-    fp_top() = fp_top() - MEMF(esp + 8); /* fsub dword ptr [esp + 8] */
-    fp_top() = fp_top() + MEMF(esp + 4); /* fadd dword ptr [esp + 4] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() - MEMF(esp + 8), g_fp_control_word); /* fsub dword ptr [esp + 8] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() + MEMF(esp + 4), g_fp_control_word); /* fadd dword ptr [esp + 4] */
     goto loc_0010EEA9;
 
 loc_0010EE93: ;
     fp_push(MEMF(0x22897C)); /* fld float */
-    fp_top() = fp_top() - MEMF(esp + 4); /* fsub dword ptr [esp + 4] */
-    fp_top() = fp_top() + MEMF(esp + 8); /* fadd dword ptr [esp + 8] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() - MEMF(esp + 4), g_fp_control_word); /* fsub dword ptr [esp + 4] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() + MEMF(esp + 8), g_fp_control_word); /* fadd dword ptr [esp + 8] */
     fp_push(MEMF(esp + 4)); /* fld float */
-    fp_top() = fp_top() - MEMF(esp + 8); /* fsub dword ptr [esp + 8] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(fp_top() - MEMF(esp + 8), g_fp_control_word); /* fsub dword ptr [esp + 8] */
 
 loc_0010EEA9: ;
     MEMF(esp + 4) = (float)fp_top(); fp_pop(); /* fstp */

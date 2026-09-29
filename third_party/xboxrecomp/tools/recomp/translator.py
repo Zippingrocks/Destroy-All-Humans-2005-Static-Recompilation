@@ -655,10 +655,12 @@ class FunctionTranslator:
         if "ebp" in used_regs and not self._func_has_prologue(instructions):
             lines.append("    ebp = g_ebp;  /* frameless: caller's frame */")
 
-        # Add _flags variable if function has conditional instructions
+        # SSE comparisons snapshot EFLAGS even when only LAHF/ADC consumes
+        # them, so those functions need storage without a conditional branch.
         has_conditionals = any(
             insn.is_cond_jump or insn.mnemonic.startswith("set")
             or insn.mnemonic.startswith("cmov")
+            or insn.mnemonic in ("comiss", "ucomiss")
             for insn in instructions)
         if has_conditionals:
             lines.append(f"    int _flags = 0; /* fallback flag var */")

@@ -7,8 +7,8 @@ original Xbox executable. It is not yet a finished playable port.
 > any gameplay issue fixed on a build that has not passed the complete
 > controller acceptance gate in `tools/CONTROLLER_ACCEPTANCE_GATE.md`.
 > Forward/backward physical displacement, all eight movement directions,
-> four-way camera motion, neutral stability, and the two-minute 30 FPS walk
-> are one indivisible gate. One failure means the controller remains broken;
+> four-way camera motion, neutral stability, and physical controller/keyboard
+> verification are one indivisible gate. One failure means the controller remains broken;
 > no partial pass, visual impression, or "closer" result may override it.
 
 > **For AI agents / future sessions: read this first.** `DAH_FRAME_TURBO=1`
@@ -75,9 +75,9 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Developer builds currently produce `build/Release/DestroyAllHumans.exe`.
-The tested user build is published as `build-ninja/dah.exe`, the only game
-launcher in that folder. Previous launchers are preserved in verified ZIP
+Developer builds produce `dah_recomp_working.exe`; hidden parity builds produce
+`dah_recomp_internal.exe`. The single player-facing launcher is the repository
+root `DestroyAllHumans.exe`. Previous launchers are preserved in verified ZIP
 archives under `build-ninja/backups`.
 The build copies the locally extracted `default.xbe` beside it. Game data
 remains user-supplied and must not be redistributed.
@@ -143,24 +143,31 @@ performance. Native sound output remains unfinished; see the audio limitation.
 A disabled static image probe is diagnostic only and never counts as working
 game rendering.
 
-Each run writes `recomp.log` beside the executable.
+Each run writes `furonlog.log` beside the executable unless `DAH_LOG_PATH`
+selects a different diagnostic path.
 
 ## Runtime bring-up modes
 
-Active tests use `build-internal/DestroyAllHumans.exe`, with separate copies
+Active tests use `build-internal/dah_recomp_internal.exe`, with separate copies
 of game data and separate saves/logs. The user's `build-ninja` binary is not
-updated by internal builds. A reversible frame-rate setting is available:
+updated by internal builds. A reversible diagnostic frame-rate override is
+available:
 
 ```powershell
 $env:DAH_FPS = '30'
-.\dah.exe
+.\DestroyAllHumans.exe
 ```
 
-`DAH_FPS=60` selects the explicit 60 Hz path. Both paths set the retail world
-divisor, but correct cutscene/gameplay speed still needs verification. The keyboard
-fallback maps WASD/arrows to movement, Enter/Space to A, Q to B, F to X, R to
-Y, and Escape to Back; a physical XInput controller is still preferred when
-available.
+With `DAH_FPS` unset, the player build follows the retail renderer divisor for
+each game state. `DAH_FPS=30` and `DAH_FPS=60` force diagnostic overrides;
+correct cutscene/gameplay speed under an override still needs verification. The
+keyboard fallback maps WASD to left-stick movement, arrow keys to the digital
+menu D-pad, Enter/Space to A, Q to B, F to X, R to Y, and Escape to Back.
+WASD deliberately does not emit D-pad buttons during gameplay; a physical
+XInput controller is still preferred when available.
+
+See `FPS_ACCURACY_AUDIT.md` for the retail timing evidence and state-specific
+validation gates.
 
 `DAH_HOST_FRAME=1` explicitly enables the static presentation probe if
 `movies\\saucer_frame_030.raw` is beside the executable. Leave it unset or

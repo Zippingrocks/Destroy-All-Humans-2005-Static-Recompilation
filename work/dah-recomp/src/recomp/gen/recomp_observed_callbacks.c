@@ -10,6 +10,7 @@ void sub_000816A0(void);
 void sub_00087F30(void);
 void sub_001890A0(void);
 void sub_000121B0(void);
+void sub_00041540(void);
 void sub_00136CF0(void);
 void sub_0008DC70(void);
 void sub_00011F20(void);
@@ -3872,6 +3873,39 @@ loc_000817B0: ;
 
 
 /**
+ * sub_00041540
+ * Original: 0x00041540 - 0x00041565 (37 bytes, 8 insns)
+ * CC: cdecl, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_00041540(void)
+{
+    uint32_t ebp;
+    ebp = g_ebp;  /* frameless: caller's frame */
+    int _flags = 0;
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+    ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+
+loc_00041540: ;
+    eax = MEM32(esp + 4);
+    SET_LO8(edx, MEM8(ecx + 0x120));
+    _fa = (uint32_t)(LO8(edx)) & 0xFFu; _fb = (uint32_t)(LO8(edx)) & 0xFFu;
+    _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test dl, dl */
+    MEM8(ecx + 0x122) = LO8(eax);
+    MEM32(esp + 4) = 0;
+    if (TEST_NZ(_fa, _fb)) goto loc_00041560;
+
+loc_0004155C: ;
+    MEM32(esp + 4) = eax;
+
+loc_00041560: ;
+    g_seh_ebp = ebp; sub_00109710(); return; /* tail jmp 0x00109710 */
+}
+
+
+/**
  * sub_00043600
  * Original: 0x00043600 - 0x00043608 (8 bytes, 2 insns)
  * CC: cdecl, 0 params, returns int_or_void
@@ -4058,6 +4092,22 @@ loc_000A34F0: ;
     PUSH32(esp, ebx);
     PUSH32(esp, esi);
     esi = ecx;
+    if (getenv("DAH_HOLOBOB_TRACE")) {
+        static uint32_t dah_holobob_last_self;
+        static uint32_t dah_holobob_last_state=0xFFFFFFFFu;
+        uint32_t dah_holobob_state=MEM32(esi+0x44);
+        if (esi!=dah_holobob_last_self || dah_holobob_state!=dah_holobob_last_state) {
+            fprintf(stderr,
+                    "[DAH-HOLOBOB-STATE] self=%08X state=%08X active34=%u "
+                    "flags174=%u,%u target=%08X token=%08X timer=%08X\n",
+                    esi,dah_holobob_state,(unsigned)MEM8(esi+0x34),
+                    (unsigned)MEM8(esi+0x174),(unsigned)MEM8(esi+0x175),
+                    MEM32(esi+0x178),MEM32(esi+0x17C),MEM32(esi+0x18C));
+            fflush(stderr);
+            dah_holobob_last_self=esi;
+            dah_holobob_last_state=dah_holobob_state;
+        }
+    }
     eax = MEM32(esi + 0x44);
     eax = eax - 2;
     PUSH32(esp, edi);
@@ -5155,6 +5205,17 @@ loc_0009ECF0: ;
     PUSH32(esp, esi);
     PUSH32(esp, edi);
     edi = ecx;
+    if (getenv("DAH_HOLOBOB_TRACE") && eax == 0x1E8B523Cu) {
+        uint32_t action = MEM32(ebp + 8);
+        if (action != 0x2FC1CD5Du && action != 0x2B00D0EAu) {
+            fprintf(stderr,
+                    "[DAH-WEAPON-MANAGER-ACTION] self=%08X event=%08X "
+                    "action=%08X arg0=%08X arg1=%08X active=%08X slots=%08X,%08X,%08X\n",
+                    edi,ebp,action,MEM32(ebp+0xC),MEM32(ebp+0x10),
+                    MEM32(edi+0x58),MEM32(edi+0x4C),MEM32(edi+0x50),MEM32(edi+0x54));
+            fflush(stderr);
+        }
+    }
     if (CMP_EQ(_fa, _fb)) goto loc_0009ED64; /* je: equal / zero */
 
 loc_0009ED07: ;
@@ -7869,6 +7930,14 @@ loc_000A2D70: ;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x1E8B523C) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0x1E8B523C (32-bit) */
     esi = ecx;
+    if (getenv("DAH_HOLOBOB_TRACE")) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-EVENT] self=%08X event=%08X hash=%08X value=%08X "
+                "owner=%08X state=%08X helper=%08X,%08X,%08X,%08X\n",
+                esi,edi,eax,MEM32(edi+8),MEM32(esi+0x20),MEM32(esi+0x44),
+                MEM32(esi+0x48),MEM32(esi+0x4C),MEM32(esi+0x50),MEM32(esi+0x54));
+        fflush(stderr);
+    }
     if (CMP_EQ(_fa, _fb)) goto loc_000A2DA4; /* je: equal / zero */
 
 loc_000A2D82: ;
@@ -8291,6 +8360,14 @@ void sub_000A2D50(void)
 loc_000A2D50: ;
     PUSH32(esp, esi);
     esi = ecx;
+    if (getenv("DAH_HOLOBOB_TRACE")) {
+        fprintf(stderr,
+                "[DAH-HOLOBOB-DEACTIVATE] self=%08X owner=%08X state=%08X "
+                "helper=%08X,%08X,%08X,%08X\n",
+                esi,MEM32(esi+0x20),MEM32(esi+0x44),MEM32(esi+0x48),
+                MEM32(esi+0x4C),MEM32(esi+0x50),MEM32(esi+0x54));
+        fflush(stderr);
+    }
     PUSH32(esp, 0x000A2D58u); sub_000A2C50(); /* call 0x000A2C50 */
 
 loc_000A2D58: ;
@@ -19124,6 +19201,29 @@ void sub_00085FD0(void)
 loc_00085FD0: ;
     ecx = MEM32(ecx + 4);
     g_seh_ebp = ebp; sub_00085EA0(); return; /* tail jmp 0x00085EA0 */
+
+}
+
+/**
+ * sub_00085FE0
+ * Original: 0x00085FE0 - 0x00085FE8 (8 bytes, 2 insns)
+ * Category: game_vtable
+ * CC: cdecl, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ *
+ * Rockwell NPC/Holobob callback recovered from the retail XBE.  This is the
+ * alternate vtable thunk paired with sub_00085FD0; it forwards the embedded
+ * gameplay object to sub_00085F30.
+ */
+void sub_00085FE0(void)
+{
+    uint32_t ebp;
+    ebp = g_ebp;  /* frameless: caller's frame */
+    ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+
+loc_00085FE0: ;
+    ecx = MEM32(ecx + 4);
+    g_seh_ebp = ebp; sub_00085F30(); return; /* tail jmp 0x00085F30 */
 
 }
 

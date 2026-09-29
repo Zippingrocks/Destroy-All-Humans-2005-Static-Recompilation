@@ -9,9 +9,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include "dah_frame.h"
+#include "dah_x87_round.h"
 #include <stdio.h>
 
 extern uint32_t dah_monotonic_milliseconds(void);
+extern void dah_quat_constructor_trace(uint32_t destination, uint32_t axis,
+                                       uint32_t angle_bits, uint32_t guest_return);
 
 /* Low-impact lifecycle recorder for the intermittent finish-gate race.  Do
  * not print from the unregister path: stdio timing is enough to hide the
@@ -12719,8 +12722,8 @@ loc_000D4183: ;
 
 loc_000D418C: ;
     fp_push(MEMF(esp + 8)); /* fld float */
-    fp_top() = sqrt(fp_top()); /* fsqrt */
-    fp_top() = MEMF(esp + 4) / fp_top(); /* fdivr dword ptr [esp + 4] */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(sqrt(fp_top()), g_fp_control_word); /* fsqrt */
+    fp_top() = RECOMP_X87_APPLY_PRECISION(MEMF(esp + 4) / fp_top(), g_fp_control_word); /* fdivr dword ptr [esp + 4] */
     esp += 12; return; /* ret 8 */
 
     #undef fp_push
@@ -13511,14 +13514,16 @@ loc_000D45F7: ;
     xmm4 = XMM_SCALAR(MEMF(esp + 4)); /* movss */
 
 loc_000D4621: ;
-    /* comiss xmm2.f[0], MEMF(esp + 0x14) - sets EFLAGS */
+    /* COMISS precedes POP ESI in retail.  Preserve its flags here: after
+     * the pop, esp+0x14 names the caller's next word, not the acos input. */
+    _flags = RECOMP_COMISS_LAHF(xmm2.f[0], MEMF(esp + 0x14));
     xmm1 = XMM_SCALAR(MEMF(esp + 0xC)); /* movss */
     xmm1.f[0] = xmm1.f[0] - xmm4.f[0]; /* subss */
     xmm1.f[0] = xmm1.f[0] * xmm0.f[0]; /* mulss */
     xmm1.f[0] = xmm1.f[0] + xmm3.f[0]; /* addss */
     MEMF(esp + 4) = xmm1.f[0]; /* movss */
     POP32(esp, esi);
-    if ((xmm2.f[0] <= MEMF(esp + 0x14))) goto loc_000D4652; /* jbe: below or equal (unsigned <=) */
+    if (_flags & 0x41) goto loc_000D4652; /* jbe: original CF or ZF */
 
 loc_000D4641: ;
     xmm0 = XMM_SCALAR(MEMF(0x233630)); /* movss */
@@ -15930,6 +15935,7 @@ void sub_000D55D0(void)
     #define fp_st1() fp_st(1)
 
 loc_000D55D0: ;
+    dah_quat_constructor_trace(ecx, edx, MEM32(esp + 4), MEM32(esp));
     PUSH32(esp, ecx);
     PUSH32(esp, esi);
     PUSH32(esp, edi);

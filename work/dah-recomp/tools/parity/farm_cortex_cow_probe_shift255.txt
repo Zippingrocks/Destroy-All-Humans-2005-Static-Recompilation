@@ -1,0 +1,23 @@
+@frame
+# Validation variant for internal builds whose fresh-profile movie/loading path
+# reaches gameplay 255 host frames earlier than the canonical capture. Menu
+# inputs remain unchanged. The later approach includes a second fence hop;
+# retain guest position/state traces when changing these calibration rows.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+6945 300 0 0 0 0 32767 0 0
+7265 2 0 255 0 0 0 0 0
+7269 96 0 255 0 0 32767 0 0
+7365 288 0 0 0 0 32767 0 0
+8070 2 0 255 0 0 0 0 0
+8074 96 0 255 0 0 32767 0 0
+8170 100 0 0 0 0 32767 0 0
+8400 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+8420 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+8640 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+8660 180 0 255 0 0 0 0 0 0 0 0 0 255 0

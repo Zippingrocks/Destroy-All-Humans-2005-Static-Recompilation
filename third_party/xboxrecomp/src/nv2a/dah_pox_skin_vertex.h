@@ -214,6 +214,7 @@ static int dah_pox_skin_vertex(const float v[9][4],const float c[192][4],
     if(morph){
         for(unsigned m=0;m<4u;++m){
             if(!valid[85u*4u+m]||!dah_menu_finite(c[85][m]))return 0;
+            if(c[85][m]==0.0f)continue;
             for(unsigned axis=0;axis<3u;++axis){
                 if(!dah_menu_finite(v[5u+m][axis]))return 0;
                 inputs[0][axis]=dah_farm_mul(v[5u+m][axis],c[85][m])+inputs[0][axis];

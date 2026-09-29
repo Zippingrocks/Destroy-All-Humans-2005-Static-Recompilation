@@ -21,11 +21,14 @@
 #include <float.h>
 #include "dah_menu_vertex.h"
 #include "dah_farm_vertex.h"
+#include "dah_static_reflection_vertex.h"
+#include "dah_farm_deform_vertex.h"
 #include "dah_skin_vertex.h"
 #include "dah_unlit_vertex.h"
 #include "dah_color_mask.h"
 #include "dah_skin55_vertex.h"
 #include "dah_skin62_vertex.h"
+#include "dah_skin60_vertex.h"
 #include "dah_pox_skin_vertex.h"
 #include "dah_pox_vertex.h"
 #include "dah_bc1.h"
@@ -123,6 +126,36 @@ static uint32_t nv2a_blend_to_d3d(uint32_t nv) {
     }
 }
 
+/* NV097 uses GL-valued equations; D3DRS_BLENDOP uses D3DBLENDOP 1..5.
+ * NV2A's signed variants are exposed by xemu as their ordinary host blend
+ * operations because D3D8/D3D11 has no separate signed blend-op state. */
+static uint32_t nv2a_blend_equation_to_d3d(uint32_t nv)
+{
+    switch (nv) {
+    case NV097_SET_BLEND_EQUATION_V_FUNC_ADD:              return 1u;
+    case NV097_SET_BLEND_EQUATION_V_FUNC_ADD_SIGNED:       return 1u;
+    case NV097_SET_BLEND_EQUATION_V_FUNC_SUBTRACT:         return 2u;
+    case NV097_SET_BLEND_EQUATION_V_FUNC_REVERSE_SUBTRACT: return 3u;
+    case NV097_SET_BLEND_EQUATION_V_FUNC_REVERSE_SUBTRACT_SIGNED: return 3u;
+    case NV097_SET_BLEND_EQUATION_V_MIN:                   return 4u;
+    case NV097_SET_BLEND_EQUATION_V_MAX:                   return 5u;
+    default: return 0u;
+    }
+}
+
+static uint32_t nv2a_texture_address_to_d3d(uint32_t nv)
+{
+    switch (nv & 7u) {
+    case 1u: return D3DTADDRESS_WRAP;
+    case 2u: return D3DTADDRESS_MIRROR;
+    case 3u: return D3DTADDRESS_CLAMP;
+    case 4u: return D3DTADDRESS_BORDER;
+    /* NV2A's CLAMP_TO_EDGE_OGL mode uses host edge clamping. */
+    case 5u: return D3DTADDRESS_CLAMP;
+    default: return D3DTADDRESS_WRAP;
+    }
+}
+
 /* ══════════════════════════════════════════════════════════════════════
  * Translator State
  * ══════════════════════════════════════════════════════════════════════ */
@@ -181,6 +214,7 @@ static struct {
 
     /* Clear state */
     uint32_t clear_color;
+    uint32_t clear_zstencil;
     uint32_t clear_rect_h;  /* (width << 16) | x */
     uint32_t clear_rect_v;  /* (height << 16) | y */
 
@@ -191,6 +225,7 @@ static struct {
     int blend_enable;
     uint32_t blend_sfactor;
     uint32_t blend_dfactor;
+    uint32_t blend_equation;
     int cull_enable;
     int alpha_test;
     uint32_t alpha_func;
@@ -198,6 +233,14 @@ static struct {
     uint32_t cull_face;
     uint32_t front_face;
     uint32_t color_mask;
+    int stencil_test;
+    uint32_t stencil_mask;
+    uint32_t stencil_func;
+    uint32_t stencil_ref;
+    uint32_t stencil_func_mask;
+    uint32_t stencil_op_fail;
+    uint32_t stencil_op_zfail;
+    uint32_t stencil_op_zpass;
 
     /* Viewport */
     float vp_offset[4];
@@ -211,6 +254,8 @@ static struct {
     float clip_min, clip_max;
     uint8_t clip_range_valid;
     int fog_enable;
+    uint32_t fog_mode;
+    float fog_param[3];
     uint32_t fog_color_raw;
 
     /* Texture state per stage (4 stages) */
@@ -248,6 +293,60 @@ static struct {
     /* Init flag */
     int initialized;
 } g_pg;
+
+static int dah_apply_blend_state(IDirect3DDevice8 *dev, int enabled)
+{
+    uint32_t equation = nv2a_blend_equation_to_d3d(g_pg.blend_equation);
+    if (enabled && !equation) {
+        static unsigned reports;
+        if (reports++ < 16u)
+            fprintf(stderr, "[DAH-BLEND-REJECT] submit=%u equation=%08X source=%08X destination=%08X\n",
+                    g_pg.active_submission, g_pg.blend_equation,
+                    g_pg.blend_sfactor, g_pg.blend_dfactor);
+        return 0;
+    }
+    dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHABLENDENABLE, enabled);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_SRCBLEND,
+                                nv2a_blend_to_d3d(g_pg.blend_sfactor));
+    dev->lpVtbl->SetRenderState(dev, D3DRS_DESTBLEND,
+                                nv2a_blend_to_d3d(g_pg.blend_dfactor));
+    /* Disabled blending does not consume an unsupported equation. */
+    if (equation) dev->lpVtbl->SetRenderState(dev, D3DRS_BLENDOP, equation);
+    return 1;
+}
+
+static uint32_t dah_nv2a_stencil_op_to_d3d(uint32_t op)
+{
+    switch (op) {
+    case NV097_SET_STENCIL_OP_V_ZERO:    return 2u;
+    case NV097_SET_STENCIL_OP_V_REPLACE: return 3u;
+    case NV097_SET_STENCIL_OP_V_INCRSAT: return 4u;
+    case NV097_SET_STENCIL_OP_V_DECRSAT: return 5u;
+    case NV097_SET_STENCIL_OP_V_INVERT:  return 6u;
+    case NV097_SET_STENCIL_OP_V_INCR:    return 7u;
+    case NV097_SET_STENCIL_OP_V_DECR:    return 8u;
+    case NV097_SET_STENCIL_OP_V_KEEP:
+    default: return 1u;
+    }
+}
+
+static void dah_apply_stencil_state(IDirect3DDevice8 *dev)
+{
+    if (!dev) return;
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILENABLE, g_pg.stencil_test);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILMASK, g_pg.stencil_func_mask);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILWRITEMASK, g_pg.stencil_mask);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILFUNC,
+        g_pg.stencil_func >= 0x0200u && g_pg.stencil_func <= 0x0207u ?
+        g_pg.stencil_func - 0x0200u + 1u : D3DCMP_ALWAYS);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILREF, g_pg.stencil_ref);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILFAIL,
+        dah_nv2a_stencil_op_to_d3d(g_pg.stencil_op_fail));
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILZFAIL,
+        dah_nv2a_stencil_op_to_d3d(g_pg.stencil_op_zfail));
+    dev->lpVtbl->SetRenderState(dev, D3DRS_STENCILPASS,
+        dah_nv2a_stencil_op_to_d3d(g_pg.stencil_op_zpass));
+}
 
 static const uint8_t *indexed_guest_bytes_window(uint32_t address, size_t length, int contiguous);
 static int dah_surface_is_backbuffer(uint32_t offset)
@@ -303,6 +402,7 @@ static uint32_t rejected_draw_hash(const char *reason)
     REJECT_HASH_WORD(g_pg.combiner_control); REJECT_HASH_WORD(g_pg.final_cw0);
     REJECT_HASH_WORD(g_pg.final_cw1); REJECT_HASH_WORD(g_pg.depth_test);
     REJECT_HASH_WORD(g_pg.blend_enable); REJECT_HASH_WORD(g_pg.cull_enable);
+    REJECT_HASH_WORD(g_pg.blend_equation);
     REJECT_HASH_WORD(g_pg.alpha_test); REJECT_HASH_WORD(g_pg.color_mask);
     for (unsigned i = 0; i < 16u; ++i) REJECT_HASH_WORD(g_pg.array_format[i]);
     /* Ignore changing buffer addresses, indices and frame pixels so repeated
@@ -327,11 +427,12 @@ static uint32_t rejected_draw_hash(const char *reason)
 
 static void log_rejected_draw_state(const char *reason)
 {
-    fprintf(stderr, "[DAH-REJECTED-STATE] submit=%u reason=%s hash=%08X draw=%u mode=%u indices=%u shader_mode=%08X shader_start=%u stage_program=%08X combiner=%08X final=%08X,%08X depth=%d blend=%d cull=%d color_mask=%08X\n",
+    fprintf(stderr, "[DAH-REJECTED-STATE] submit=%u reason=%s hash=%08X draw=%u mode=%u indices=%u shader_mode=%08X shader_start=%u stage_program=%08X combiner=%08X final=%08X,%08X depth=%d blend=%d cull=%d color_mask=%08X blend_equation=%08X\n",
             g_pg.active_submission, reason, g_pg.rejected_state_hash, g_pg.indexed_diagnostic_id,
             g_pg.draw_mode, g_pg.index_count, g_pg.transform_mode, g_pg.transform_start,
             g_pg.shader_stage_program, g_pg.combiner_control, g_pg.final_cw0, g_pg.final_cw1,
-            g_pg.depth_test, g_pg.blend_enable, g_pg.cull_enable, g_pg.color_mask);
+            g_pg.depth_test, g_pg.blend_enable, g_pg.cull_enable, g_pg.color_mask,
+            g_pg.blend_equation);
     fprintf(stderr, "[DAH-REJECTED-VIEWPORT] surface_format=%08X pitch=%08X color=%08X zeta=%08X clip_range=%.9g,%.9g valid=%u scale=%.9g,%.9g,%.9g,%.9g offset=%.9g,%.9g,%.9g,%.9g surface_clip=%08X,%08X fog=%d\n",
             g_pg.surface_format, g_pg.surface_pitch, g_pg.surface_color_offset,
             g_pg.surface_zeta_offset, g_pg.clip_min, g_pg.clip_max, g_pg.clip_range_valid,
@@ -368,6 +469,46 @@ static float u2f(uint32_t u) {
     union { float f; uint32_t i; } x;
     x.i = u;
     return x.f;
+}
+
+/* Programmable vertex shaders write a fog distance to oFog.  NV2A applies
+ * the selected fog equation after the program and interpolates that factor
+ * into the register combiner.  Passing the raw distance made geometry and
+ * screen-space post effects jump to the fog colour. */
+static float dah_transform_fog(float distance)
+{
+    float factor, infinite_result = 0.0f, nan_result = 0.0f;
+    if (!g_pg.fog_enable) return 1.0f;
+    switch (g_pg.fog_mode) {
+    case NV097_SET_FOG_MODE_V_LINEAR:
+    case NV097_SET_FOG_MODE_V_LINEAR_ABS:
+        infinite_result = nan_result = 1.0f;
+        factor = g_pg.fog_param[0] + distance * g_pg.fog_param[1] - 1.0f;
+        break;
+    case NV097_SET_FOG_MODE_V_EXP:
+        infinite_result = nan_result = 1.0f;
+        factor = g_pg.fog_param[0] + exp2f(distance * g_pg.fog_param[1] * 16.0f) - 1.5f;
+        break;
+    case NV097_SET_FOG_MODE_V_EXP_ABS:
+        factor = g_pg.fog_param[0] + exp2f(distance * g_pg.fog_param[1] * 16.0f) - 1.5f;
+        break;
+    case NV097_SET_FOG_MODE_V_EXP2:
+    case NV097_SET_FOG_MODE_V_EXP2_ABS:
+        factor = g_pg.fog_param[0] + exp2f(-distance * distance *
+            g_pg.fog_param[1] * g_pg.fog_param[1] * 32.0f) - 1.5f;
+        break;
+    default:
+        return distance;
+    }
+    if (isinf(distance)) return infinite_result;
+    if (isnan(factor)) factor = nan_result;
+    if (g_pg.fog_mode == NV097_SET_FOG_MODE_V_LINEAR_ABS ||
+        g_pg.fog_mode == NV097_SET_FOG_MODE_V_EXP_ABS ||
+        g_pg.fog_mode == NV097_SET_FOG_MODE_V_EXP2_ABS)
+        factor = fabsf(factor);
+    if (factor > FLT_MAX) return FLT_MAX;
+    if (factor < -FLT_MAX) return -FLT_MAX;
+    return factor;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -447,11 +588,19 @@ void pgraph_d3d11_init(void)
     memset(&g_pg, 0, sizeof(g_pg));
     g_pg.vert_stride = INLINE_VERT_DWORDS;  /* Default: 5 dwords per vertex */
     g_pg.clear_color = 0xFF000000;
+    g_pg.clear_zstencil = 0xFFFFFF00u;
     g_pg.color_mask = 0x01010101;
     g_pg.front_face = 0x0901u; /* NV097_FRONT_FACE_CCW reset convention. */
+    g_pg.stencil_mask = 0xFFu;
+    g_pg.stencil_func = 0x0207u;
+    g_pg.stencil_func_mask = 0xFFu;
+    g_pg.stencil_op_fail = NV097_SET_STENCIL_OP_V_KEEP;
+    g_pg.stencil_op_zfail = NV097_SET_STENCIL_OP_V_KEEP;
+    g_pg.stencil_op_zpass = NV097_SET_STENCIL_OP_V_KEEP;
     /* Match the host D3D device's initial LESS_EQUAL depth comparison. */
     g_pg.depth_func = 0x0203u;
     g_pg.depth_write = 1;
+    g_pg.blend_equation = NV097_SET_BLEND_EQUATION_V_FUNC_ADD;
     g_pg.initialized = 1;
 
     fprintf(stderr, "[PGRAPH-D3D11] Translator initialized\n");
@@ -501,6 +650,7 @@ DAH_LAUNCH_FLAG(dah_memory_window_profile_enabled, "DAH_MEMORY_WINDOW_PROFILE")
 DAH_LAUNCH_FLAG(dah_matrix_trace_enabled, "DAH_MATRIX_TRACE")
 DAH_LAUNCH_FLAG(dah_method_profile_enabled, "DAH_METHOD_PROFILE")
 DAH_LAUNCH_FLAG(dah_farm_fine_profile_enabled, "DAH_FARM_FINE_PROFILE")
+DAH_LAUNCH_FLAG(dah_runtime_profile_enabled, "DAH_RUNTIME_PROFILE")
 DAH_LAUNCH_FLAG(dah_skin_dump_enabled, "DAH_FARM_SKIN_DUMP")
 DAH_LAUNCH_FLAG(dah_crypto_head_trace_enabled, "DAH_CRYPTO_HEAD_TRACE")
 DAH_LAUNCH_FLAG(dah_skin_disabled, "DAH_DISABLE_SKIN")
@@ -779,6 +929,11 @@ static void fetch_attr_float4(const uint8_t *base, uint32_t stride,
     }
 }
 
+static void dah_complete_static_texcoord(uint32_t count, float value[4])
+{
+    if (count < 4u) value[3] = 1.0f;
+}
+
 /* ── Pack float RGBA [0..1] to D3D ARGB uint32 ── */
 static uint32_t pack_argb(const float d[4])
 {
@@ -796,7 +951,23 @@ static uint32_t pack_argb(const float d[4])
  * movie-gated path.  Never touches the existing reject counter or logs. */
 
 extern void d3d8_combiners_set_nv2a(uint32_t,uint32_t,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,uint32_t,uint32_t);
+extern void d3d8_combiners_set_texture_alpha_one_mask(uint32_t);
+extern void dah_renderdoc_begin_effect(const char *label);
+
+static uint32_t dah_texture_alpha_one_mask(void)
+{
+    uint32_t mask = 0;
+    for (unsigned stage = 0; stage < 4u; ++stage) {
+        uint32_t format = (g_pg.tex[stage].format >> 8u) & 255u;
+        /* SZ_X8R8G8B8 and LU_IMAGE_X8R8G8B8. xemu's texture tables
+         * use RGB8 / alpha-ONE swizzles for these exact formats. */
+        if (g_pg.tex[stage].enabled && (format == 0x07u || format == 0x1eu))
+            mask |= 1u << stage;
+    }
+    return mask;
+}
 extern void d3d8_combiners_set_vertex_fog(int);
+extern void d3d8_combiners_set_vertex_fog_constant(float);
 static struct DahMeshTexture { uint32_t offset,key,width,height,format,hash; IDirect3DTexture8 *texture; uint32_t last_successful_submission; const uint8_t *last_source; size_t last_source_bytes; uint8_t *snapshot; size_t snapshot_bytes; uint32_t content_valid; } dah_mesh_textures[256];
 static unsigned dah_mesh_texture_next;
 /* Up to 64 MiB total across 256 entries, and no more than 1 MiB per asset.
@@ -846,7 +1017,7 @@ static void dah_mesh_texture_mark_success(struct DahMeshTexture *cache,
     cache->last_source = source;
     cache->last_source_bytes = bytes;
 }
-static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
+static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice8 *dev,int contiguous)
 {
     IDirect3DTexture8 *tex_obj=NULL; HRESULT hr;
     struct DahMeshTexture *cache=NULL;
@@ -862,7 +1033,8 @@ static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
         D3DLOCKED_RECT lr = {0};
         uint32_t format = (g_pg.tex[stage].format >> 8u) & 255u;
         int compressed_alpha = format == 14u || format == 15u;
-        int swizzled_argb = format == 6u;
+        int swizzled_abgr = format == 0x3au;
+        int swizzled_argb = format == 6u || swizzled_abgr;
         int linear_argb = format == D3DFMT_LIN_A8R8G8B8;
         uint32_t source_pitch = 0u;
         /* Exact retail reflection pass: stage 1 is a DXT1 cubemap.
@@ -882,7 +1054,7 @@ static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
             face_stride=(face_bytes+127u)&~(size_t)127u;
             if(face_stride>SIZE_MAX/6u)return NULL;
             total=face_stride*6u;
-            source=indexed_guest_bytes_window(g_pg.tex[stage].offset,total,0);
+            source=indexed_guest_bytes_window(g_pg.tex[stage].offset,total,contiguous);
             if(!source)return NULL;
             if(g_pg.active_pushbuffer && cache->texture && cache->content_valid &&
                cache->last_successful_submission==g_pg.active_submission &&
@@ -937,8 +1109,26 @@ static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
         /* D3D11 BC2/BC3 uploads use block rows. Small BC1 assets retain the
          * existing CPU decode; do not invent padding for small alpha assets. */
         if ((compressed_alpha && (w < 4u || h < 4u)) ||
-            !(source = indexed_guest_bytes_window(g_pg.tex[stage].offset, bytes, 0))) {
+            !(source = indexed_guest_bytes_window(g_pg.tex[stage].offset, bytes, contiguous))) {
             return NULL;
+        }
+        {
+            static int dah_effect_texture_dumped;
+            const char *dump_path = getenv("DAH_EFFECT_TEXTURE_DUMP");
+            const char *dump_offset = getenv("DAH_EFFECT_TEXTURE_OFFSET");
+            if (!dah_effect_texture_dumped && dump_path && *dump_path &&
+                dump_offset && *dump_offset &&
+                g_pg.tex[stage].offset == (uint32_t)strtoul(dump_offset, NULL, 0)) {
+                FILE *dump = fopen(dump_path, "wb");
+                if (dump) {
+                    fwrite(source, 1u, bytes, dump);
+                    fclose(dump);
+                    fprintf(stderr,
+                        "[DAH-EFFECT-TEXTURE-DUMP] stage=%u offset=%08X format=%u size=%ux%u bytes=%zu path=%s\n",
+                        stage, g_pg.tex[stage].offset, format, w, h, bytes, dump_path);
+                    dah_effect_texture_dumped = 1;
+                }
+            }
         }
         if(g_pg.active_pushbuffer && cache->texture && cache->content_valid &&
            cache->last_successful_submission==g_pg.active_submission &&
@@ -983,6 +1173,12 @@ static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
             decoded=lr.pBits&&lr.Pitch>=(INT)(w*4u);
             if(decoded&&lr.Pitch==(INT)(w*4u))xbox_unswizzle_rect(lr.pBits,source,w,h,4u);
             else if(decoded){uint8_t *linear=(uint8_t*)malloc(bytes);if(!linear)decoded=0;else{xbox_unswizzle_rect(linear,source,w,h,4u);for(uint32_t y=0;y<h;y++)memcpy((uint8_t*)lr.pBits+(size_t)y*lr.Pitch,linear+(size_t)y*w*4u,w*4u);free(linear);}}
+            /* SZ_A8B8G8R8 is RGBA in little-endian guest memory. The
+             * LIN_A8R8G8B8 host upload expects BGRA, including table textures. */
+            if(decoded && swizzled_abgr)for(uint32_t y=0;y<h;y++){
+                uint8_t *row=(uint8_t*)lr.pBits+(size_t)y*lr.Pitch;
+                for(uint32_t x=0;x<w;x++){uint8_t red=row[4u*x];row[4u*x]=row[4u*x+2u];row[4u*x+2u]=red;}
+            }
         } else if (compressed_alpha) {
             size_t row_bytes = ((w + 3u) / 4u) * 16u;
             decoded = lr.pBits && lr.Pitch >= (INT)row_bytes;
@@ -1011,14 +1207,129 @@ static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
     return tex_obj;
 }
 
+static IDirect3DTexture8 *dah_mesh_texture(unsigned stage,IDirect3DDevice8 *dev)
+{
+    return dah_mesh_texture_window(stage,dev,0);
+}
+
+/* Independent of the early Farm material budget. Capture only the exact
+ * retail unlit program in [start,start+32), at most 64 draw outcomes. This
+ * observes already-built CPU vertices and state; it performs no GPU readback. */
+static void dah_hud_draw_trace(const char *reason,unsigned kind,
+    const OutputVertex *out,uint32_t count,uint32_t fail_index,HRESULT hr)
+{
+    static int initialized,enabled;
+    static uint32_t start;
+    static unsigned reports;
+    if(kind!=14u)return;
+    if(!initialized){
+        const char *value=getenv("DAH_HUD_DRAW_TRACE_START");
+        initialized=1;
+        if(value&&*value){
+            char *end;unsigned long parsed=strtoul(value,&end,0);
+            if(!*end&&parsed<=UINT32_MAX-32u){start=(uint32_t)parsed;enabled=1;}
+        }
+    }
+    if(!enabled||g_pg.active_submission<start||
+       g_pg.active_submission-start>=32u||reports>=64u)return;
+    ++reports;
+    uint32_t indices=g_pg.index_count<MAX_INLINE_VERTS?g_pg.index_count:MAX_INLINE_VERTS;
+    uint32_t first=UINT32_MAX,last=0;
+    float minimum[6]={FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX};
+    float maximum[6]={-FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX};
+    unsigned rgba_min[4]={255,255,255,255},rgba_max[4]={0,0,0,0};
+    unsigned finite=0,front=0;
+    for(uint32_t i=0;i<indices;++i){
+        if(g_pg.indices[i]<first)first=g_pg.indices[i];
+        if(g_pg.indices[i]>last)last=g_pg.indices[i];
+    }
+    if(!out)count=0;
+    if(count>indices)count=indices;
+    for(uint32_t i=0;i<count;++i){
+        float values[6]={out[i].x,out[i].y,out[i].z,out[i].rhw,out[i].u,out[i].v};
+        unsigned channels[4]={(out[i].color>>16u)&255u,(out[i].color>>8u)&255u,
+            out[i].color&255u,out[i].color>>24u};
+        int all_finite=1;
+        for(unsigned j=0;j<6u;++j){
+            if(!isfinite(values[j]))all_finite=0;
+            else{if(values[j]<minimum[j])minimum[j]=values[j];
+                 if(values[j]>maximum[j])maximum[j]=values[j];}
+        }
+        finite+=all_finite;front+=out[i].rhw>0.0f;
+        for(unsigned j=0;j<4u;++j){
+            if(channels[j]<rgba_min[j])rgba_min[j]=channels[j];
+            if(channels[j]>rgba_max[j])rgba_max[j]=channels[j];
+        }
+    }
+    fprintf(stderr,"[DAH-HUD-DRAW] submit=%u draw=%u result=%s kind=14 mode=%u "
+        "indices=%u range=%u..%u overflow=%d inline=%u built=%u fail_i=%u finite=%u front=%u "
+        "target=%08X surface=%08X pitch=%08X zeta=%08X clip=%08X,%08X mask=%08X "
+        "depth=%d,%d,%04X cull=%d,%04X,%04X alpha=%d,%04X,%u "
+        "blend=%d,%04X,%04X,%04X combiner=%08X final=%08X,%08X stages=%08X hr=%08lX\n",
+        g_pg.active_submission,g_pg.indexed_diagnostic_id,reason,g_pg.draw_mode,
+        g_pg.index_count,first,last,g_pg.index_overflow,g_pg.inline_count,count,fail_index,finite,front,
+        g_pg.surface_color_offset,g_pg.surface_format,g_pg.surface_pitch,g_pg.surface_zeta_offset,
+        g_pg.surface_clip_h,g_pg.surface_clip_v,g_pg.color_mask,
+        g_pg.depth_test,g_pg.depth_write,g_pg.depth_func,g_pg.cull_enable,g_pg.front_face,g_pg.cull_face,
+        g_pg.alpha_test,g_pg.alpha_func,g_pg.alpha_ref,g_pg.blend_enable,g_pg.blend_sfactor,
+        g_pg.blend_dfactor,g_pg.blend_equation,g_pg.combiner_control,g_pg.final_cw0,g_pg.final_cw1,
+        g_pg.shader_stage_program,(unsigned long)hr);
+    if(count){
+        fprintf(stderr,"[DAH-HUD-BOUNDS] submit=%u draw=%u xy=%.9g,%.9g..%.9g,%.9g "
+            "z=%.9g..%.9g rhw=%.9g..%.9g uv=%.9g,%.9g..%.9g,%.9g "
+            "rgba=%u,%u,%u,%u..%u,%u,%u,%u\n",
+            g_pg.active_submission,g_pg.indexed_diagnostic_id,minimum[0],minimum[1],maximum[0],maximum[1],
+            minimum[2],maximum[2],minimum[3],maximum[3],minimum[4],minimum[5],maximum[4],maximum[5],
+            rgba_min[0],rgba_min[1],rgba_min[2],rgba_min[3],rgba_max[0],rgba_max[1],rgba_max[2],rgba_max[3]);
+        for(unsigned i=0;i<count&&i<4u;++i)
+            fprintf(stderr,"[DAH-HUD-VERTEX] submit=%u draw=%u i=%u index=%u "
+                "xyz=%.9g,%.9g,%.9g rhw=%.9g uv=%.9g,%.9g rgba=%u,%u,%u,%u\n",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,i,g_pg.indices[i],
+                out[i].x,out[i].y,out[i].z,out[i].rhw,out[i].u,out[i].v,
+                (out[i].color>>16u)&255u,(out[i].color>>8u)&255u,out[i].color&255u,out[i].color>>24u);
+    }
+    fprintf(stderr,"[DAH-HUD-ARRAYS] submit=%u draw=%u",g_pg.active_submission,g_pg.indexed_diagnostic_id);
+    for(unsigned slot=0;slot<16u;++slot)if(g_pg.array_format[slot])
+        fprintf(stderr," %u:%08X:%08X",slot,g_pg.array_offset[slot],g_pg.array_format[slot]);
+    fputc('\n',stderr);
+    static const unsigned constants[]={1,2,36,37,38,39,187};
+    for(unsigned ci=0;ci<sizeof(constants)/sizeof(constants[0]);++ci){
+        unsigned at=constants[ci]*4u;
+        fprintf(stderr,"[DAH-HUD-CONSTANT] submit=%u draw=%u c=%u bits=%08X,%08X,%08X,%08X valid=%u%u%u%u\n",
+            g_pg.active_submission,g_pg.indexed_diagnostic_id,constants[ci],
+            g_pg.transform_constants[at],g_pg.transform_constants[at+1u],
+            g_pg.transform_constants[at+2u],g_pg.transform_constants[at+3u],
+            g_pg.transform_constant_valid[at],g_pg.transform_constant_valid[at+1u],
+            g_pg.transform_constant_valid[at+2u],g_pg.transform_constant_valid[at+3u]);
+    }
+    for(unsigned stage=0;stage<4u;++stage)
+        fprintf(stderr,"[DAH-HUD-TEXTURE] submit=%u draw=%u stage=%u enabled=%d "
+            "offset=%08X format=%08X control=%08X,%08X rect=%08X address=%08X filter=%08X\n",
+            g_pg.active_submission,g_pg.indexed_diagnostic_id,stage,g_pg.tex[stage].enabled,
+            g_pg.tex[stage].offset,g_pg.tex[stage].format,g_pg.tex[stage].control0,g_pg.tex[stage].control1,
+            g_pg.tex[stage].image_rect,g_pg.tex[stage].address,g_pg.tex[stage].filter);
+    unsigned stages=g_pg.combiner_control&15u;if(stages>8u)stages=8u;
+    for(unsigned stage=0;stage<stages;++stage)
+        fprintf(stderr,"[DAH-HUD-COMBINER] submit=%u draw=%u stage=%u color=%08X,%08X alpha=%08X,%08X factor=%08X,%08X\n",
+            g_pg.active_submission,g_pg.indexed_diagnostic_id,stage,g_pg.color_icw[stage],g_pg.color_ocw[stage],
+            g_pg.alpha_icw[stage],g_pg.alpha_ocw[stage],g_pg.factor0[stage],g_pg.factor1[stage]);
+    fflush(stderr);
+}
+
 /* Opt-in Farm material probe. State is logged only for the first 256
  * accepted meshes and four instances of each distinct rejected shader/material.
  * No hot-path work is done unless DAH_FARM_MATERIAL_TRACE is set. */
 static int dah_farm_material_trace_enabled(void)
 {
     static int enabled = -1;
-    if (enabled < 0) enabled = getenv("DAH_FARM_MATERIAL_TRACE") != NULL;
-    return enabled && g_pg.active_submission >= 2750u &&
+    static unsigned first_submission = 2750u;
+    if (enabled < 0) {
+        const char *first;
+        enabled = getenv("DAH_FARM_MATERIAL_TRACE") != NULL;
+        first = getenv("DAH_FARM_MATERIAL_TRACE_START");
+        if (first && *first) first_submission = (unsigned)strtoul(first,NULL,0);
+    }
+    return enabled && g_pg.active_submission >= first_submission &&
            (g_pg.transform_mode & 3u) == 2u && g_pg.index_count >= 3u;
 }
 
@@ -1026,6 +1337,7 @@ static void dah_farm_material_trace(const char *reason, unsigned kind,
                                     const OutputVertex *out, uint32_t count,
                                     uint32_t vertex_index, HRESULT hr)
 {
+    dah_hud_draw_trace(reason,kind,out,count,vertex_index,hr);
     static unsigned accepted, accepted_other, rejected;
     static int farm_armed;
     static struct { uint32_t hash; unsigned n; } seen[128];
@@ -1121,8 +1433,8 @@ unique_checked:
  * This is intentionally opt-in and bounded to four complete snapshots. */
 static void dah_farm_unknown_program_dump(void)
 {
-    static uint32_t seen_target[2][2];
-    static unsigned seen_count[2];
+    static uint32_t seen_target[3][2];
+    static unsigned seen_count[3];
     unsigned slot, base, min_index = UINT32_MAX, max_index = 0u;
     uint32_t fingerprint, target;
     if (!(dah_farm_material_trace_enabled() || dah_crypto_head_trace_enabled()) ||
@@ -1133,6 +1445,11 @@ static void dah_farm_unknown_program_dump(void)
     fingerprint = g_pg.transform_program[base + 1u];
     if (fingerprint == 0x0057E61Bu) slot = 0u;
     else if (fingerprint == 0x00C4801Bu) slot = 1u;
+    /* Rockwell vehicle body/reflection program.  The wheels and trim use
+     * existing Farm paths, but this body pass was previously rejected before
+     * any vertices were transformed.  Capture it once per target so its exact
+     * retail instruction stream can be translated and verified. */
+    else if (fingerprint == 0x0048421Bu) slot = 2u;
     else return;
     target = g_pg.surface_color_offset;
     for (unsigned j = 0; j < seen_count[slot]; ++j)
@@ -1289,23 +1606,51 @@ static void dah_trace_draw_probes(unsigned kind,const OutputVertex *out)
 
 /* Pure diagnostics: one specified submission, only the observed presented
  * target 03C20000, at most 64 candidate draws / 128 three-pixel maps. */
-static const unsigned dah_pixel_xy[3][2]={{20u,20u},{50u,200u},{450u,180u}};
+static unsigned dah_pixel_xy[3][2]={{20u,20u},{50u,200u},{450u,180u}};
 static struct {
     unsigned active,kind,mask;uint32_t before[3];
     float fog_min,fog_max,fog_probe_first[3];
 } dah_pixel_pending;
 static void dah_pixel_trace_begin(unsigned kind,const OutputVertex *out)
 {
-    static unsigned configured,first=7001u,pairs;
+    static unsigned configured,first=7001u,pairs,auto_triangles,any_target;
     dah_pixel_pending.active=0u;
     if(!dah_draw_pixel_trace_enabled())return;
     if(!configured){
         const char *s=getenv("DAH_DRAW_PIXEL_TRACE_FIRST");
         if(s && *s){char *end;unsigned long n=strtoul(s,&end,10);if(!*end && n<0xFFFFFFFFu)first=(unsigned)n;}
+        s=getenv("DAH_DRAW_PIXEL_TRACE_XY");
+        if(s && *s){
+            unsigned x0,y0,x1,y1,x2,y2;char tail;
+            if(sscanf(s,"%u,%u;%u,%u;%u,%u%c",&x0,&y0,&x1,&y1,&x2,&y2,&tail)==6 &&
+               x0<4096u && y0<4096u && x1<4096u && y1<4096u && x2<4096u && y2<4096u){
+                dah_pixel_xy[0][0]=x0;dah_pixel_xy[0][1]=y0;
+                dah_pixel_xy[1][0]=x1;dah_pixel_xy[1][1]=y1;
+                dah_pixel_xy[2][0]=x2;dah_pixel_xy[2][1]=y2;
+            }
+        }
+        s=getenv("DAH_DRAW_PIXEL_TRACE_AUTO");
+        auto_triangles=s && *s && strcmp(s,"0");
+        s=getenv("DAH_DRAW_PIXEL_TRACE_ANY_TARGET");
+        any_target=s && *s && strcmp(s,"0");
         configured=1u;
     }
-    if(g_pg.active_submission!=first || pairs>=64u || g_pg.surface_color_offset!=0x03C20000u ||
+    if(g_pg.active_submission!=first || pairs>=64u || (!any_target && g_pg.surface_color_offset!=0x03C20000u) ||
        !dah_nv2a_color_write_mask(g_pg.color_mask))return;
+    if(auto_triangles){
+        unsigned found=0u;
+        for(uint32_t i=2u;i<g_pg.index_count && found<3u;++i){
+            const OutputVertex *a=&out[i-2u],*b=&out[i-1u],*c=&out[i];
+            float area=(b->x-a->x)*(c->y-a->y)-(b->y-a->y)*(c->x-a->x);
+            float x=(a->x+b->x+c->x)/3.f,y=(a->y+b->y+c->y)/3.f;
+            if(a->rhw>0.f && b->rhw>0.f && c->rhw>0.f && isfinite(area) && fabsf(area)>.01f &&
+               isfinite(x) && isfinite(y) && x>=0.f && y>=0.f && x<640.f && y<480.f){
+                dah_pixel_xy[found][0]=(unsigned)x;dah_pixel_xy[found][1]=(unsigned)y;++found;
+            }
+        }
+        if(!found)return;
+        while(found<3u){dah_pixel_xy[found][0]=dah_pixel_xy[0][0];dah_pixel_xy[found][1]=dah_pixel_xy[0][1];++found;}
+    }
     unsigned mask=0u;
     dah_pixel_pending.fog_min=1e30f;dah_pixel_pending.fog_max=-1e30f;
     for(unsigned p=0;p<3u;++p)dah_pixel_pending.fog_probe_first[p]=NAN;
@@ -1351,7 +1696,7 @@ static void dah_pixel_trace_begin(unsigned kind,const OutputVertex *out)
     }
     ++pairs;
     HRESULT hr=dah_read_active_rt_pixels(d3d8_GetD3D11Context(),dah_pixel_xy,3,dah_pixel_pending.before);
-    if(FAILED(hr)){fprintf(stderr,"[DAH-PIXEL-READ-FAIL] sub=%u draw=%u phase=before hr=%08lX\n",g_pg.active_submission,g_pg.indexed_diagnostic_id,(unsigned long)hr);return;}
+    if(FAILED(hr)){fprintf(stderr,"[DAH-PIXEL-READ-FAIL] sub=%u draw=%u kind=%u phase=before xy=%u,%u;%u,%u;%u,%u hr=%08lX\n",g_pg.active_submission,g_pg.indexed_diagnostic_id,kind,dah_pixel_xy[0][0],dah_pixel_xy[0][1],dah_pixel_xy[1][0],dah_pixel_xy[1][1],dah_pixel_xy[2][0],dah_pixel_xy[2][1],(unsigned long)hr);return;}
     dah_pixel_pending.active=1u;dah_pixel_pending.kind=kind;dah_pixel_pending.mask=mask;
 }
 static void dah_pixel_trace_end(HRESULT draw_hr)
@@ -1369,11 +1714,13 @@ static void dah_pixel_trace_end(HRESULT draw_hr)
         if(!old_dark && new_dark)darkened|=1u<<p;
     }
     fprintf(stderr,"[DAH-PIXEL-DRAW] sub=%u draw=%u kind=%u target=%08X candidate=%X darkened=%X hr=%08lX "
-        "p0=20,20:%08X>%08X p1=50,200:%08X>%08X p2=450,180:%08X>%08X "
+        "p0=%u,%u:%08X>%08X p1=%u,%u:%08X>%08X p2=%u,%u:%08X>%08X "
         "nv=%08X depth=%u,%u,%X blend=%u,%X,%X tex0=%08X,%08X tex1=%08X,%08X final=%08X,%08X\n",
         g_pg.active_submission,g_pg.indexed_diagnostic_id,dah_pixel_pending.kind,g_pg.surface_color_offset,
         dah_pixel_pending.mask,darkened,(unsigned long)draw_hr,
-        dah_pixel_pending.before[0],after[0],dah_pixel_pending.before[1],after[1],dah_pixel_pending.before[2],after[2],
+        dah_pixel_xy[0][0],dah_pixel_xy[0][1],dah_pixel_pending.before[0],after[0],
+        dah_pixel_xy[1][0],dah_pixel_xy[1][1],dah_pixel_pending.before[1],after[1],
+        dah_pixel_xy[2][0],dah_pixel_xy[2][1],dah_pixel_pending.before[2],after[2],
         g_pg.color_mask,g_pg.depth_test,g_pg.depth_write,g_pg.depth_func,g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,
         g_pg.tex[0].offset,g_pg.tex[0].format,g_pg.tex[1].offset,g_pg.tex[1].format,g_pg.final_cw0,g_pg.final_cw1);
     /* First covering triangle interpolation is observational; depth/cull
@@ -1474,6 +1821,18 @@ static int submit_indexed_3d(void)
             g_pg.transform_program + g_pg.transform_start * 4u,
             g_pg.transform_valid  + g_pg.transform_start * 4u);
     if (!program_kind) program_kind = dah_farm_program_kind(g_pg.transform_program + g_pg.transform_start * 4u, g_pg.transform_valid + g_pg.transform_start * 4u);
+    if (!program_kind && g_pg.transform_start <= 136u - 38u &&
+        dah_rockwell_vehicle_reflection_program_matches(
+            g_pg.transform_program + g_pg.transform_start * 4u,
+            g_pg.transform_valid + g_pg.transform_start * 4u)) program_kind = 27u;
+    if (!program_kind && g_pg.transform_start <= 136u - 15u &&
+        dah_rockwell_static_lit_program_matches(
+            g_pg.transform_program + g_pg.transform_start * 4u,
+            g_pg.transform_valid + g_pg.transform_start * 4u)) program_kind = 28u;
+    if (!program_kind && g_pg.transform_start <= 136u - 32u)
+        program_kind = dah_static_reflection_program_kind(
+            g_pg.transform_program + g_pg.transform_start * 4u,
+            g_pg.transform_valid + g_pg.transform_start * 4u);
     if (!program_kind && !dah_skin_disabled() && g_pg.transform_start <= 136u - 57u)
         program_kind = dah_skin_program_kind(g_pg.transform_program + g_pg.transform_start * 4u,
                                              g_pg.transform_valid + g_pg.transform_start * 4u);
@@ -1493,6 +1852,10 @@ static int submit_indexed_3d(void)
         program_kind = dah_pox_morph_program_kind(
             g_pg.transform_program + g_pg.transform_start * 4u,
             g_pg.transform_valid + g_pg.transform_start * 4u);
+    if (!program_kind && !dah_skin_disabled() && g_pg.transform_start <= 136u - 60u)
+        program_kind = dah_skin60_program_kind(
+            g_pg.transform_program + g_pg.transform_start * 4u,
+            g_pg.transform_valid + g_pg.transform_start * 4u);
     if (!program_kind && g_pg.transform_start <= 136u - 24u)
         program_kind = dah_pox_static_program_kind(
             g_pg.transform_program + g_pg.transform_start * 4u,
@@ -1506,10 +1869,60 @@ static int submit_indexed_3d(void)
     if (!program_kind && g_pg.transform_start <= 136u - 16u) program_kind = dah_pox_ui_program_kind(
             g_pg.transform_program + g_pg.transform_start * 4u,
             g_pg.transform_valid + g_pg.transform_start * 4u);
-    attribute_count = (program_kind == 16u || program_kind == 20u) ? 9u :
+    if (!program_kind) program_kind = dah_farm_deform_program_kind(
+            g_pg.transform_program + g_pg.transform_start * 4u,
+            g_pg.transform_valid + g_pg.transform_start * 4u);
+    if (dah_ui_animation_trace_enabled() &&
+        g_pg.active_submission >= dah_ui_animation_trace_start() &&
+        g_pg.index_count == 5u && g_pg.transform_start <= 126u &&
+        g_pg.array_format[0] == 0x1832u &&
+        g_pg.array_format[1] == 0x1822u &&
+        g_pg.array_format[2] == 0x1840u &&
+        g_pg.tex[0].enabled && g_pg.tex[0].format == 0x07710F29u &&
+        g_pg.tex[0].image_rect == 0x028001E0u &&
+        g_pg.transform_valid[g_pg.transform_start * 4u + 1u] &&
+        g_pg.transform_program[g_pg.transform_start * 4u + 1u] == 0x00C4801Bu) {
+        static unsigned projector_kind_reports;
+        if (projector_kind_reports++ < 8u) {
+            uint32_t base = g_pg.transform_start * 4u;
+            fprintf(stderr,"[DAH-PROJECTOR-KIND] sub=%u draw=%u kind=%u program=",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,program_kind);
+            for (unsigned i=0;i<40u;++i)
+                fprintf(stderr,"%s%08X",i?",":"",g_pg.transform_program[base+i]);
+            fputc('\n',stderr);fflush(stderr);
+        }
+    }
+    /* The malformed Farm projector/bloom draw is a five-index strip using
+     * the exact static Farm program.  Keep this probe independent of
+     * submission numbering: tracing changes host pacing enough to move the
+     * draw between pushbuffer submissions. */
+    if (dah_ui_animation_trace_enabled() && g_pg.index_count == 5u &&
+        !g_pg.tex[0].enabled && g_pg.active_submission >= 5000u) {
+        static unsigned bloom_clear_reports;
+        if (bloom_clear_reports++ < 64u) {
+            uint32_t base = g_pg.transform_start * 4u;
+            fprintf(stderr,
+                "[DAH-BLOOM-CLEAR-CANDIDATE] sub=%u draw=%u kind=%u target=%08X "
+                "clip=%08X,%08X idx=%u,%u,%u,%u,%u arrays=%08X,%08X,%08X "
+                "off=%08X,%08X,%08X tex=%u:%08X:%08X,%u:%08X:%08X "
+                "mask=%08X stage=%08X combiner=%08X program=",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,program_kind,
+                g_pg.surface_color_offset,g_pg.surface_clip_h,g_pg.surface_clip_v,
+                g_pg.indices[0],g_pg.indices[1],g_pg.indices[2],g_pg.indices[3],g_pg.indices[4],
+                g_pg.array_format[0],g_pg.array_format[1],g_pg.array_format[2],
+                g_pg.array_offset[0],g_pg.array_offset[1],g_pg.array_offset[2],
+                g_pg.tex[0].enabled,g_pg.tex[0].format,g_pg.tex[0].image_rect,
+                g_pg.tex[1].enabled,g_pg.tex[1].format,g_pg.tex[1].image_rect,
+                g_pg.color_mask,g_pg.shader_stage_program,g_pg.combiner_control);
+            for (unsigned i=0;i<40u;++i)
+                fprintf(stderr,"%s%08X",i?",":"",g_pg.transform_program[base+i]);
+            fputc('\n',stderr);fflush(stderr);
+        }
+    }
+    attribute_count = (program_kind == 16u || program_kind == 20u || program_kind == 25u) ? 9u :
         (program_kind == 13u || program_kind == 15u || program_kind == 19u) ? 5u :
-        (program_kind == 12u || program_kind == 2u || program_kind == 3u) ? 4u :
-        program_kind == 11u ? 2u : 3u;
+        (program_kind == 12u || program_kind == 22u || program_kind == 29u || program_kind == 2u || program_kind == 3u) ? 4u :
+        (program_kind == 11u || program_kind == 23u || program_kind == 24u) ? 2u : 3u;
     if (!program_kind) {
         if (dah_ui_animation_trace_enabled() &&
             g_pg.active_submission >= dah_ui_animation_trace_start()) {
@@ -1599,7 +2012,11 @@ static int submit_indexed_3d(void)
     }
 
     dev = xbox_GetD3DDevice();
-    if (!dev || g_pg.draw_mode != 6u || g_pg.index_count < 3u ||
+    /* Retail Farm deformation uses both TRIANGLES and TRIANGLE_STRIP. The
+     * expanded vertex buffer is already in guest index order, so either
+     * topology can be submitted directly without rebuilding indices. */
+    if (!dev || (g_pg.draw_mode != 5u && g_pg.draw_mode != 6u) ||
+        (g_pg.draw_mode == 5u && (g_pg.index_count % 3u) != 0u) || g_pg.index_count < 3u ||
         g_pg.index_overflow || g_pg.inline_count) {
         dah_farm_material_trace("draw-state", program_kind, NULL, 0u, UINT32_MAX, 0);
         return 0;
@@ -1618,21 +2035,42 @@ static int submit_indexed_3d(void)
         static const uint8_t pox_skin[] = {1,2,19,20,24,25,36,37,38,39,47,48,49,50,51,56,64,65,66,76,77,78,79,187,189,190,191};
         static const uint8_t pox_morph[] = {1,2,19,20,24,25,36,37,38,39,47,48,49,50,51,56,64,65,66,76,77,78,79,85,187,189,190,191};
         static const uint8_t pox_static[] = {1,2,19,20,36,37,38,39,47,48,49,50,51,56,64,65,66,76,77,78,79,187,189};
+        static const uint8_t rockwell_vehicle[] = {1,2,19,20,24,25,36,37,38,39,47,48,49,50,51,56,64,65,66,76,77,78,79,187,189,190};
+        static const uint8_t rockwell_vehicle_reflection[] = {1,2,19,20,28,29,30,32,33,34,36,37,38,39,47,48,49,50,51,56,64,65,66,76,77,78,79,187,189};
+        static const uint8_t rockwell_static_lit[] = {1,2,3,4,32,33,34,36,37,38,39,56,77,190};
+        static const uint8_t static_reflection[] = {1,2,19,20,28,29,30,32,33,34,36,37,38,39,46,47,48,56,76,77,78,79,187};
         static const uint8_t unlit9[] = {1,2,36,37,38,39};
         static const uint8_t pox[] = {1,2,36,37,38,39,126,127,187,190};
         static const uint8_t pox_ui[] = {1,2,36,37,38,39,56,78,79};
-        const uint8_t *required = program_kind == 14u ? unlit9 :
+        static const uint8_t farm_deform[] = {1,2,36,37,38,39,46,187,189,191};
+        static const uint8_t farm_push[] = {1,2,36,37,38,39,46,187,189};
+        static const uint8_t farm_constant[] = {1,2,36,37,38,39,187};
+        const uint8_t *required = program_kind == 29u ? static_reflection :
+            program_kind == 14u ? unlit9 :
+            program_kind == 28u ? rockwell_static_lit :
+            program_kind == 27u ? rockwell_vehicle_reflection :
+            program_kind == 26u ? rockwell_vehicle :
             program_kind == 17u ? pox :
             program_kind == 18u ? pox_ui :
             program_kind == 21u ? pox_static :
             program_kind == 20u ? pox_morph : program_kind == 19u ? pox_skin :
+            program_kind == 22u ? farm_deform : program_kind == 23u ? farm_push :
+            program_kind == 24u ? farm_constant :
+            program_kind == 25u ? morph62 :
             program_kind == 16u ? morph62 : program_kind == 15u ? skin55 :
             program_kind == 13u ? skin : program_kind == 12u ? reflection : critical;
-        unsigned required_count = program_kind == 14u ? sizeof(unlit9) :
+        unsigned required_count = program_kind == 29u ? sizeof(static_reflection) :
+            program_kind == 14u ? sizeof(unlit9) :
+            program_kind == 28u ? sizeof(rockwell_static_lit) :
+            program_kind == 27u ? sizeof(rockwell_vehicle_reflection) :
+            program_kind == 26u ? sizeof(rockwell_vehicle) :
             program_kind == 17u ? sizeof(pox) :
             program_kind == 18u ? sizeof(pox_ui) :
             program_kind == 21u ? sizeof(pox_static) :
             program_kind == 20u ? sizeof(pox_morph) : program_kind == 19u ? sizeof(pox_skin) :
+            program_kind == 22u ? sizeof(farm_deform) : program_kind == 23u ? sizeof(farm_push) :
+            program_kind == 24u ? sizeof(farm_constant) :
+            program_kind == 25u ? sizeof(morph62) :
             program_kind == 16u ? sizeof(morph62) : program_kind == 15u ? sizeof(skin55) :
             program_kind == 13u ? sizeof(skin) :
             program_kind == 12u ? sizeof(reflection) : (program_kind == 11u ? 6u : 8u);
@@ -1757,7 +2195,16 @@ static int submit_indexed_3d(void)
             if(!count||count>4u||slot_stride[slot]<count*bytes||(type==0u&&count!=4u)){dah_farm_material_trace("slot-size",program_kind,NULL,0u,slot,0);return 0;}
         }
         if(slot_type[0]!=2u||slot_count[0]<3u||slot_count[1]<(program_kind==11u?3u:2u)){dah_farm_material_trace("slot-farm",program_kind,NULL,0u,UINT32_MAX,0);return 0;}
+        if((program_kind==26u||program_kind==27u||program_kind==28u)&&(slot_type[1]!=1u||slot_count[1]!=3u||slot_type[2]!=2u||slot_count[2]!=2u)){
+            dah_farm_material_trace("slot-rockwell-vehicle",program_kind,NULL,0u,UINT32_MAX,0);return 0;
+        }
+        if(program_kind==22u&&(slot_type[1]!=2u||slot_count[1]<3u||slot_type[2]!=2u||slot_count[2]<3u||slot_count[3]<3u)){
+            dah_farm_material_trace("slot-deform",program_kind,NULL,0u,UINT32_MAX,0);return 0;
+        }
         if(program_kind==12u&&(slot_count[2]!=4u||slot_count[3]<3u)){dah_farm_material_trace("slot-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;}
+        if(program_kind==29u&&(slot_type[1]!=1u||slot_count[1]!=3u||slot_type[2]!=2u||slot_count[2]!=2u||slot_count[3]<3u)){
+            dah_farm_material_trace("slot-static-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;
+        }
         if(program_kind==14u){
             static const uint32_t unlit_formats[3]={0x1832u,0x1822u,0x1840u};
             static const uint32_t unlit_offsets[3]={0u,12u,20u};
@@ -1768,7 +2215,7 @@ static int submit_indexed_3d(void)
                 dah_farm_material_trace("unlit-layout",program_kind,NULL,0u,s,0);return 0;
             }
         }
-        if(program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u){
+        if(program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u||program_kind==25u){
             static const uint32_t skin_formats[5]={0x2832u,0x2832u,0x2840u,0x2840u,0x2822u};
             static const uint32_t skin_offsets[5]={0u,12u,24u,28u,32u};
             uint32_t base=g_pg.array_offset[0];
@@ -1779,14 +2226,16 @@ static int submit_indexed_3d(void)
             }
         }
     }
-    if(program_kind==16u||program_kind==20u)
+    if(program_kind==16u||program_kind==20u||program_kind==25u)
         for(unsigned ai=5u;ai<9u;++ai)
             if(slot_count[ai]<3u){dah_farm_material_trace("morph-layout",program_kind,NULL,0u,attribute_slots[ai],0);return 0;}
-    double setup_start=dah_profile_ms();
     static unsigned dah_fine_draw_logs;
     int dah_fine_draw = dah_farm_fine_profile_enabled() &&
         dah_method_profile_sample(g_pg.active_submission) &&
         (g_pg.indexed_diagnostic_id % 17u) == 0u && dah_fine_draw_logs < 512u;
+    int dah_runtime_profile = dah_runtime_profile_enabled();
+    int dah_draw_timing = dah_runtime_profile || dah_fine_draw;
+    double setup_start = dah_draw_timing ? dah_profile_ms() : 0.0;
     unsigned dah_fine_vertex_cache_hits = 0u;
     /* Index range. */
     for (uint32_t i = 0; i < g_pg.index_count; ++i) {
@@ -1807,10 +2256,12 @@ static int submit_indexed_3d(void)
                             + (uint64_t)slot_count[s] * bpc;
             if (begin > UINT32_MAX || length > XBOX_CONTIG_SIZE) { dah_farm_material_trace("array-range", program_kind, NULL, 0u, s, 0); return 0; }
 
-            /* Static 3D meshes live in low XBE/heap RAM.  The exact Pox CRT
-             * post-process program consumes a transient vertex buffer from
-             * contiguous graphics memory, at the same guest offsets. */
-            int contiguous = program_kind == 17u || program_kind == 18u;
+            /* Static 3D meshes live in low XBE/heap RAM. The exact unlit
+             * program uses E9250's locked 24-byte vertex buffer: E8FF0 calls
+             * 1DD6C0, which returns Data | 0x80000000. Its shader signature
+             * and declaration were checked above. Like the Pox CRT buffers,
+             * this data belongs to the separate contiguous graphics window. */
+            int contiguous = program_kind == 14u || program_kind == 17u || program_kind == 18u;
             arr[s] = indexed_guest_bytes_window((uint32_t)begin, (size_t)length, contiguous);
             if (!arr[s]) { dah_farm_material_trace("array-read", program_kind, NULL, 0u, s, 0); return 0; }
 
@@ -1892,7 +2343,7 @@ static int submit_indexed_3d(void)
         }
     }
 
-    double vertices_start=dah_profile_ms();
+    double vertices_start=dah_draw_timing ? dah_profile_ms() : 0.0;
     double dah_vertex_attr_ms=0.0, dah_vertex_shader_ms=0.0;
     double dah_vertex_pack_ms=0.0, dah_vertex_hit_ms=0.0;
     /* Transform each indexed vertex through the captured shader function. */
@@ -1918,14 +2369,14 @@ static int submit_indexed_3d(void)
         if (attribute_count > 2u) fetch_attr_float4(arr[2], slot_stride[2], rel, slot_type[2], slot_count[2], tex);
 
         float extra[4] = {0};
-        if (program_kind == 2u || program_kind == 3u || program_kind == 12u ||
+        if (program_kind == 2u || program_kind == 3u || program_kind == 12u || program_kind == 22u || program_kind == 29u ||
             program_kind == 13u || program_kind == 15u || program_kind == 16u ||
-            program_kind == 19u || program_kind == 20u)
+            program_kind == 19u || program_kind == 20u || program_kind == 25u)
             fetch_attr_float4(arr[3], slot_stride[3], rel, slot_type[3], slot_count[3], extra);
         int vertex_ok;
         float reflection_uv[4]={0};
         if(dah_fine_draw){double t=dah_profile_ms();dah_vertex_attr_ms+=t-dah_vertex_stage_start;dah_vertex_stage_start=t;}
-        if(program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u){
+        if(program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u||program_kind==25u){
             float uv4[4]={0,0,0,1}, inputs[9][4];
             fetch_attr_float4(arr[4], slot_stride[4], rel, slot_type[4], slot_count[4], uv4);
             if(dah_fine_draw){double t=dah_profile_ms();dah_vertex_attr_ms+=t-dah_vertex_stage_start;dah_vertex_stage_start=t;}
@@ -1933,16 +2384,51 @@ static int submit_indexed_3d(void)
             memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
             memcpy(inputs[2],tex,sizeof tex);memcpy(inputs[3],extra,sizeof extra);
             memcpy(inputs[4],uv4,sizeof uv4);
-            if(program_kind==16u||program_kind==20u)
+            if(program_kind==16u||program_kind==20u||program_kind==25u)
                 for(unsigned ai=5;ai<9u;++ai)
                     fetch_attr_float4(arr[ai],slot_stride[ai],rel,slot_type[ai],slot_count[ai],inputs[ai]);
             vertex_ok=(program_kind==19u||program_kind==20u) ?
                 dah_pox_skin_vertex(inputs,c,g_pg.transform_constant_valid,program_kind==20u,&result,reflection_uv) :
-                program_kind==16u ?
+                (program_kind==16u||program_kind==25u) ?
                 dah_skin62_vertex(inputs,c,g_pg.transform_constant_valid,&result,reflection_uv,NULL,NULL) :
                 program_kind==15u ?
                 dah_skin55_vertex(inputs,c,g_pg.transform_constant_valid,&result) :
                 dah_skin_vertex(inputs,c,g_pg.transform_constant_valid,&result,reflection_uv,NULL,NULL);
+        }else if(program_kind==26u||program_kind==27u){
+            float inputs[3][4];
+            if(slot_count[1]<4u)normal[3]=1.0f;
+            if(slot_count[2]<4u)tex[3]=1.0f;
+            memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
+            memcpy(inputs[2],tex,sizeof tex);
+            vertex_ok=program_kind==27u ?
+                dah_rockwell_vehicle_reflection_vertex(inputs,c,&result,reflection_uv) :
+                dah_rockwell_vehicle_vertex(inputs,c,&result,reflection_uv);
+        }else if(program_kind==29u){
+            float inputs[4][4];
+            if(slot_count[1]<4u)normal[3]=1.0f;
+            if(slot_count[2]<4u)tex[3]=1.0f;
+            if(slot_count[3]<4u)extra[3]=1.0f;
+            memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
+            memcpy(inputs[2],tex,sizeof tex);memcpy(inputs[3],extra,sizeof extra);
+            vertex_ok=dah_static_reflection_vertex(inputs,c,&result,reflection_uv);
+        }else if(program_kind==28u){
+            float inputs[3][4];
+            if(slot_count[1]<4u)normal[3]=1.0f;
+            memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
+            memcpy(inputs[2],tex,sizeof tex);
+            vertex_ok=dah_rockwell_static_lit_vertex(inputs,c,&result);
+        }else if(program_kind==24u){
+            vertex_ok=dah_farm_constant_vertex(pos,c,&result);
+        }else if(program_kind==23u){
+            vertex_ok=dah_farm_push_vertex(pos,normal,c,&result);
+        }else if(program_kind==22u){
+            float inputs[4][4];
+            if(slot_count[1]<4u)normal[3]=1.0f;
+            if(slot_count[2]<4u)tex[3]=1.0f;
+            if(slot_count[3]<4u)extra[3]=1.0f;
+            memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
+            memcpy(inputs[2],tex,sizeof tex);memcpy(inputs[3],extra,sizeof extra);
+            vertex_ok=dah_farm_deform_vertex(inputs,c,g_pg.transform_constant_valid,&result);
         }else if(program_kind==21u){
             vertex_ok=dah_pox_static_vertex(pos,normal,tex,c,g_pg.transform_constant_valid,&result);
         }else if(program_kind==18u){
@@ -1964,26 +2450,44 @@ static int submit_indexed_3d(void)
             if(attribute_count>2u&&slot_count[2]<4u)tex[3]=1.0f;
             memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);memcpy(inputs[2],tex,sizeof tex);
             vertex_ok=dah_farm_vertex(program_kind,inputs,c,&result);
-        }else vertex_ok=dah_menu_vertex_impl(pos, normal, tex, c,
+        }else {
+            /* The static/menu program uses DP4 for its texture transform.
+             * Xemu's captured input pads the Farm sky's float2 v2 as
+             * (x,y,0,1), so preserve c78.w/c79.w instead of dropping the
+             * animated U translation. Keep this scoped away from packed
+             * skin/morph streams whose missing lanes have separate rules. */
+            if (attribute_count > 2u)
+                dah_complete_static_texcoord(slot_count[2], tex);
+            vertex_ok=dah_menu_vertex_impl(pos, normal, tex, c,
                 (program_kind == 2u || program_kind == 3u) ? extra : NULL, &result);
+        }
         if (!vertex_ok) {
 
-            if((program_kind==13u||program_kind==15u||program_kind==16u) && dah_crypto_head_trace_enabled() &&
-               g_pg.active_submission>=6000u && g_pg.active_submission<=7000u &&
-               g_pg.active_submission%100u==0u) {
+            if((program_kind==13u||program_kind==15u||program_kind==16u) && dah_crypto_head_trace_enabled()) {
                 static unsigned traced_skin_vertices;
                 if(traced_skin_vertices++<16u) {
-                    float weights[4]={0},bones[4]={0};
+                    float weights[4]={0},bones[4]={0},uv[4]={0};
+                    float morph[4][4]={{0}};
                     fetch_attr_float4(arr[2],slot_stride[2],rel,slot_type[2],slot_count[2],weights);
                     fetch_attr_float4(arr[3],slot_stride[3],rel,slot_type[3],slot_count[3],bones);
+                    fetch_attr_float4(arr[4],slot_stride[4],rel,slot_type[4],slot_count[4],uv);
+                    if(program_kind==16u)
+                        for(unsigned j=0;j<4u;++j)
+                            fetch_attr_float4(arr[5u+j],slot_stride[5u+j],rel,
+                                slot_type[5u+j],slot_count[5u+j],morph[j]);
                     fprintf(stderr,
                         "[DAH-CRYPTO-VERTEX-FAIL] sub=%u draw=%u i=%u idx=%u "
                         "weights=%g,%g,%g,%g bones=%g,%g,%g,%g c191=%g,%g,%g,%g "
-                        "valid-bases=",
+                        "uv=%g,%g c85=%g,%g,%g,%g morph=" ,
                         g_pg.active_submission,g_pg.indexed_diagnostic_id,i,
                         g_pg.indices[i],weights[0],weights[1],weights[2],weights[3],
                         bones[0],bones[1],bones[2],bones[3],
-                        c[191][0],c[191][1],c[191][2],c[191][3]);
+                        c[191][0],c[191][1],c[191][2],c[191][3],uv[0],uv[1],
+                        c[85][0],c[85][1],c[85][2],c[85][3]);
+                    for(unsigned j=0;j<4u;++j)
+                        fprintf(stderr,"%s[%g,%g,%g]",j?",":"",
+                            morph[j][0],morph[j][1],morph[j][2]);
+                    fprintf(stderr," valid-bases=");
                     for(unsigned j=0;j<4u;++j) {
                         int base=86+(int)floorf(bones[j]*c[191][j]+0.001f);
                         fprintf(stderr,"%s%d:%u%u%u",j?",":"",base,
@@ -2020,8 +2524,8 @@ static int submit_indexed_3d(void)
         out[i].rhw = dah_menu_rcc(result.screen[3]);
         out[i].color = pack_argb(result.diffuse);
         if(program_kind==17u){
-            uint32_t width=g_pg.tex[0].image_rect&0xFFFFu;
-            uint32_t height=g_pg.tex[0].image_rect>>16u;
+            uint32_t width=g_pg.tex[0].image_rect>>16u;
+            uint32_t height=g_pg.tex[0].image_rect&0xFFFFu;
             if(!width||!height){width=640u;height=480u;}
             out[i].u=result.uv[0]/(float)width;
             out[i].v=result.uv[1]/(float)height;
@@ -2034,13 +2538,14 @@ static int submit_indexed_3d(void)
          * NV2A final combiner. Reflection keeps all three cube coordinates. */
         /* NV2A forces oFog to one when fog is disabled, even when a
          * programmable vertex shader wrote a different fog coordinate. */
-        float vertex_fog = g_pg.fog_enable ? result.fog : 1.0f;
+        float vertex_fog = dah_transform_fog(result.fog);
         out[i].w1=vertex_fog;
         out[i].fog_coord=1.0f;
         out[i].fog_pad=0.0f;
-        if(program_kind==12u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];out[i].w1=reflection_uv[2];out[i].fog_coord=vertex_fog;out[i].fog_pad=1.0f;}
+        if(program_kind==12u||program_kind==27u||program_kind==29u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];out[i].w1=reflection_uv[2];out[i].fog_coord=vertex_fog;out[i].fog_pad=1.0f;}
+        else if(program_kind==26u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];}
         else if(program_kind==13u||program_kind==16u||program_kind==19u||program_kind==20u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];}
-        else if(program_kind==17u)out[i].u1=out[i].v1=out[i].w1=0.0f;
+        else if(program_kind==17u)out[i].u1=out[i].v1=0.0f;
         else if(program_kind>=10u)out[i].u1=out[i].v1=0;
 
         if (vertex_seen) {
@@ -2056,6 +2561,64 @@ static int submit_indexed_3d(void)
                 out[i].x, out[i].y, out[i].z, out[i].rhw,
                 result.screen[3],
                 out[i].color, out[i].u, out[i].v);
+    }
+
+    /* The Farm projector mask is a five-index strip using the exact static
+     * program.  Keep this bounded trace beside the transform so a capture can
+     * distinguish bad guest inputs/constants from host packing or topology. */
+    if (program_kind == 10u && g_pg.index_count == 5u &&
+        g_pg.active_submission >= 8000u && dah_ui_animation_trace_enabled()) {
+        static int effect_capture_requested;
+        const char *effect_submission = getenv("DAH_RENDERDOC_EFFECT_SUBMISSION");
+        float effect_xmin=FLT_MAX,effect_ymin=FLT_MAX;
+        float effect_xmax=-FLT_MAX,effect_ymax=-FLT_MAX;
+        for (uint32_t effect_i=0;effect_i<g_pg.index_count;++effect_i) {
+            if(out[effect_i].x<effect_xmin)effect_xmin=out[effect_i].x;
+            if(out[effect_i].x>effect_xmax)effect_xmax=out[effect_i].x;
+            if(out[effect_i].y<effect_ymin)effect_ymin=out[effect_i].y;
+            if(out[effect_i].y>effect_ymax)effect_ymax=out[effect_i].y;
+        }
+        if (!effect_capture_requested && effect_submission && *effect_submission &&
+            g_pg.active_submission >= (uint32_t)strtoul(effect_submission, NULL, 0) &&
+            g_pg.tex[0].offset == 0x02493800u && effect_xmax>=0.0f &&
+            effect_xmin<=640.0f && effect_ymax>=0.0f && effect_ymin<=480.0f) {
+            dah_renderdoc_begin_effect("DAH1 Farm alpha billboard effect");
+            effect_capture_requested = 1;
+        }
+        static unsigned projector_reports;
+        if (projector_reports++ < 64u) {
+            fprintf(stderr,
+                "[DAH-PROJECTOR-STRIP] sub=%u draw=%u idx=%u,%u,%u,%u,%u "
+                "array=%08X,%08X,%08X off=%08X,%08X,%08X "
+                "tex0=%08X,%08X,%08X,%08X,%08X,%08X "
+                "blend=%d,%08X,%08X,%08X alpha=%d,%08X,%u combiner=%08X "
+                "c1=%g,%g,%g,%g c2=%g,%g,%g,%g c56=%g,%g,%g,%g\n",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,
+                g_pg.indices[0],g_pg.indices[1],g_pg.indices[2],g_pg.indices[3],g_pg.indices[4],
+                g_pg.array_format[0],g_pg.array_format[1],g_pg.array_format[2],
+                g_pg.array_offset[0],g_pg.array_offset[1],g_pg.array_offset[2],
+                g_pg.tex[0].offset,g_pg.tex[0].format,g_pg.tex[0].control0,
+                g_pg.tex[0].image_rect,g_pg.tex[0].address,g_pg.tex[0].filter,
+                g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,g_pg.blend_equation,
+                g_pg.alpha_test,g_pg.alpha_func,g_pg.alpha_ref,g_pg.combiner_control,
+                c[1][0],c[1][1],c[1][2],c[1][3],
+                c[2][0],c[2][1],c[2][2],c[2][3],
+                c[56][0],c[56][1],c[56][2],c[56][3]);
+            for (uint32_t k = 0; k < g_pg.index_count; ++k) {
+                uint32_t rel = g_pg.indices[k] - first;
+                float p[4]={0,0,0,1}, uv[4]={0}, col[4]={0};
+                fetch_attr_float4(arr[0],slot_stride[0],rel,slot_type[0],slot_count[0],p);
+                fetch_attr_float4(arr[1],slot_stride[1],rel,slot_type[1],slot_count[1],uv);
+                fetch_attr_float4(arr[2],slot_stride[2],rel,slot_type[2],slot_count[2],col);
+                fprintf(stderr,
+                    "[DAH-PROJECTOR-VERTEX] k=%u idx=%u p=%g,%g,%g,%g "
+                    "uv=%g,%g col=%g,%g,%g,%g out=%g,%g,%g,%g,%08X,%g,%g,%g\n",
+                    k,g_pg.indices[k],p[0],p[1],p[2],p[3],uv[0],uv[1],
+                    col[0],col[1],col[2],col[3],out[k].x,out[k].y,out[k].z,
+                    out[k].rhw,out[k].color,out[k].u,out[k].v,out[k].w1);
+            }
+            fflush(stderr);
+        }
     }
 
     if(program_kind==17u && dah_ui_animation_trace_enabled()){
@@ -2075,6 +2638,22 @@ static int submit_indexed_3d(void)
                 g_pg.active_submission,hash,umin,vmin,umax,vmax,out[0].u,out[0].v,
                 packed[0],packed[1],packed[2],packed[3]);
             fflush(stderr);++vertex_reports;last_vertex_hash=hash;
+        }
+        if(g_pg.index_count>=130u && g_pg.index_count<=150u){
+            static unsigned lookup_reports;
+            if(lookup_reports++<32u){
+                float packed[4]={0};uint32_t rel=g_pg.indices[0]-first;
+                fetch_attr_float4(arr[1],slot_stride[1],rel,slot_type[1],slot_count[1],packed);
+                float fx=out[0].x*c[126][0],fy=out[0].y*c[126][1];fx-=floorf(fx);fy-=floorf(fy);
+                int address=96+(int)floorf(fx*c[127][0]+fy*c[127][1]*c[127][1]+0.001f);
+                fprintf(stderr,"[DAH-POX-LOOKUP] submit=%u draw=%u n=%u idx=%u screen=%g,%g "
+                    "frac=%g,%g address=%d lookup=%g,%g packedw=%g uv=%g,%g fog=%d c187=%g\n",
+                    g_pg.active_submission,g_pg.indexed_diagnostic_id,g_pg.index_count,g_pg.indices[0],
+                    out[0].x,out[0].y,fx,fy,address,
+                    address>=0&&address<192?c[address][0]:NAN,address>=0&&address<192?c[address][1]:NAN,
+                    packed[3],out[0].u,out[0].v,g_pg.fog_enable,c[187][0]);
+                fflush(stderr);
+            }
         }
     }
 
@@ -2249,7 +2828,7 @@ static int submit_indexed_3d(void)
             g_pg.cull_enable,g_pg.front_face,g_pg.cull_face,g_pg.alpha_test,g_pg.alpha_func,g_pg.alpha_ref,
             g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor);
     }
-    double texture_start=dah_profile_ms();
+    double texture_start=dah_draw_timing ? dah_profile_ms() : 0.0;
     if (dah_fine_draw) {
         dah_fine_texture_lookup_ms = dah_fine_texture_upload_ms = 0.0;
         dah_fine_texture_hash_bytes = 0u;
@@ -2280,15 +2859,17 @@ static int submit_indexed_3d(void)
     dah_fine_texture_active = dah_fine_draw;
     IDirect3DTexture8 *tex1_obj=program_kind==17u ? pox_textures[1] : program_kind>=3u ? dah_mesh_texture(1,dev) : NULL;
     dah_fine_texture_active = 0;
-    double texture_end=dah_profile_ms();
+    double texture_end=dah_draw_timing ? dah_profile_ms() : 0.0;
     if(program_kind!=17u && program_kind>=3u && g_pg.tex[1].enabled && !tex1_obj) {dah_farm_material_trace("texture1",program_kind,out,g_pg.index_count,UINT32_MAX,0);free(out);return 0;}
 
-    if (dah_fog_trace_enabled() && program_kind >= 10u) {
+    if (dah_fog_trace_enabled() && program_kind >= 10u &&
+        (!dah_ui_animation_trace_enabled() ||
+         g_pg.active_submission >= dah_ui_animation_trace_start())) {
         static unsigned fog_trace_count;
         if (fog_trace_count++ < 16u) {
             float fog_min = 1e30f, fog_max = -1e30f;
             for (uint32_t i = 0; i < g_pg.index_count; ++i) {
-                float f = program_kind == 12u ? out[i].fog_coord : out[i].w1;
+                float f = (program_kind == 12u || program_kind == 27u || program_kind == 29u) ? out[i].fog_coord : out[i].w1;
                 if (f < fog_min) fog_min = f;
                 if (f > fog_max) fog_max = f;
             }
@@ -2302,8 +2883,11 @@ static int submit_indexed_3d(void)
     }
     /* ── D3D render state (same combiner intent as movie shader) ── */
     dev->lpVtbl->SetPixelShader(dev, 0);
-    dev->lpVtbl->SetVertexShader(dev, D3DFVF_XYZRHW | D3DFVF_DIFFUSE | ((program_kind==3u || program_kind==4u || program_kind>=10u) ? D3DFVF_TEX3 : program_kind>=3u ? D3DFVF_TEX2 : D3DFVF_TEX1) |
-        (program_kind==12u ? D3DFVF_TEXCOORDSIZE3(1) : 0u));
+    /* Every captured programmable path writes a fog coordinate consumed by
+     * the NV2A final combiner. TEXCOORD2.x carries it for the host combiner;
+     * the reflection path widens TEXCOORD1 to preserve its cube vector. */
+    dev->lpVtbl->SetVertexShader(dev, D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX3 |
+        ((program_kind==12u||program_kind==27u||program_kind==29u) ? D3DFVF_TEXCOORDSIZE3(1) : 0u));
     dev->lpVtbl->SetRenderState(dev, D3DRS_ZENABLE,          g_pg.depth_test);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ZWRITEENABLE,     g_pg.depth_write);
     dev->lpVtbl->SetRenderState(dev, D3DRS_LIGHTING,         FALSE);
@@ -2312,11 +2896,10 @@ static int submit_indexed_3d(void)
     dev->lpVtbl->SetRenderState(dev, D3DRS_ZFUNC, g_pg.depth_func - 0x0200u + 1u);
     dev->lpVtbl->SetRenderState(dev, D3DRS_CULLMODE, g_pg.cull_enable ?
         ((g_pg.front_face == 0x0901u) == (g_pg.cull_face == 0x0405u) ? D3DCULL_CCW : D3DCULL_CW) : D3DCULL_NONE);
-    dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHABLENDENABLE, g_pg.blend_enable);
-    dev->lpVtbl->SetRenderState(dev, D3DRS_SRCBLEND,
-                                nv2a_blend_to_d3d(g_pg.blend_sfactor));
-    dev->lpVtbl->SetRenderState(dev, D3DRS_DESTBLEND,
-                                nv2a_blend_to_d3d(g_pg.blend_dfactor));
+    if (!dah_apply_blend_state(dev, g_pg.blend_enable)) {
+        dah_hud_draw_trace("blend-equation",program_kind,out,g_pg.index_count,UINT32_MAX,0);
+        free(out); return 0;
+    }
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHATESTENABLE, g_pg.alpha_test);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAFUNC, g_pg.alpha_func - 0x0200u + 1u);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAREF, g_pg.alpha_ref);
@@ -2329,8 +2912,10 @@ static int submit_indexed_3d(void)
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAOP,   D3DTOP_MODULATE);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAARG2, D3DTA_TEXTURE);
-        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSU,  D3DTADDRESS_WRAP);
-        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSV,  D3DTADDRESS_WRAP);
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSU,
+            nv2a_texture_address_to_d3d(g_pg.tex[0].address));
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSV,
+            nv2a_texture_address_to_d3d(g_pg.tex[0].address >> 8u));
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MAGFILTER, D3DTEXF_LINEAR);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MIPFILTER, D3DTEXF_NONE);
@@ -2352,11 +2937,16 @@ static int submit_indexed_3d(void)
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MINFILTER,D3DTEXF_LINEAR);
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
-        d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
-            g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
-            g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
-        d3d8_combiners_set_vertex_fog(program_kind==3u || program_kind==4u || (program_kind>=10u && program_kind!=17u));
     }
+    /* The common kind 1/2 Farm meshes use the same register combiner and fog
+     * equation as the advanced mesh paths. The former fixed-function
+     * MODULATE2X approximation omitted the final fog mix, producing the dark
+     * and abruptly saturated scene changes visible against xemu. */
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+        g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
+        g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
+    d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
+    d3d8_combiners_set_vertex_fog(1);
     if(program_kind==17u){
         for(unsigned stage=0;stage<4u;++stage){
             dev->lpVtbl->SetTexture(dev,stage,(IDirect3DBaseTexture8*)pox_textures[stage]);
@@ -2372,14 +2962,16 @@ static int submit_indexed_3d(void)
         }
     }
     dev->lpVtbl->BeginScene(dev);
-    double draw_start=dah_profile_ms();
+    double draw_start=dah_draw_timing ? dah_profile_ms() : 0.0;
     dah_pixel_trace_begin(program_kind,out);
-    hr = dev->lpVtbl->DrawPrimitiveUP(dev, D3DPT_TRIANGLESTRIP,
-                                       g_pg.index_count - 2u, out, sizeof(*out));
+    hr = dev->lpVtbl->DrawPrimitiveUP(dev,
+                                       g_pg.draw_mode == 5u ? D3DPT_TRIANGLELIST : D3DPT_TRIANGLESTRIP,
+                                       g_pg.draw_mode == 5u ? g_pg.index_count / 3u : g_pg.index_count - 2u,
+                                       out, sizeof(*out));
     dah_pixel_trace_end(hr);
-    double dah_fine_draw_end = dah_profile_ms();
+    double dah_fine_draw_end = dah_draw_timing ? dah_profile_ms() : 0.0;
     dah_trace_color_mask_draw(program_kind,out,hr);
-    {static double texture_total,state_total,draw_total,setup_total,vertex_total;static unsigned n;
+    if (dah_runtime_profile) {static double texture_total,state_total,draw_total,setup_total,vertex_total;static unsigned n;
      setup_total+=vertices_start-setup_start;vertex_total+=texture_start-vertices_start;texture_total+=texture_end-texture_start;state_total+=draw_start-texture_end;draw_total+=dah_fine_draw_end-draw_start;
      if(++n==1000){fprintf(stderr,"[DAH-MESH-PROFILE] n=%u setup=%.3f vertex=%.3f texture=%.3f state=%.3f draw=%.3f ms\n",n,setup_total,vertex_total,texture_total,state_total,draw_total);n=0;setup_total=vertex_total=texture_total=state_total=draw_total=0;}}
     if (dah_fine_draw) {
@@ -2676,10 +3268,9 @@ texture_ready: ;
     dev->lpVtbl->SetRenderState(dev, D3DRS_LIGHTING, FALSE);
     dev->lpVtbl->SetRenderState(dev, D3DRS_COLORWRITEENABLE, 15u);
     dev->lpVtbl->SetRenderState(dev, D3DRS_CULLMODE, g_pg.cull_enable ? D3DCULL_CCW : D3DCULL_NONE);
-    dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHABLENDENABLE,
-                                full_screen_bink ? FALSE : g_pg.blend_enable);
-    dev->lpVtbl->SetRenderState(dev, D3DRS_SRCBLEND, nv2a_blend_to_d3d(g_pg.blend_sfactor));
-    dev->lpVtbl->SetRenderState(dev, D3DRS_DESTBLEND, nv2a_blend_to_d3d(g_pg.blend_dfactor));
+    if (!dah_apply_blend_state(dev, full_screen_bink ? FALSE : g_pg.blend_enable)) {
+        failure = "unsupported-blend-equation"; goto reject;
+    }
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHATESTENABLE, g_pg.alpha_test);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAFUNC, D3DCMP_GREATER);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAREF, g_pg.alpha_ref);
@@ -2788,6 +3379,7 @@ static int submit_visibility_points(void)
 
 /* Retail screen-space MOV and four-tap ADD programs. Textures are actual
  * rendered surfaces; no image substitution or guessed guest-memory contents. */
+static uint32_t dah_pass_trace_submission(void);
 static int submit_postprocess(void)
 {
     static const uint32_t mov[16]={0,0x0020001b,0x0836106c,0x2070f800,0,0x0020021b,0x0836106c,0x2070f848,0,0x0020041b,0x0836106c,0x2070f818,0,0x00376000,0x0c36106c,0x2070f829};
@@ -2800,15 +3392,25 @@ static int submit_postprocess(void)
     if((g_pg.array_format[0]&255)!=0x42 || (g_pg.array_format[1]&255)!=0x22 || (g_pg.array_format[2]&255)!=0x40)return 0;
     for(unsigned i=3;i<16;i++)if((g_pg.array_format[i]>>4)&15)return 0;
     if(g_pg.color_mask!=0x01010101u)return 0;
+    /* Retail greyscale/menu pass: linear scene in T0, swizzled color
+     * table in T1, addressed by T0.ar (NV2A DPNDNT_AR). */
+    int dependent_ar=!isblur && g_pg.shader_stage_program==0x1e1u &&
+        g_pg.tex[0].enabled && g_pg.tex[1].enabled &&
+        !g_pg.tex[2].enabled && !g_pg.tex[3].enabled &&
+        g_pg.tex[1].format==0x08013a29u;
     unsigned active=0;
     for(unsigned t=0;t<4;t++)if(g_pg.tex[t].enabled){
         unsigned fmt=(g_pg.tex[t].format>>8)&255;
-        if(fmt!=0x12 && fmt!=0x1e)return 0;
-        if(!g_pg.tex[t].image_rect || !(g_pg.tex[t].image_rect>>16))return 0;
+        if(dependent_ar && t==1u){
+            if((g_pg.tex[t].format&4u)!=0u)return 0;
+        }else{
+            if(fmt!=0x12 && fmt!=0x1e)return 0;
+            if(!g_pg.tex[t].image_rect || !(g_pg.tex[t].image_rect>>16))return 0;
+        }
         if((g_pg.tex[t].address&7)!=3 || ((g_pg.tex[t].address>>8)&7)!=3)return 0;
         active++;
     }
-    if(!isblur && active>1)return 0;
+    if(!isblur && !dependent_ar && active>1)return 0;
     if(isblur)for(unsigned k=86*4;k<90*4;k++)if(!g_pg.transform_constant_valid[k])return 0;
     uint32_t lo=UINT32_MAX,hi=0;for(unsigned i=0;i<g_pg.index_count;i++){if(g_pg.indices[i]<lo)lo=g_pg.indices[i];if(g_pg.indices[i]>hi)hi=g_pg.indices[i];}
     const uint8_t *arr[3];
@@ -2839,9 +3441,7 @@ static int submit_postprocess(void)
     dev->lpVtbl->SetRenderState(dev,D3DRS_LIGHTING,FALSE);
     dev->lpVtbl->SetRenderState(dev,D3DRS_COLORWRITEENABLE,15);
     dev->lpVtbl->SetRenderState(dev,D3DRS_CULLMODE,g_pg.cull_enable?D3DCULL_CCW:D3DCULL_NONE);
-    dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHABLENDENABLE,g_pg.blend_enable);
-    dev->lpVtbl->SetRenderState(dev,D3DRS_SRCBLEND,nv2a_blend_to_d3d(g_pg.blend_sfactor));
-    dev->lpVtbl->SetRenderState(dev,D3DRS_DESTBLEND,nv2a_blend_to_d3d(g_pg.blend_dfactor));
+    if(!dah_apply_blend_state(dev,g_pg.blend_enable)){free(v);return 0;}
     dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHATESTENABLE,g_pg.alpha_test);
     dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHAFUNC,g_pg.alpha_func-0x200+1);
     dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHAREF,g_pg.alpha_ref);
@@ -2852,7 +3452,14 @@ static int submit_postprocess(void)
         dev->lpVtbl->SetTextureStageState(dev,t,D3DTSS_MINFILTER,D3DTEXF_LINEAR);
         dev->lpVtbl->SetTextureStageState(dev,t,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
         if(g_pg.tex[t].enabled){
-            HRESULT bind_result=d3d8_PgraphBindRenderTargetTexture(t,g_pg.tex[t].offset);
+            HRESULT bind_result;
+            if(dependent_ar && t==1u){
+                /* 001A2E60 creates this 1x256 table; 001A30E0 updates it
+                 * through LockRect -> 001E07C0, which ORs Data with
+                 * 80000000. This generated resource has contiguous backing. */
+                IDirect3DTexture8 *table=dah_mesh_texture_window(t,dev,1);
+                bind_result=table?dev->lpVtbl->SetTexture(dev,t,(IDirect3DBaseTexture8*)table):E_FAIL;
+            }else bind_result=d3d8_PgraphBindRenderTargetTexture(t,g_pg.tex[t].offset);
             if(FAILED(bind_result)){
                 if(dah_ui_animation_trace_enabled() &&
                    g_pg.active_submission>=dah_ui_animation_trace_start()){
@@ -2867,7 +3474,43 @@ static int submit_postprocess(void)
         }
     }
     if(!active && g_pg.active_submission%150==0)fprintf(stderr,"[DAH-COMPOSITE] frame=%u xy=%.1f,%.1f..%.1f,%.1f color=%08X factor0=%08X blend=%u,%X,%X stages=%08X\n",g_pg.active_submission,v[0].x,v[0].y,v[3].x,v[3].y,v[0].color,g_pg.factor0[0],g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,g_pg.combiner_control);
+    if(!active && dah_ui_animation_trace_enabled() &&
+       g_pg.active_submission>=dah_ui_animation_trace_start()){
+        static unsigned reports;
+        if(reports++<512u)fprintf(stderr,
+            "[DAH-COMPOSITE-TRACE] submit=%u target=%08X xy=%.1f,%.1f..%.1f,%.1f "
+            "colors=%08X,%08X,%08X,%08X factor0=%08X blend=%u,%X,%X,%X "
+            "depth=%u,%X,%u combiner=%08X final=%08X,%08X\n",
+            g_pg.active_submission,g_pg.surface_color_offset,
+            v[0].x,v[0].y,v[3].x,v[3].y,
+            v[0].color,v[1].color,v[2].color,v[3].color,g_pg.factor0[0],
+            g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,g_pg.blend_equation,
+            g_pg.depth_test,g_pg.depth_func,g_pg.depth_write,g_pg.combiner_control,
+            g_pg.final_cw0,g_pg.final_cw1);
+    }
     d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
+    d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
+    d3d8_combiners_set_vertex_fog_constant(dah_transform_fog(c[187][0]));
+    if(dependent_ar && dah_ui_animation_trace_enabled()){
+        static unsigned reports;
+        if(reports++<4u){
+            if(reports==1u)capture_indexed_resource("lut",g_pg.tex[1].offset,1024u);
+            uint32_t lut[4]={0};
+            const uint8_t *source=indexed_guest_bytes_window(g_pg.tex[1].offset,1024u,1);
+            if(source){memcpy(&lut[0],source,4);memcpy(&lut[1],source+256u,4);memcpy(&lut[2],source+512u,4);memcpy(&lut[3],source+1020u,4);}
+            fprintf(stderr,"[DAH-POSTPROCESS-LUT] submit=%u target=%08X scene=%08X table=%08X format=%08X samples=%08X,%08X,%08X,%08X depth=%u,%X,%u cull=%u xy=%.1f,%.1f z=%g color=%08X combiner=%08X final=%08X,%08X\n",
+                g_pg.active_submission,g_pg.surface_color_offset,g_pg.tex[0].offset,g_pg.tex[1].offset,g_pg.tex[1].format,
+                lut[0],lut[1],lut[2],lut[3],g_pg.depth_test,g_pg.depth_func,g_pg.depth_write,g_pg.cull_enable,
+                v[0].x,v[0].y,v[0].z,v[0].color,g_pg.combiner_control,g_pg.final_cw0,g_pg.final_cw1);
+        }
+    }
+    if(dah_pass_trace_submission() && g_pg.active_submission==dah_pass_trace_submission()){
+        static unsigned reports;
+        if(reports++<512u)fprintf(stderr,
+            "[DAH-PASS-POSTPROCESS] sub=%u target=%08X blur=%d color=%08X uv=%.9g,%.9g factor0=%08X alpha_one_mask=%X\n",
+            g_pg.active_submission,g_pg.surface_color_offset,isblur,v[0].color,
+            v[0].uv[0][0],v[0].uv[0][1],g_pg.factor0[0],dah_texture_alpha_one_mask());
+    }
     dev->lpVtbl->BeginScene(dev);
     HRESULT hr=dev->lpVtbl->DrawPrimitiveUP(dev,D3DPT_TRIANGLESTRIP,g_pg.index_count-2,v,sizeof(*v));free(v);
     if(FAILED(hr))return 0;
@@ -2877,14 +3520,130 @@ static int submit_postprocess(void)
 }
 
 static double dah_profile_ms(void) { LARGE_INTEGER t,f; QueryPerformanceCounter(&t);QueryPerformanceFrequency(&f);return (double)t.QuadPart*1000.0/(double)f.QuadPart; }
-static void submit_draw(void)
+
+/* Retail fullscreen colour/grade passes also arrive through INLINE_ARRAY.
+ * Their declaration is float4 position, float2 UV, packed colour: seven
+ * dwords per vertex.  The old menu fallback forced every inline packet to a
+ * five-dword XY/UV/colour layout, truncated 28 dwords to five fake vertices,
+ * and promoted packed colours such as FF7F7F7F into screen coordinates. */
+static int submit_inline_screen_mov(void)
+{
+    static const uint32_t mov[16]={
+        0,0x0020001b,0x0836106c,0x2070f800,
+        0,0x0020021b,0x0836106c,0x2070f848,
+        0,0x0020041b,0x0836106c,0x2070f818,
+        0,0x00376000,0x0c36106c,0x2070f829
+    };
+    if (g_pg.draw_mode != 6u || g_pg.inline_count != 28u ||
+        (g_pg.transform_mode & 3u) != 2u || g_pg.transform_start > 132u ||
+        g_pg.array_format[0] != 0x42u ||
+        g_pg.array_format[1] != 0x22u ||
+        g_pg.array_format[2] != 0x40u)
+        return 0;
+    uint32_t first = g_pg.transform_start * 4u;
+    for (unsigned i = 0; i < 16u; ++i)
+        if (!g_pg.transform_valid[first+i] ||
+            g_pg.transform_program[first+i] != mov[i])
+            return 0;
+    for (unsigned i = 3u; i < 16u; ++i)
+        if ((g_pg.array_format[i] >> 4u) & 15u)
+            return 0;
+    for (unsigned i = 1u; i < 4u; ++i)
+        if (g_pg.tex[i].enabled)
+            return 0;
+    float texture_width = 1.0f, texture_height = 1.0f;
+    if (g_pg.tex[0].enabled) {
+        uint32_t width = g_pg.tex[0].image_rect >> 16u;
+        uint32_t height = g_pg.tex[0].image_rect & 0xFFFFu;
+        if (!width || !height) return 0;
+        texture_width = (float)width;
+        texture_height = (float)height;
+    }
+
+    OutputVertex v[4] = {0};
+    for (unsigned i = 0; i < 4u; ++i) {
+        const uint32_t *source = g_pg.inline_data + i * 7u;
+        v[i].x = u2f(source[0]); v[i].y = u2f(source[1]);
+        v[i].z = u2f(source[2]); v[i].rhw = u2f(source[3]);
+        v[i].u = u2f(source[4]) / texture_width;
+        v[i].v = u2f(source[5]) / texture_height;
+        v[i].color = source[6]; v[i].fog_coord = 1.0f;
+        if (!isfinite(v[i].x) || !isfinite(v[i].y) ||
+            !isfinite(v[i].z) || !isfinite(v[i].rhw) ||
+            !isfinite(v[i].u) || !isfinite(v[i].v) ||
+            v[i].z < 0.0f || v[i].z > 1.0f || v[i].rhw <= 0.0f)
+            return 0;
+    }
+
+    IDirect3DDevice8 *dev = xbox_GetD3DDevice();
+    if (!dev) return 0;
+    dev->lpVtbl->SetPixelShader(dev,0);
+    dev->lpVtbl->SetVertexShader(dev,D3DFVF_XYZRHW|D3DFVF_DIFFUSE|D3DFVF_TEX1);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ZENABLE,g_pg.depth_test);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ZWRITEENABLE,g_pg.depth_write);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ZFUNC,
+        g_pg.depth_func>=0x0200u && g_pg.depth_func<=0x0207u ?
+        g_pg.depth_func-0x0200u+1u : D3DCMP_LESSEQUAL);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_LIGHTING,FALSE);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_COLORWRITEENABLE,
+        dah_nv2a_color_write_mask(g_pg.color_mask));
+    dev->lpVtbl->SetRenderState(dev,D3DRS_CULLMODE,g_pg.cull_enable ?
+        ((g_pg.front_face==0x0901u)==(g_pg.cull_face==0x0405u) ?
+         D3DCULL_CCW : D3DCULL_CW) : D3DCULL_NONE);
+    if (!dah_apply_blend_state(dev,g_pg.blend_enable)) return 0;
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHATESTENABLE,g_pg.alpha_test);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHAFUNC,
+        g_pg.alpha_func>=0x0200u && g_pg.alpha_func<=0x0207u ?
+        g_pg.alpha_func-0x0200u+1u : D3DCMP_ALWAYS);
+    dev->lpVtbl->SetRenderState(dev,D3DRS_ALPHAREF,g_pg.alpha_ref);
+    for (unsigned stage=0;stage<4u;++stage) {
+        dev->lpVtbl->SetTexture(dev,stage,NULL);
+        dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_COLOROP,
+            stage ? D3DTOP_DISABLE : D3DTOP_SELECTARG1);
+        if (!stage) {
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_COLORARG1,D3DTA_DIFFUSE);
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ALPHAARG1,D3DTA_DIFFUSE);
+        }
+    }
+    if (g_pg.tex[0].enabled) {
+        if (FAILED(d3d8_PgraphBindRenderTargetTexture(0,g_pg.tex[0].offset)))
+            return 0;
+        dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
+        dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
+        dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MINFILTER,D3DTEXF_LINEAR);
+        dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
+        dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MIPFILTER,D3DTEXF_NONE);
+    }
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+        g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
+        g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
+    d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
+    d3d8_combiners_set_vertex_fog_constant(dah_transform_fog(
+        g_pg.transform_constant_valid[187u*4u] ?
+        u2f(g_pg.transform_constants[187u*4u]) : 1.0f));
+    dev->lpVtbl->BeginScene(dev);
+    HRESULT hr=dev->lpVtbl->DrawPrimitiveUP(dev,D3DPT_TRIANGLESTRIP,2u,v,sizeof(*v));
+    if (FAILED(hr)) return 0;
+    ++g_pg.stats.draw_calls;g_pg.stats.vertices_submitted+=4u;
+    static unsigned reports;
+    if (reports++ < 8u)
+        fprintf(stderr,"[DAH-INLINE-SCREEN-MOV] sub=%u target=%08X texture=%u:%08X color=%08X z=%g rhw=%g\n",
+            g_pg.active_submission,g_pg.surface_color_offset,g_pg.tex[0].enabled,
+            g_pg.tex[0].offset,v[0].color,v[0].z,v[0].rhw);
+    return 1;
+}
+
+static void submit_draw_inner(void)
 {
     if(!g_pg.active_pushbuffer) {
         dah_read_region_count=0;
         if(dah_memory_window_profile_enabled() && dah_window_profile.reports<40u)++dah_window_profile.direct_resets;
     }
-    double t0=dah_profile_ms();
+    int dah_runtime_profile = dah_runtime_profile_enabled();
+    double t0=dah_runtime_profile ? dah_profile_ms() : 0.0;
     dah_bind_current_surface();
+    dah_apply_stencil_state(xbox_GetD3DDevice());
     if (d3d8_IsFullScreenMovieFrame()) {
         if (g_pg.index_count || g_pg.index_overflow)
             (void)submit_indexed_movie();
@@ -2898,16 +3657,25 @@ static void submit_draw(void)
     }
     if(submit_visibility_points())return;
     if (g_pg.index_count || g_pg.index_overflow) {
-        double t1=dah_profile_ms(),t2,t3;
-        int ok=submit_indexed_3d();t2=dah_profile_ms();
-        if (!ok && !submit_postprocess()) submit_indexed_movie();t3=dah_profile_ms();
-        static double bind_ms,mesh_ms,movie_ms;static unsigned count;
-        bind_ms+=t1-t0;mesh_ms+=t2-t1;movie_ms+=t3-t2;
-        if(++count==2000) {fprintf(stderr,"[DAH-DRAW-PROFILE] count=%u bind=%.3f mesh=%.3f ui=%.3f ms\n",count,bind_ms,mesh_ms,movie_ms);count=0;bind_ms=mesh_ms=movie_ms=0;}
+        double t1=dah_runtime_profile ? dah_profile_ms() : 0.0,t2,t3;
+        /* Preserve the retail/stable classification order. Ordinary menu
+         * sprites share the MOV program used by the fullscreen compositor;
+         * the indexed renderer must get first refusal so those sprites do not
+         * overwrite render targets with stale full-frame content. */
+        int ok=submit_indexed_3d();t2=dah_runtime_profile ? dah_profile_ms() : 0.0;
+        if (!ok) ok=submit_postprocess();
+        if (!ok) submit_indexed_movie();t3=dah_runtime_profile ? dah_profile_ms() : 0.0;
+        if (dah_runtime_profile) {static double bind_ms,mesh_ms,movie_ms;static unsigned count;
+            bind_ms+=t1-t0;mesh_ms+=t2-t1;movie_ms+=t3-t2;
+            if(++count==2000) {fprintf(stderr,"[DAH-DRAW-PROFILE] count=%u bind=%.3f mesh=%.3f ui=%.3f ms\n",count,bind_ms,mesh_ms,movie_ms);count=0;bind_ms=mesh_ms=movie_ms=0;}}
         return;
     }
     if (g_pg.inline_count == 0 || g_pg.vert_stride == 0)
         return;
+    /* This exact 28-dword MOV packet is four float4/float2/colour vertices.
+     * Letting the five-dword fallback consume it creates a fifth garbage
+     * vertex and black tiles around projected effects. */
+    if (submit_inline_screen_mov()) return;
 
     uint32_t num_verts = g_pg.inline_count / g_pg.vert_stride;
     if (num_verts < 3)
@@ -2973,6 +3741,62 @@ static void submit_draw(void)
     }
     #undef CONVERT_VERT
 
+    /* Diagnostic for the malformed five-vertex Farm strip seen in the GPU
+     * capture.  INLINE_ARRAY can carry programmable-vertex inputs; the old
+     * fallback always interpreting it as five pre-transformed 2D dwords is
+     * therefore suspect.  Record both the active program and the exact guest
+     * words without changing submission. */
+    int malformed_inline_five = 0;
+    if (num_verts == 5u) {
+        for (uint32_t i = 0; i < num_verts; ++i) {
+            if (!isfinite(out[i].x) || !isfinite(out[i].y) ||
+                !isfinite(out[i].u) || !isfinite(out[i].v) ||
+                fabsf(out[i].x) > 1000000.0f ||
+                fabsf(out[i].y) > 1000000.0f ||
+                fabsf(out[i].u) > 1000000.0f ||
+                fabsf(out[i].v) > 1000000.0f) {
+                malformed_inline_five = 1;
+                break;
+            }
+        }
+    }
+    if (dah_ui_animation_trace_enabled() && malformed_inline_five) {
+        static unsigned reports, gray_reports;
+        int gray = g_pg.inline_count >= 7u &&
+                   g_pg.inline_data[6] == 0xFF7F7F7Fu;
+        if ((gray && gray_reports++ < 16u) || (!gray && reports++ < 64u)) {
+            uint32_t first = g_pg.transform_start <= 129u ?
+                g_pg.transform_start * 4u : 0u;
+            fprintf(stderr,
+                "[DAH-INLINE-FIVE] sub=%u mode=%u prim=%d dwords=%u stride=%u "
+                "transform=%u,%u target=%08X tex0=%u:%08X:%08X tex1=%u:%08X:%08X "
+                "arrays=%08X,%08X,%08X,%08X combiner=%08X stage=%08X program=",
+                g_pg.active_submission, g_pg.draw_mode, actual_prim_type,
+                g_pg.inline_count, g_pg.vert_stride, g_pg.transform_mode,
+                g_pg.transform_start, g_pg.surface_color_offset,
+                g_pg.tex[0].enabled, g_pg.tex[0].format,
+                g_pg.tex[0].image_rect, g_pg.tex[1].enabled,
+                g_pg.tex[1].format, g_pg.tex[1].image_rect,
+                g_pg.array_format[0], g_pg.array_format[1],
+                g_pg.array_format[2], g_pg.array_format[3],
+                g_pg.combiner_control,g_pg.shader_stage_program);
+            for (unsigned i = 0; i < 36u; ++i)
+                fprintf(stderr, "%s%08X", i ? "," : "",
+                        g_pg.transform_program[first + i]);
+            fprintf(stderr, " raw=");
+            for (uint32_t i = 0; i < g_pg.inline_count; ++i)
+                fprintf(stderr, "%s%08X", i ? "," : "", src[i]);
+            fprintf(stderr, " out=");
+            for (uint32_t i = 0; i < num_verts; ++i)
+                fprintf(stderr,
+                    "%s[%.9g,%.9g,%.9g,%.9g,%08X,%.9g,%.9g]",
+                    i ? "," : "", out[i].x, out[i].y, out[i].z,
+                    out[i].rhw, out[i].color, out[i].u, out[i].v);
+            fputc('\n', stderr);
+            fflush(stderr);
+        }
+    }
+
     /* Chyron scroll: shift X for vertices in the chyron Y band (366-382).
      * Simple continuous scroll — no per-vertex wrapping to avoid artifacts
      * from split triangle-strip quads spanning the screen. */
@@ -3032,6 +3856,7 @@ static void submit_draw(void)
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHABLENDENABLE, TRUE);
     dev->lpVtbl->SetRenderState(dev, D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     dev->lpVtbl->SetRenderState(dev, D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+    dev->lpVtbl->SetRenderState(dev, D3DRS_BLENDOP, 1u);
 
     /* Set FVF for pre-transformed 2D with texture */
     dev->lpVtbl->SetVertexShader(dev, D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
@@ -3128,12 +3953,7 @@ static void submit_draw(void)
         dev->lpVtbl->SetRenderState(dev, D3DRS_ZFUNC,
             g_pg.depth_func >= 0x0200u && g_pg.depth_func <= 0x0207u ?
             g_pg.depth_func - 0x0200u + 1u : D3DCMP_LESSEQUAL);
-        dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHABLENDENABLE,
-            g_pg.blend_enable);
-        dev->lpVtbl->SetRenderState(dev, D3DRS_SRCBLEND,
-            nv2a_blend_to_d3d(g_pg.blend_sfactor));
-        dev->lpVtbl->SetRenderState(dev, D3DRS_DESTBLEND,
-            nv2a_blend_to_d3d(g_pg.blend_dfactor));
+        if (!dah_apply_blend_state(dev, g_pg.blend_enable)) return;
         dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHATESTENABLE,
             g_pg.alpha_test);
         dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAFUNC,
@@ -3182,6 +4002,46 @@ static void submit_draw(void)
         fprintf(stderr, "[PGRAPH-D3D11] Draw #%u: %u verts, prim=%d, prims=%u\n",
                 g_pg.stats.draw_calls, num_verts, g_pg.d3d_prim_type, prim_count);
     }
+}
+
+/* One explicitly selected ring, all draw paths. This diagnostic reads the
+ * game's bound RTV only; it never captures desktop pixels. GPU maps perturb
+ * this frame's timing, so the result is rendering evidence, not pacing data. */
+static uint32_t dah_pass_trace_submission(void)
+{
+    static int configured;
+    static uint32_t submission;
+    if(!configured){
+        const char *s=getenv("DAH_PASS_PIXEL_SUBMISSION");char *end=NULL;
+        unsigned long value=s&&*s?strtoul(s,&end,10):0;
+        if(s&&end!=s&&!*end&&value<=UINT32_MAX)submission=(uint32_t)value;
+        configured=1;
+    }
+    return submission;
+}
+
+static void submit_draw(void)
+{
+    static unsigned reports;
+    uint32_t requested=dah_pass_trace_submission();
+    if(!requested || g_pg.active_submission!=requested || reports>=512u){
+        submit_draw_inner();return;
+    }
+    static const unsigned xy[3][2]={{20,20},{50,50},{100,100}};
+    uint32_t before[3]={0},after[3]={0};
+    dah_bind_current_surface();
+    HRESULT before_hr=dah_read_active_rt_pixels(d3d8_GetD3D11Context(),xy,3,before);
+    uint32_t draws=g_pg.stats.draw_calls;
+    submit_draw_inner();
+    HRESULT after_hr=dah_read_active_rt_pixels(d3d8_GetD3D11Context(),xy,3,after);
+    fprintf(stderr,"[DAH-PASS-PIXELS] sub=%u pass=%u target=%08X surface=%08X mask=%08X blend=%u,%X,%X,%X alpha=%u,%X,%u texture=%08X format=%08X rect=%08X shader=%08X final=%08X,%08X draw=%u hr=%08lX,%08lX before=%08X,%08X,%08X after=%08X,%08X,%08X\n",
+        requested,++reports,g_pg.surface_color_offset,g_pg.surface_format,g_pg.color_mask,
+        g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,g_pg.blend_equation,
+        g_pg.alpha_test,g_pg.alpha_func,g_pg.alpha_ref,
+        g_pg.tex[0].offset,g_pg.tex[0].format,g_pg.tex[0].image_rect,g_pg.shader_stage_program,g_pg.final_cw0,g_pg.final_cw1,
+        g_pg.stats.draw_calls-draws,(unsigned long)before_hr,(unsigned long)after_hr,
+        before[0],before[1],before[2],after[0],after[1],after[2]);
+    fflush(stderr);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -3251,6 +4111,10 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
         g_pg.alpha_ocw[(method - NV097_SET_COMBINER_ALPHA_OCW) / 4u] = param;
         return 1;
     }
+    if (method >= NV097_SET_FOG_PARAMS && method < NV097_SET_FOG_PARAMS + 12u && !(method & 3u)) {
+        g_pg.fog_param[(method - NV097_SET_FOG_PARAMS) / 4u] = u2f(param);
+        return 1;
+    }
 
     switch (method) {
     case NV097_CLEAR_REPORT_VALUE:
@@ -3288,6 +4152,7 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
         return 1;
     case NV097_SET_CLIP_MIN: g_pg.clip_min = u2f(param); g_pg.clip_range_valid |= 1u; return 1;
     case NV097_SET_CLIP_MAX: g_pg.clip_max = u2f(param); g_pg.clip_range_valid |= 2u; return 1;
+    case NV097_SET_FOG_MODE: g_pg.fog_mode = param; return 1;
     case NV097_SET_FOG_ENABLE: g_pg.fog_enable = param != 0; return 1;
     case NV097_SET_FOG_COLOR: {
         IDirect3DDevice8 *dev = xbox_GetD3DDevice();
@@ -3296,6 +4161,14 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
                                             dah_nv2a_fog_color_argb(param));
         return 1;
     }
+    case NV097_SET_STENCIL_TEST_ENABLE: g_pg.stencil_test = param != 0; return 1;
+    case NV097_SET_STENCIL_MASK: g_pg.stencil_mask = param; return 1;
+    case NV097_SET_STENCIL_FUNC: g_pg.stencil_func = param; return 1;
+    case NV097_SET_STENCIL_FUNC_REF: g_pg.stencil_ref = param; return 1;
+    case NV097_SET_STENCIL_FUNC_MASK: g_pg.stencil_func_mask = param; return 1;
+    case NV097_SET_STENCIL_OP_FAIL: g_pg.stencil_op_fail = param; return 1;
+    case NV097_SET_STENCIL_OP_ZFAIL: g_pg.stencil_op_zfail = param; return 1;
+    case NV097_SET_STENCIL_OP_ZPASS: g_pg.stencil_op_zpass = param; return 1;
     case NV097_SET_TRANSFORM_CONSTANT_LOAD:
         g_pg.transform_constant_base = param < 192u ? param * 4u : 192u * 4u;
         if (dah_matrix_trace_enabled() && param < 48u)
@@ -3401,6 +4274,10 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
         return 1;
 
     /* ── Clear ── */
+    case NV097_SET_ZSTENCIL_CLEAR_VALUE:
+        g_pg.clear_zstencil = param;
+        return 1;
+
     case NV097_SET_COLOR_CLEAR_VALUE:
         g_pg.clear_color = param;
         return 1;
@@ -3416,13 +4293,21 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
     case NV097_CLEAR_SURFACE:
     {
         dah_bind_current_surface();
+        if (param & 0xF0) (void)d3d8_PgraphPreserveCurrentRenderTarget();
         IDirect3DDevice8 *dev = xbox_GetD3DDevice();
         if (dev) {
             uint32_t flags = 0;
             if (param & 0xF0) flags |= 1;  /* D3DCLEAR_TARGET */
             if (param & 0x01) flags |= 2;  /* D3DCLEAR_ZBUFFER */
             if (param & 0x02) flags |= 4;  /* D3DCLEAR_STENCIL */
-            dev->lpVtbl->Clear(dev, 0, NULL, flags, g_pg.clear_color, 1.0f, 0);
+            /* Z24S8 packs stencil in the low byte and the 24-bit depth value
+             * above it. This is the same register interpretation used by
+             * NV2A/xemu; in particular, stencil-only clears must preserve the
+             * game's requested value instead of silently clearing to zero. */
+            float clear_depth = (float)(g_pg.clear_zstencil >> 8) / 16777215.0f;
+            uint32_t clear_stencil = g_pg.clear_zstencil & 0xFFu;
+            dev->lpVtbl->Clear(dev, 0, NULL, flags, g_pg.clear_color,
+                               clear_depth, clear_stencil);
         }
         g_pg.stats.clears++;
         return 1;
@@ -3446,6 +4331,10 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
 
     case NV097_SET_BLEND_FUNC_DFACTOR:
         g_pg.blend_dfactor = param;
+        return 1;
+
+    case NV097_SET_BLEND_EQUATION:
+        g_pg.blend_equation = param;
         return 1;
 
     case NV097_SET_CULL_FACE_ENABLE:
@@ -3593,7 +4482,7 @@ static int capture_pushbuffer(const uint32_t *data, uint32_t num_dwords,
                              uint32_t submission, int kind)
 {
     static int configured;
-    static unsigned long capture_limit;
+    static unsigned long capture_limit, capture_start = 1u, captures;
     static unsigned long indexed_limit;
     static unsigned long indexed_captures;
     static unsigned long rejected_limit, rejected_captures, rejected_start;
@@ -3616,6 +4505,12 @@ static int capture_pushbuffer(const uint32_t *data, uint32_t num_dwords,
         }
         indexed_limit = capture_limit > 8u ? 8u : capture_limit;
         rejected_limit = capture_limit > 4u ? 4u : capture_limit;
+        value = getenv("DAH_PB_CAPTURE_START");
+        if (value && value[0] >= '0' && value[0] <= '9') {
+            char *end;
+            unsigned long requested = strtoul(value, &end, 10);
+            if (*end == '\0') capture_start = requested;
+        }
         value = getenv("DAH_PB_INDEXED_CAPTURE");
         if (value && value[0] >= '0' && value[0] <= '9') {
             char *end;
@@ -3645,7 +4540,10 @@ static int capture_pushbuffer(const uint32_t *data, uint32_t num_dwords,
     } else if (kind == 1) {
         if (!indexed_limit || indexed_captures >= indexed_limit) return 0;
         ++indexed_captures;
-    } else if (!capture_limit || submission > capture_limit) return 0;
+    } else {
+        if (!capture_limit || submission < capture_start || captures >= capture_limit) return 0;
+        ++captures;
+    }
 
     capture_dwords = num_dwords < max_capture_dwords ?
                          num_dwords : max_capture_dwords;

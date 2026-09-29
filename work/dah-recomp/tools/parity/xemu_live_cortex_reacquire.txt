@@ -1,0 +1,5 @@
+@frame
+# Reacquire a cow after repeated scan probes by advancing through the paddock.
+20 120 0 0 0 0 32767 0 0
+160 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+180 180 0 255 0 0 0 0 0 0 0 0 0 255 0

@@ -1,0 +1,41 @@
+# Fast internal Rockwell diagnostic. DAH_CONSOLE_AUTOLOAD_LEVEL=rockwell and
+# DAH_CONSOLE_AUTO_EQUIP_WEAPON=holobob use the original game load/equip paths.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Dismiss whichever retail tutorial owns input after the load/equip handoff.
+2800 10 0 255 0 0 0 0 0
+3100 10 0 255 0 0 0 0 0
+3400 10 0 255 0 0 0 0 0
+3420 18 0 0 0 0 0 12000 0
+3450 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+3510 24 0 0 255 0 0 0 0
+3700 10 0 255 0 0 0 0 0
+3740 60 0 0 0 16000 28000 0 0
+3810 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+3870 24 0 0 255 0 0 0 0
+4000 10 0 255 0 0 0 0 0
+4500 12 0 0 0 0 0 0 0 255
+4530 10 0 255 0 0 0 0 0
+4560 18 0 0 0 0 0 12000 0
+4590 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+4650 24 0 0 255 0 0 0 0
+4700 60 0 0 0 16000 28000 0 0
+4770 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+4830 24 0 0 255 0 0 0 0
+
+@gameplay
+# Pan the camera toward the scripted people, acquire with the retail targeting
+# trigger, then press Holobob. The second attempt adds a short approach.
+120 18 0 0 0 0 0 12000 0
+160 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+220 24 0 0 255 0 0 0 0
+360 60 0 0 0 16000 28000 0 0
+430 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+490 24 0 0 255 0 0 0 0

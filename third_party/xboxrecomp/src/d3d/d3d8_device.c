@@ -82,6 +82,8 @@ static IDirect3DBaseTexture8  *g_cur_textures[4] = { NULL };
 static IDirect3DTexture8      *g_host_frame_texture = NULL;
 static UINT                    g_host_frame_width;
 static UINT                    g_host_frame_height;
+static D3DGAMMARAMP            g_gamma_ramp;
+static BOOL                    g_gamma_ramp_valid;
 
 #define PGRAPH_RT_COUNT 8
 typedef struct PgraphRenderTarget {
@@ -89,6 +91,8 @@ typedef struct PgraphRenderTarget {
     ID3D11Texture2D *texture;
     ID3D11RenderTargetView *rtv;
     ID3D11ShaderResourceView *srv;
+    ID3D11Texture2D *feedback_texture;
+    ID3D11ShaderResourceView *feedback_srv;
 } PgraphRenderTarget;
 static PgraphRenderTarget g_pgraph_rt[PGRAPH_RT_COUNT];
 static ID3D11RenderTargetView *g_current_rtv;
@@ -100,6 +104,7 @@ static BOOL g_current_pgraph_presentable;
 
 /* Forward declarations */
 static const IDirect3DDevice8Vtbl g_device_vtbl;
+int (*g_dah_renderdoc_arm_next_frame)(const char *label);
 static void up_ring_shutdown(void);
 static void pgraph_copy_presentable_to_swapchain(void);
 
@@ -136,10 +141,34 @@ int dah_request_frame_capture(void)
     return 1;
 }
 
+/* Hidden test runs can request a pair of game frames by touching this file.
+ * No desktop input, focus, remote commands, or changes to guest state. */
+static int frame_capture_trigger_changed(void)
+{
+    static int initialized;
+    static char path[MAX_PATH];
+    static FILETIME last_write;
+    WIN32_FILE_ATTRIBUTE_DATA attributes;
+    if (!initialized) {
+        const char *internal = getenv("DAH_INTERNAL_RUN");
+        const char *setting = getenv("DAH_FRAME_CAPTURE_TRIGGER");
+        initialized = 1;
+        if (!internal || strcmp(internal,"1") || !setting || !*setting || strlen(setting)>=sizeof(path)) return 0;
+        strcpy(path,setting);
+        if(GetFileAttributesExA(path,GetFileExInfoStandard,&attributes))last_write=attributes.ftLastWriteTime;
+        return 0;
+    }
+    if(!*path || !GetFileAttributesExA(path,GetFileExInfoStandard,&attributes) ||
+       (attributes.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY) ||
+       CompareFileTime(&last_write,&attributes.ftLastWriteTime)==0)return 0;
+    last_write=attributes.ftLastWriteTime;
+    return 1;
+}
+
 static void capture_swapchain_frame(void)
 {
     static int initialized;
-    static unsigned limit, interval, start, attempts;
+    static unsigned limit, interval, start, attempts, black_pixel_threshold, black_pixel_maximum;
     static unsigned long long frame;
     unsigned long long current_frame;
     ID3D11Texture2D *backbuffer = NULL, *resolved = NULL, *staging = NULL;
@@ -152,6 +181,7 @@ static void capture_swapchain_frame(void)
     FILE *output = NULL;
     HRESULT hr = E_FAIL;
     UINT row, column;
+    unsigned black_pixels = 0;
     unsigned checksum = 2166136261u;
     int rgba, is_mapped = 0, saved = 0, requested;
     static unsigned manual_remaining;
@@ -163,13 +193,16 @@ static void capture_swapchain_frame(void)
         interval = frame_capture_setting("DAH_FRAME_CAPTURE_INTERVAL", 30u, 1000000u);
         if (!interval) interval = 1u;
         start = frame_capture_setting("DAH_FRAME_CAPTURE_START", 0u, 1000000000u);
+        black_pixel_threshold = frame_capture_setting("DAH_RENDERDOC_BLACK_PIXEL_THRESHOLD", 0u, 1000000000u);
+        black_pixel_maximum = frame_capture_setting("DAH_RENDERDOC_BLACK_PIXEL_MAXIMUM", 230399u, 1000000000u);
         if (limit) {
-            fprintf(stderr, "[DAH-FRAME-CAPTURE] enabled count=%u interval=%u start=%u; synchronous readback affects capture frames\n",
-                    limit, interval, start);
+            fprintf(stderr, "[DAH-FRAME-CAPTURE] enabled count=%u interval=%u start=%u black-range=%u..%u; synchronous readback affects capture frames\n",
+                    limit, interval, start, black_pixel_threshold, black_pixel_maximum);
             fflush(stderr);
         }
     }
     current_frame = frame++;
+    if(current_frame%15u==0u && frame_capture_trigger_changed())dah_request_frame_capture();
     /* Two consecutive frames reveal double-buffer/parity rendering defects. */
     if (InterlockedExchange(&g_manual_capture_pending, 0)) manual_remaining = 2u;
     requested = manual_remaining != 0u;
@@ -272,6 +305,8 @@ static void capture_swapchain_frame(void)
             checksum = (checksum ^ target[0]) * 16777619u;
             checksum = (checksum ^ target[1]) * 16777619u;
             checksum = (checksum ^ target[2]) * 16777619u;
+            if (target[0] < 8u && target[1] < 8u && target[2] < 8u)
+                ++black_pixels;
         }
         if (fwrite(row_buffer, 4u, desc.Width, output) != desc.Width) {
             hr = E_FAIL;
@@ -282,6 +317,15 @@ static void capture_swapchain_frame(void)
     output = NULL;
     saved = 1;
     hr = S_OK;
+    if (black_pixel_threshold && black_pixels >= black_pixel_threshold &&
+        black_pixels <= black_pixel_maximum) {
+        char label[128];
+        snprintf(label, sizeof(label), "DAH1 black geometry after frame %llu pixels %u",
+                 current_frame, black_pixels);
+        if (g_dah_renderdoc_arm_next_frame && g_dah_renderdoc_arm_next_frame(label))
+            fprintf(stderr, "[DAH-BLACK-FRAME] frame=%llu pixels=%u threshold=%u; armed next cinematic frame\n",
+                    current_frame, black_pixels, black_pixel_threshold);
+    }
 
 cleanup:
     if (output) fclose(output);
@@ -294,9 +338,9 @@ cleanup:
     QueryPerformanceCounter(&finished);
     QueryPerformanceFrequency(&frequency);
     if (saved)
-        fprintf(stderr, "[DAH-FRAME-CAPTURE] frame=%llu file=%s size=%ux%u format=%u rgb_fnv1a=%08X capture_ms=%.3f\n",
+        fprintf(stderr, "[DAH-FRAME-CAPTURE] frame=%llu file=%s size=%ux%u format=%u rgb_fnv1a=%08X black8=%u capture_ms=%.3f\n",
                 current_frame, path, desc.Width, desc.Height, (unsigned)desc.Format,
-                checksum, (finished.QuadPart - started.QuadPart) * 1000.0 / frequency.QuadPart);
+                checksum, black_pixels, (finished.QuadPart - started.QuadPart) * 1000.0 / frequency.QuadPart);
     else
         fprintf(stderr, "[DAH-FRAME-CAPTURE] frame=%llu failed hr=0x%08lX attempt=%u/%u\n",
                 current_frame, (unsigned long)hr, attempts, limit);
@@ -345,7 +389,18 @@ HRESULT d3d8_PresentFrameWithInterval(UINT interval)
         }
         capture_swapchain_frame();
         UINT present_flags = interval ? 0u : DXGI_PRESENT_DO_NOT_WAIT;
-        HRESULT result = IDXGISwapChain_Present(g_device_state.swap_chain, interval, present_flags);
+        /* A deliberately hidden internal window has no surface for DWM to
+         * compose.  DXGI normally returns OCCLUDED, but may occasionally
+         * block for hundreds of milliseconds while it revalidates that state.
+         * The full guest render, presentable-surface copy, and optional frame
+         * capture have already run above; skip only the meaningless host
+         * presentation call.  Visible player windows retain the exact same
+         * Present path. */
+        HRESULT result = (g_device_state.hwnd &&
+                          !IsWindowVisible(g_device_state.hwnd)) ?
+                         DXGI_STATUS_OCCLUDED :
+                         IDXGISwapChain_Present(g_device_state.swap_chain,
+                                                interval, present_flags);
         if (result == DXGI_ERROR_WAS_STILL_DRAWING) {
             static unsigned deferred_present_count;
             if (deferred_present_count++ < 8u)
@@ -502,6 +557,8 @@ HRESULT d3d8_PgraphBindRenderTarget(UINT offset, BOOL backbuffer,
     if (!height) height = g_device_state.height;
     rt = pgraph_find_rt(offset);
     if (rt && (rt->width != width || rt->height != height)) {
+        if (rt->feedback_srv) ID3D11ShaderResourceView_Release(rt->feedback_srv);
+        if (rt->feedback_texture) ID3D11Texture2D_Release(rt->feedback_texture);
         if (rt->srv) ID3D11ShaderResourceView_Release(rt->srv);
         if (rt->rtv) ID3D11RenderTargetView_Release(rt->rtv);
         if (rt->texture) ID3D11Texture2D_Release(rt->texture);
@@ -548,11 +605,44 @@ HRESULT d3d8_PgraphBindRenderTarget(UINT offset, BOOL backbuffer,
     return S_OK;
 
 fail:
+    if (rt->feedback_srv) ID3D11ShaderResourceView_Release(rt->feedback_srv);
+    if (rt->feedback_texture) ID3D11Texture2D_Release(rt->feedback_texture);
     if (rt->srv) ID3D11ShaderResourceView_Release(rt->srv);
     if (rt->rtv) ID3D11RenderTargetView_Release(rt->rtv);
     if (rt->texture) ID3D11Texture2D_Release(rt->texture);
     memset(rt, 0, sizeof(*rt));
     return hr;
+}
+
+HRESULT d3d8_PgraphPreserveCurrentRenderTarget(void)
+{
+    PgraphRenderTarget *rt = g_current_pgraph_rt;
+    D3D11_TEXTURE2D_DESC td;
+    HRESULT hr;
+    if (!rt || !rt->texture || !g_device_state.d3d11_device ||
+        !g_device_state.d3d11_context) return E_FAIL;
+    if (!rt->feedback_texture) {
+        ID3D11Texture2D_GetDesc(rt->texture, &td);
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        td.CPUAccessFlags = 0;
+        td.MiscFlags = 0;
+        td.Usage = D3D11_USAGE_DEFAULT;
+        hr = ID3D11Device_CreateTexture2D(g_device_state.d3d11_device,
+                                          &td, NULL, &rt->feedback_texture);
+        if (FAILED(hr)) return hr;
+        hr = ID3D11Device_CreateShaderResourceView(g_device_state.d3d11_device,
+                    (ID3D11Resource *)rt->feedback_texture, NULL,
+                    &rt->feedback_srv);
+        if (FAILED(hr)) {
+            ID3D11Texture2D_Release(rt->feedback_texture);
+            rt->feedback_texture = NULL;
+            return hr;
+        }
+    }
+    ID3D11DeviceContext_CopyResource(g_device_state.d3d11_context,
+        (ID3D11Resource *)rt->feedback_texture,
+        (ID3D11Resource *)rt->texture);
+    return S_OK;
 }
 
 HRESULT d3d8_PgraphBindDepthSurface(UINT offset, UINT format)
@@ -590,6 +680,11 @@ HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD stage, UINT offset)
     static UINT diagnostic_count;
     if (stage >= 4 || !g_device_state.d3d11_context) return E_INVALIDARG;
     rt = pgraph_find_rt(offset);
+    if (rt == g_current_pgraph_rt && rt && rt->feedback_srv) {
+        ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
+                                                 stage, 1, &rt->feedback_srv);
+        return S_OK;
+    }
     if (!rt || !rt->srv || rt == g_current_pgraph_rt) {
         UINT current = g_current_pgraph_rt ? g_current_pgraph_rt->offset : 0u;
         UINT reason = !rt ? 1u : !rt->srv ? 2u : 3u;
@@ -744,6 +839,7 @@ static HRESULT d3d11_create_device_and_swap_chain(
     DXGI_SWAP_CHAIN_DESC scd;
     D3D_FEATURE_LEVEL feature_level;
     UINT create_flags = 0;
+    BOOL flip_model;
     HRESULT hr;
 
 #ifdef _DEBUG
@@ -768,7 +864,8 @@ static HRESULT d3d11_create_device_and_swap_chain(
      * sustained gameplay. Keep the legacy path as an explicit diagnostic
      * fallback rather than making affected hosts opt in to the stable path. */
     const char *legacy_swapchain = getenv("DAH_LEGACY_SWAPCHAIN");
-    if (!legacy_swapchain || legacy_swapchain[0] != '1' || legacy_swapchain[1] != '\0') {
+    flip_model = !legacy_swapchain || legacy_swapchain[0] != '1' || legacy_swapchain[1] != '\0';
+    if (flip_model) {
         scd.BufferCount = 2;
         scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         fprintf(stderr, "[D3D8-SWAPCHAIN] flip-model presentation enabled\n");
@@ -799,6 +896,34 @@ static HRESULT d3d11_create_device_and_swap_chain(
         &feature_level,
         &state->d3d11_context
     );
+
+    /* Some Windows/driver states temporarily reject flip-model swap chains
+     * (notably with DXGI_ERROR_UNSUPPORTED) even though the same hardware can
+     * create the legacy discard model.  Preserve the preferred low-stall path,
+     * but do not turn that transient presentation limitation into a failed
+     * game boot.  The explicit DAH_LEGACY_SWAPCHAIN override still goes
+     * directly to this fallback and therefore never performs two attempts. */
+    if (FAILED(hr) && flip_model) {
+        fprintf(stderr,
+                "[D3D8-SWAPCHAIN] flip-model creation failed hr=0x%08lX; "
+                "retrying legacy discard presentation\n", hr);
+        fflush(stderr);
+        scd.BufferCount = pp->BackBufferCount ? pp->BackBufferCount : 1;
+        scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+        hr = D3D11CreateDeviceAndSwapChain(
+            NULL,
+            D3D_DRIVER_TYPE_HARDWARE,
+            NULL,
+            create_flags,
+            NULL, 0,
+            D3D11_SDK_VERSION,
+            &scd,
+            &state->swap_chain,
+            &state->d3d11_device,
+            &feature_level,
+            &state->d3d11_context
+        );
+    }
 
     if (FAILED(hr)) {
         fprintf(stderr, "D3D8: Failed to create D3D11 device: 0x%08lX\n", hr);
@@ -961,6 +1086,8 @@ static ULONG __stdcall dev_Release(IDirect3DDevice8 *self)
         if (s->default_dsv) { ID3D11DepthStencilView_Release(s->default_dsv); s->default_dsv = NULL; }
         if (s->default_depth) { ID3D11Texture2D_Release(s->default_depth); s->default_depth = NULL; }
         for (UINT i = 0; i < PGRAPH_RT_COUNT; ++i) {
+            if (g_pgraph_rt[i].feedback_srv) ID3D11ShaderResourceView_Release(g_pgraph_rt[i].feedback_srv);
+            if (g_pgraph_rt[i].feedback_texture) ID3D11Texture2D_Release(g_pgraph_rt[i].feedback_texture);
             if (g_pgraph_rt[i].srv) ID3D11ShaderResourceView_Release(g_pgraph_rt[i].srv);
             if (g_pgraph_rt[i].rtv) ID3D11RenderTargetView_Release(g_pgraph_rt[i].rtv);
             if (g_pgraph_rt[i].texture) ID3D11Texture2D_Release(g_pgraph_rt[i].texture);
@@ -1457,11 +1584,47 @@ static HRESULT __stdcall dev_DrawPrimitiveUP(IDirect3DDevice8 *self, D3DPRIMITIV
 
     vb_size = vertex_count * VertexStreamZeroStride;
 
+    /* Opt-in transport diagnostic for the five-vertex Farm strip.  This sits
+     * immediately above the dynamic-ring upload, allowing us to distinguish
+     * malformed translator output from corruption in the D3D11 upload path. */
+    int trace_five = 0;
+    if (vertex_count == 5u && getenv("DAH_UP_FIVE_TRACE")) {
+        static unsigned reports;
+        if (reports++ < 4096u) {
+            const BYTE *bytes = (const BYTE *)draw_data;
+            uint32_t hash = 2166136261u;
+            for (UINT i = 0; i < vb_size; ++i)
+                hash = (hash ^ bytes[i]) * 16777619u;
+            fprintf(stderr,
+                    "[DAH-UP-FIVE] draw=%llu prim=%u stride=%u bytes=%u hash=%08X vertices=",
+                    (unsigned long long)g_d3d_draw_count, PrimitiveCount,
+                    VertexStreamZeroStride, vb_size, hash);
+            for (UINT i = 0; i < vertex_count; ++i) {
+                uint32_t word[7] = {0};
+                UINT available = VertexStreamZeroStride < sizeof(word) ?
+                    VertexStreamZeroStride : (UINT)sizeof(word);
+                memcpy(word, bytes + (size_t)i * VertexStreamZeroStride,
+                       available);
+                fprintf(stderr, "%s[%08X,%08X,%08X,%08X,%08X,%08X,%08X]",
+                        i ? "," : "", word[0], word[1], word[2], word[3],
+                        word[4], word[5], word[6]);
+            }
+            fputc('\n', stderr);
+            fflush(stderr);
+            trace_five = 1;
+        }
+    }
+
     /* Upload to ring buffer */
     ring_offset = up_ring_upload(draw_data, vb_size);
     if (converted) free(converted);
 
     if (ring_offset == (UINT)-1) return E_OUTOFMEMORY;
+    if (trace_five) {
+        fprintf(stderr, "[DAH-UP-FIVE-OFFSET] draw=%llu offset=%u\n",
+                (unsigned long long)g_d3d_draw_count, ring_offset);
+        fflush(stderr);
+    }
 
     /* Bind ring buffer at the right offset */
     ID3D11DeviceContext_IASetVertexBuffers(g_device_state.d3d11_context,
@@ -1846,12 +2009,37 @@ static HRESULT __stdcall dev_SetPixelShaderConstant(IDirect3DDevice8 *self, INT 
 
 static void __stdcall dev_SetGammaRamp(IDirect3DDevice8 *self, DWORD Flags, const D3DGAMMARAMP *pRamp)
 {
-    (void)self; (void)Flags; (void)pRamp;
+    static unsigned calls;
+    uint32_t hash = 2166136261u;
+    const unsigned char *bytes;
+    (void)self;
+    if (!pRamp) return;
+    memcpy(&g_gamma_ramp, pRamp, sizeof(g_gamma_ramp));
+    g_gamma_ramp_valid = TRUE;
+    bytes = (const unsigned char *)pRamp;
+    for (size_t i = 0; i < sizeof(*pRamp); ++i)
+        hash = (hash ^ bytes[i]) * 16777619u;
+    if (calls++ < 16u) {
+        fprintf(stderr,
+            "[D3D8-GAMMA-RAMP] call=%u flags=%08lX hash=%08X "
+            "r=%u,%u,%u,%u,%u,%u g=%u,%u,%u,%u,%u,%u b=%u,%u,%u,%u,%u,%u\n",
+            calls, (unsigned long)Flags, hash,
+            pRamp->red[0], pRamp->red[16], pRamp->red[64], pRamp->red[128], pRamp->red[192], pRamp->red[255],
+            pRamp->green[0], pRamp->green[16], pRamp->green[64], pRamp->green[128], pRamp->green[192], pRamp->green[255],
+            pRamp->blue[0], pRamp->blue[16], pRamp->blue[64], pRamp->blue[128], pRamp->blue[192], pRamp->blue[255]);
+        fflush(stderr);
+    }
 }
 
 static void __stdcall dev_GetGammaRamp(IDirect3DDevice8 *self, D3DGAMMARAMP *pRamp)
 {
-    (void)self; (void)pRamp;
+    (void)self;
+    if (!pRamp) return;
+    if (g_gamma_ramp_valid) memcpy(pRamp, &g_gamma_ramp, sizeof(*pRamp));
+    else {
+        for (unsigned i = 0; i < 256u; ++i)
+            pRamp->red[i] = pRamp->green[i] = pRamp->blue[i] = (WORD)(i * 257u);
+    }
 }
 
 static HRESULT __stdcall dev_SetPalette(IDirect3DDevice8 *self, DWORD PaletteNumber, const void *pEntries)

@@ -21,4 +21,5 @@ static inline double dah_x87_round(double value, uint16_t control)
     }
     }
 }
+
 #endif

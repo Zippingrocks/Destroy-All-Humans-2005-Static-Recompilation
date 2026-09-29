@@ -1,0 +1,8 @@
+@frame
+# Relative schedule for the already-running hidden xemu cow-paddock reference.
+# It begins from the prior farm_entry_cow_mesh_probe fence checkpoint.
+60 2 0 255 0 0 0 0 0
+64 96 0 255 0 0 32767 0 0
+160 220 0 0 0 0 32767 0 0
+400 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+420 180 0 255 0 0 0 0 0 0 0 0 0 255 0

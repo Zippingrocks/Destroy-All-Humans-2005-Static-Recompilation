@@ -1,0 +1,36 @@
+# intro.bik blocks the retail frame clock while controller polling continues.
+# A single call-clock A pulse skips it without touching any later menu state.
+3600 6 0 255 0 0 0 0 0
+
+@frame
+# Fresh-profile retail route into Turnipseed Farm.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+3400 6 0 255 0 0 0 0 0
+4300 6 0 255 0 0 0 0 0
+4700 6 0 255 0 0 0 0 0
+
+@gameplay
+# Reuse the verified cow route and complete the Cortex Scan tutorial first.
+# The retail tutorial suppresses weapon fire until both scans finish. Then
+# fire the equipped Zap-O-Matic while the cow remains in the targeting cone.
+0 600 0 0 0 0 32767 0 0
+620 2 0 255 0 0 0 0 0
+624 96 0 255 0 0 32767 0 0
+720 220 0 0 0 0 32767 0 0
+960 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+980 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+1200 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1220 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+# site_globalsettings.lua maps fireWeapons to XBOX_LEFT_TRIGGER. Right
+# trigger is fireAbilities and must not be used to validate Zap-O-Matic.
+1500 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1540 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1580 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1640 180 0 0 0 0 0 0 0 0 0 0 0 255 0
+1860 20 0 0 0 0 0 0 0 0 0 0 0 255 0

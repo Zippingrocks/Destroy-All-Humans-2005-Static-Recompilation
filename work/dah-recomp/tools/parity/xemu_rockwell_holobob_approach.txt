@@ -1,0 +1,7 @@
+@frame
+# From the saved Rockwell tutorial checkpoint, turn toward the marked woman,
+# close the distance, settle the camera, and hold B for a complete disguise.
+0 20 0 0 0 0 0 16000 0
+24 90 0 0 0 8000 28000 0 0
+125 15 0 0 0 0 0 -6000 0
+150 90 0 0 255 0 0 0 0

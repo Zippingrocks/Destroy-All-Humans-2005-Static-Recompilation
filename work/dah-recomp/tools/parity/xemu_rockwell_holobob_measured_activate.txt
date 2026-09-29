@@ -1,0 +1,6 @@
+@frame
+# Deterministic route from dah-parity-1790573474818 to the nearby valid
+# civilian: 41 degrees clockwise, then about 9 degrees down, then hold B.
+0 68 0 0 0 0 0 24000 0
+75 32 0 0 0 0 0 0 -24000
+115 100 0 0 255 0 0 0 0

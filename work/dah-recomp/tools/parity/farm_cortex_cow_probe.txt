@@ -1,0 +1,25 @@
+@frame
+# Fresh-profile retail route into Turnipseed Farm. After the complete opening
+# cinematic, walk to the paddock fence used by the cow mesh probe and fire the
+# Cortex Scan repeatedly while the cows are centered in the reticle.
+# start duration hex_buttons A B LX LY RX RY [X Y BLACK WHITE LT RT]
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+7200 300 0 0 0 0 32767 0 0
+# Clear the tutorial fence with a true rapid double tap: a two-frame jump,
+# two-frame release, then jetpack forward while the actor is airborne.
+7520 2 0 255 0 0 0 0 0
+7524 96 0 255 0 0 32767 0 0
+7620 220 0 0 0 0 32767 0 0
+# Original Xbox Cortex Scan is LT+A. Establish the left-trigger target state,
+# then hold A while LT remains down. Release fully between attempts so both
+# acquisition and release transitions are captured.
+7860 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+7880 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+8100 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+8120 180 0 255 0 0 0 0 0 0 0 0 0 255 0

@@ -1,0 +1,4 @@
+@frame
+# Continue reference005 after its first observer ended halted at loop 7476.
+# Prior forward, backward, and left pulses remain part of the same live history.
+7560 15 0 0 0 32767 0 0 0

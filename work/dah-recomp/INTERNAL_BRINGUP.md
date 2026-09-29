@@ -1,6 +1,6 @@
 ## 2026-09-19 (evening) — Camera pitch "look up, can't look down" bug: UNSOLVED, session paused mid-investigation
 
-**Symptom (user-confirmed, live, real controller, real build-ninja/dah.exe):**
+**Symptom (user-confirmed, live, real controller, real player build):**
 once you push the camera stick up, pushing it back down does nothing --
 camera stays pinned looking up. This is the #1 priority bug in the project
 right now per the user. NOT YET FIXED. Read this whole section before
@@ -66,7 +66,7 @@ worked correctly and is cheap/safe (`dah_camera_memdiff_poll()`, gated by
 read-only logging, does not touch guest state, safe to leave compiled into
 both build-internal and build-ninja). The efficient next move is to run it
 against **build-ninja with a real user controller** instead of scripted
-headless input: launch `dah.exe` with `DAH_INTERNAL_RUN=1
+headless input: launch `dah_recomp_working.exe` with `DAH_INTERNAL_RUN=1
 DAH_CAMERA_MEMDIFF_TRACE=1` set (this does not change any player-visible
 behavior, only adds stderr logging), have the user play normally and
 specifically push the camera stick hard up for a few seconds then hard down
@@ -77,7 +77,7 @@ tonight). Whichever byte offset changes with "up" and then fails to reverse
 with "down" is the smoking gun -- at that point you have a concrete
 address/offset to chase without needing a disassembler. This was queued up
 and ready to run when the session was paused (build-ninja was freshly
-rebuilt with this diagnostic and `dah.exe` was already repromoted) but the
+rebuilt with this diagnostic and the player build was already repromoted) but the
 live user test was never actually run -- **do this first** next session.
 
 **Files touched this sub-investigation (all safe, additive, opt-in,

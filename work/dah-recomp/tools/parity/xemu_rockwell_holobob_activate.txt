@@ -1,0 +1,4 @@
+@frame
+# Hold the analog B channel while the direct retail selector is on a valid
+# civilian, then leave enough neutral frames to observe the disguise state.
+0 100 0 0 255 0 0 0 0

@@ -46,6 +46,7 @@ HRESULT d3d8_PgraphBindDepthSurface(UINT offset, UINT format);
 HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD stage, UINT offset);
 BOOL d3d8_PgraphTryBindRenderTargetTexture(DWORD stage, UINT offset);
 BOOL d3d8_PgraphHasRenderTarget(UINT offset);
+HRESULT d3d8_PgraphPreserveCurrentRenderTarget(void);
 
 /* Current render state array accessor */
 const DWORD         *d3d8_GetRenderStates(void);

@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 extern void dah_player_velocity_compat(uint32_t physics_body, uint32_t vector);
+extern void dah_physics_quat_trace(unsigned phase, uint32_t object, uint32_t input,
+                                   uint32_t upstream_return);
+extern void dah_velocity_trace(uint32_t object, uint32_t input,
+                               uint32_t guest_return);
 
 extern void d3d8_ClearMovieBackground(void);
 extern void d3d8_BeginFullScreenMovieTransition(void);
@@ -18,6 +22,27 @@ extern void d3d8_SetFullScreenMovieOpaque(int enabled);
 /* Temporary, bounded diagnostics at the retail movie boundary. */
 static void dah_movie_trace(const char *stage, uint32_t *calls)
 {
+    static unsigned long long mirror_epoch;
+    static int mirror_enabled = -1;
+    if (mirror_enabled < 0) mirror_enabled = getenv("DAH_MIRROR_TRACE") != NULL;
+    if (mirror_enabled && ((stage[0] == 'O' && stage[1] == 'P') ||
+                           (stage[0] == 'C' && stage[1] == 'L'))) {
+        unsigned long long now = (unsigned long long)GetTickCount64();
+        unsigned i;
+        if (!mirror_epoch) mirror_epoch = now;
+        fprintf(stderr, "[DAH-MIRROR] ms=%llu stage=%s caller=%08X ecx=%08X handle=%08X",
+                now - mirror_epoch, stage, MEM32(esp), ecx, MEM32(0x28681C));
+        if (stage[0] == 'O' && stage[1] == 'P') {
+            fprintf(stderr, " path=");
+            for (i = 0; i < 260; ++i) {
+                unsigned char ch = MEM8(ecx + i);
+                if (!ch) break;
+                fputc(ch >= 32 && ch < 127 ? ch : '?', stderr);
+            }
+        }
+        fputc('\n', stderr);
+        fflush(stderr);
+    }
     if ((*calls)++ < 12) {
         fprintf(stderr, "[DAH-MOVIE-%s] call=%u caller=%08X ecx=%08X mode=%u flags=%02X handle=%08X surface=%04X lifecycle=%u\n",
                 stage, *calls, MEM32(esp), ecx, MEM32(0x2867F8), MEM8(0x2867F4),
@@ -12402,14 +12427,17 @@ void sub_00122D70(void)
 {
     static uint32_t calls;
     static int dah_movie_nonblock = -1;
-    /* Host scheduling adapter (DAH_MOVIE_NONBLOCK=0 opts out).
+    /* Host scheduling adapter (DAH_MOVIE_NONBLOCK=1 opts in).
      * This does not change the native Bink clock.
      * Only the regular update caller (via the 122890 tail-call) may defer.
      * The 123180 open/preload call must still prepare its first frame here. */
     const int dah_movie_update_call = MEM32(esp) == 0x0005A46Du;
     if (dah_movie_nonblock < 0) {
         const char *setting = getenv("DAH_MOVIE_NONBLOCK");
-        dah_movie_nonblock = !setting || (setting[0] == '1' && setting[1] == '\0');
+        /* Mirrored xemu timing proved the original blocking path matches the
+         * retail THQ/Pandemic lifecycle within one 30 Hz frame. Keep that
+         * behavior as the player default; nonblocking remains diagnostic-only. */
+        dah_movie_nonblock = setting && setting[0] == '1' && setting[1] == '\0';
         if (dah_movie_nonblock)
             fprintf(stderr, "[DAH-MOVIE-SCHEDULE] nonblocking update enabled; native movie clock and preload retained\n");
     }
@@ -26639,6 +26667,7 @@ loc_00129100: ;
     eax = MEM32(ebp + 8);
     PUSH32(esp, esi);
     esi = ecx;
+    dah_physics_quat_trace(0u, esi, eax, MEM32(ebp + 0x20u));
     ecx = MEM32(eax);
     PUSH32(esp, edi);
     edi = esi + 0x38;
@@ -26654,6 +26683,7 @@ loc_00129100: ;
     PUSH32(esp, 0x00129130u); sub_000D5CC0(); /* call 0x000D5CC0 */
 
 loc_00129130: ;
+    dah_physics_quat_trace(1u, esi, 0u, MEM32(ebp + 0x20u));
     eax = MEM32(esi + 0x24);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
@@ -27712,10 +27742,16 @@ void sub_00129AF0(void)
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
+    int dah_holobob_spatial_trace = 0;
+    uint32_t dah_holobob_spatial_core = 0;
+    uint32_t dah_holobob_spatial_target = 0;
 
 loc_00129AF0: ;
     esp = esp - 0x114;
+    dah_holobob_spatial_trace = getenv("DAH_HOLOBOB_TRACE") &&
+        MEM32(esp + 0x114) == 0x000A32EAu;
     ecx = MEM32(ecx + 0x24);
+    dah_holobob_spatial_core = ecx;
     { uint32_t _icall_esp = g_esp;
     PUSH32(esp, ebx);
     PUSH32(esp, ebp);
@@ -27731,11 +27767,25 @@ loc_00129AF0: ;
     MEM32(esp + 0x1C) = esi;
     MEM8(esp + 0x14) = 0;
     edx = MEM32(ecx);
+    dah_holobob_spatial_target = MEM32(edx + 0x30);
+    if(dah_holobob_spatial_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-SPATIAL] stage=dispatch core=%08X vtable=%08X call=%08X "
+        "filter=%08X,%02X,%08X,%08X output=%08X parts=%u partList=%08X "
+        "context=%08X contextCC=%08X mode=%u\n",
+        dah_holobob_spatial_core,edx,dah_holobob_spatial_target,
+        MEM32(esp+0x10),(unsigned)MEM8(esp+0x14),MEM32(esp+0x1C),MEM32(esp+0x20),
+        MEM32(esp+0x128),MEM32(ecx+0xC4),MEM32(ecx+0xC0),MEM32(ecx+8),
+        MEM32(MEM32(ecx+8)+0xCC),MEM32(ecx+0x54));
     PUSH32(esp, eax);
     { uint32_t _icall_target = MEM32(edx + 0x30); PUSH32(esp, 0x00129B2Bu); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
 
 loc_00129B2B: ;
+    if(dah_holobob_spatial_trace)fprintf(stderr,
+        "[DAH-HOLOBOB-SPATIAL] stage=result core=%08X call=%08X "
+        "count=%u records=%08X flags=%08X\n",
+        dah_holobob_spatial_core,dah_holobob_spatial_target,
+        MEM32(esp+0x1C),MEM32(esp+0x18),MEM32(esp+0x20));
     eax = MEM32(esp + 0x1C);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(esi) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, esi (32-bit) */
@@ -31998,6 +32048,7 @@ void sub_0012BB30(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_0012BB30: ;
+    dah_velocity_trace(ecx, MEM32(esp + 4), MEM32(esp));
     dah_player_velocity_compat(ecx, MEM32(esp + 4));
     PUSH32(esp, ebp);
     ebp = esp;

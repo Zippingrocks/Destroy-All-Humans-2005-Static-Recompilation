@@ -1,0 +1,13 @@
+@frame
+# Fresh profile route adjusted for the current controller/menu acceptance gate.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+# The hub transition now settles after the legacy 2700 pulse.
+3400 6 0 255 0 0 0 0 0
+4300 6 0 255 0 0 0 0 0
+# Retry after the invasion map's entrance transition has fully settled.
+4700 6 0 255 0 0 0 0 0

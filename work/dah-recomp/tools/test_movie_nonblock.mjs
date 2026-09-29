@@ -62,7 +62,7 @@ function run(exe, envValue, enabled, mustPass) {
   console.log(mustPass ? `env=${JSON.stringify(envValue)} ${result.stdout.trim()}` : `PASS negative control: ${result.stderr.trim()}`);
 }
 const productionExe = compile('production', fixture);
-run(productionExe, undefined, true, true); // Normal launches use the proven adapter.
+run(productionExe, undefined, false, true); // Normal launches preserve retail blocking semantics.
 for (const value of ['', '0', 'true', '01', '10', '1 ']) run(productionExe, value, false, true);
 run(productionExe, '1', true, true);
 for (const [label, oldText, replacement] of [

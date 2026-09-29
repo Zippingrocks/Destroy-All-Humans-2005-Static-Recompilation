@@ -1,11 +1,14 @@
 param(
     [ValidateRange(1, 3600)][int]$Seconds = 30,
+    [ValidateSet(30, 60)][int]$Fps = 30,
+    [switch]$UseRetailFps,
     [ValidateRange(0, 128)][int]$CaptureCount = 8,
     [ValidateRange(1, 1000000)][int]$CaptureInterval = 30,
     [ValidateRange(0, 64)][int]$PushbufferCaptures = 4,
     [ValidateRange(0, 1000000)][int]$StartDelay = 6,
     [ValidateRange(0, 1000000)][int]$CaptureStart = 0,
     [switch]$NonblockingMovie,
+    [switch]$UseMovieDefault,
     [switch]$EnterMenu,
     [switch]$ForceUiRender,
     [switch]$ForceUiChild,
@@ -15,9 +18,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $dahInternal = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\build-internal'))
-$dahExecutable = Join-Path $dahInternal 'DestroyAllHumans.exe'
+$dahExecutable = Join-Path $dahInternal 'dah_recomp_internal.exe'
 if (!(Test-Path -LiteralPath $dahExecutable)) { throw 'Build build-internal first.' }
-$dahExisting = Get-Process -Name DestroyAllHumans -ErrorAction SilentlyContinue |
+$dahExisting = Get-Process -Name dah_recomp_internal -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $dahExecutable }
 if ($dahExisting) { throw "An internal test is already running: $($dahExisting.Id -join ', ')" }
 
@@ -34,7 +37,7 @@ $dahStartInfo.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
 $dahHasInputScript = ![string]::IsNullOrWhiteSpace($env:DAH_INPUT_SCRIPT)
 $dahChildSettings = @{
     DAH_INTERNAL_RUN = '1'
-    DAH_FPS = '30'
+    DAH_FPS = [string]$Fps
     DAH_HOST_FRAME = '0'
     DAH_MOVIE_NONBLOCK = $(if ($NonblockingMovie) { '1' } else { '0' })
     DAH_DIAGNOSTIC_OVERLAY = '0'
@@ -53,6 +56,8 @@ $dahChildSettings = @{
 foreach ($dahSetting in $dahChildSettings.Keys) {
     $dahStartInfo.EnvironmentVariables[$dahSetting] = $dahChildSettings[$dahSetting]
 }
+if ($UseRetailFps) { $dahStartInfo.EnvironmentVariables.Remove('DAH_FPS') }
+if ($UseMovieDefault) { $dahStartInfo.EnvironmentVariables.Remove('DAH_MOVIE_NONBLOCK') }
 foreach ($dahDisabledSetting in @('DAH_FORCE_UI_RENDER', 'DAH_FORCE_UI_CHILD', 'DAH_MATRIX_TRACE', 'DAH_AUTOSTART2', 'DAH_AUTOA')) {
     $dahStartInfo.EnvironmentVariables.Remove($dahDisabledSetting)
 }
@@ -69,7 +74,7 @@ if ($EnterMenu) {
 $dahLaunchTime = [DateTime]::UtcNow
 $dahRun = [Diagnostics.Process]::Start($dahStartInfo)
 $dahExitFailure = $null
-Write-Output "INTERNAL_START pid=$($dahRun.Id) seconds=$Seconds path=$dahExecutable"
+Write-Output "INTERNAL_START pid=$($dahRun.Id) seconds=$Seconds fps=$(if ($UseRetailFps) { 'retail' } else { $Fps }) path=$dahExecutable"
 try {
     $dahDeadline = [DateTime]::UtcNow.AddSeconds($Seconds)
     while ([DateTime]::UtcNow -lt $dahDeadline -and !$dahRun.HasExited) {
@@ -89,7 +94,9 @@ try {
         $dahRun.Kill()
         $dahRun.WaitForExit()
     }
-    $dahLogSource = if ($env:DAH_LOG_PATH) { $env:DAH_LOG_PATH } else { Join-Path $dahInternal 'recomp.log' }
+    # main.c defaults GUI builds to furonlog.log when DAH_LOG_PATH is unset.
+    # Keep this in sync so each run archives the telemetry it actually wrote.
+    $dahLogSource = if ($env:DAH_LOG_PATH) { $env:DAH_LOG_PATH } else { Join-Path $dahInternal 'furonlog.log' }
     $dahArchive = Join-Path ([IO.Path]::GetDirectoryName($dahLogSource)) "recomp-internal-$($dahRun.Id).log"
     if (Test-Path -LiteralPath $dahLogSource) {
         Copy-Item -LiteralPath $dahLogSource -Destination $dahArchive

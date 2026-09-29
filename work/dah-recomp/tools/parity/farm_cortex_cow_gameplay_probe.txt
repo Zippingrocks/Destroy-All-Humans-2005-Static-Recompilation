@@ -1,0 +1,25 @@
+@frame
+# Fresh-profile retail route into Farm. Front-end inputs stay on the shared
+# retail frame clock; gameplay inputs switch to the verified active-Crypto
+# anchor so movie and loading drift cannot move the fence/scan sequence into a
+# different tutorial phase.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+
+@gameplay
+# Drive all the way to the measured pre-jump fence coordinate before using
+# jetpack fuel. Startup phase changes the camera-relative forward heading, so
+# this longer hold intentionally settles against the same collision plane.
+0 600 0 0 0 0 32767 0 0
+620 2 0 255 0 0 0 0 0
+624 96 0 255 0 0 32767 0 0
+720 220 0 0 0 0 32767 0 0
+960 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+980 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+1200 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1220 180 0 255 0 0 0 0 0 0 0 0 0 255 0

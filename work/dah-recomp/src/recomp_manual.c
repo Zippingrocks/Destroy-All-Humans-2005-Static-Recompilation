@@ -12,6 +12,7 @@
 #include <xbox/xboxrecomp.h>
 #include "xinput_xbox.h"
 #include "recomp_types.h"
+#include "dah_timing.h"
 
 extern volatile uint64_t g_icall_count;
 static RECOMP_TLS uint32_t g_dah_last_error;
@@ -62,6 +63,156 @@ volatile int dah_trace_input_lx;
 volatile int dah_trace_input_ly;
 volatile int dah_trace_input_rx;
 volatile int dah_trace_input_ry;
+
+/* Opt-in, read-only boundary trace for the player physics quaternion setter.
+ * The generated 00129100 hook calls this immediately before its input copy
+ * and immediately after retail normalization. Normal runs pay only the
+ * disabled helper call; the trace is restricted to the four-direction parity
+ * window and never changes guest state. */
+void dah_physics_quat_trace(unsigned phase, uint32_t object, uint32_t input,
+                            uint32_t upstream_return)
+{
+    static int initialized;
+    static FILE *output;
+    uint32_t control, player, actor, body, inner;
+    const char *path;
+
+    if (!initialized) {
+        initialized = 1;
+        path = getenv("DAH_PHYSICS_QUAT_TRACE");
+        if (path && *path) output = fopen(path, "wb");
+    }
+    if (!output || g_dah_input_state_calls < 7315u ||
+        g_dah_input_state_calls >= 7330u) return;
+
+    control = MEM32(0x0025FCECu);
+    player = control ? MEM32(control + 0x38u) : 0;
+    actor = player ? MEM32(player + 0x38u) : 0;
+    body = actor ? MEM32(actor + 0x110u) : 0;
+    inner = body ? MEM32(body + 0x0Cu) : 0;
+    if (!inner || object != inner || MEM32(inner) != 0x00237968u) return;
+
+    fprintf(output,
+        "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"%s\","
+        "\"loop\":%u,\"object\":%u,\"upstreamReturn\":%u,\"fpControl\":%u,\"inputBits\":",
+        phase ? "normalized" : "input", g_dah_input_state_calls, object,
+        upstream_return, (unsigned)g_fp_control_word);
+    if (phase) fputs("null", output);
+    else fprintf(output, "[%u,%u,%u,%u]", MEM32(input), MEM32(input + 4u),
+        MEM32(input + 8u), MEM32(input + 12u));
+    fprintf(output, ",\"storedBits\":[%u,%u,%u,%u]}\n",
+        MEM32(object + 0x38u), MEM32(object + 0x3Cu),
+        MEM32(object + 0x40u), MEM32(object + 0x44u));
+    fflush(output);
+}
+
+/* Trace the angle passed by the player movement caller into the retail
+ * axis-angle quaternion constructor. The return-address filter excludes every
+ * other constructor use without changing guest execution. */
+void dah_quat_constructor_trace(uint32_t destination, uint32_t axis,
+                                uint32_t angle_bits, uint32_t guest_return)
+{
+    static int initialized;
+    static FILE *output;
+    const char *path;
+    if (!initialized) {
+        initialized = 1;
+        path = getenv("DAH_QUAT_CONSTRUCTOR_TRACE");
+        if (path && *path) output = fopen(path, "wb");
+    }
+    if (!output || guest_return != 0x0005855Au ||
+        g_dah_input_state_calls < 7315u || g_dah_input_state_calls >= 7330u)
+        return;
+    fprintf(output,
+        "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"constructor\","
+        "\"loop\":%u,\"destination\":%u,\"axis\":%u,\"angleBits\":%u,"
+        "\"fpControl\":%u}\n",
+        g_dah_input_state_calls, destination, axis, angle_bits,
+        (unsigned)g_fp_control_word);
+    fflush(output);
+}
+
+/* Opt-in trace at the retail physics velocity setter. The object filter keeps
+ * only Crypto's active body, so the recorded vector is the exact controller-
+ * driven value before the setter copies it into body +0x84. */
+void dah_velocity_trace(uint32_t object, uint32_t input,
+                        uint32_t guest_return)
+{
+    static int initialized;
+    static FILE *output;
+    uint32_t control, player, actor, body;
+    const char *path;
+    if (!initialized) {
+        initialized = 1;
+        path = getenv("DAH_VELOCITY_TRACE");
+        if (path && *path) output = fopen(path, "wb");
+    }
+    if (!output || g_dah_input_state_calls < 7198u ||
+        g_dah_input_state_calls >= 7225u) return;
+    control = MEM32(0x0025FCECu);
+    player = control ? MEM32(control + 0x38u) : 0;
+    actor = player ? MEM32(player + 0x38u) : 0;
+    body = actor ? MEM32(actor + 0x110u) : 0;
+    if (!body || object != body) return;
+    fprintf(output,
+        "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"velocityInput\","
+        "\"loop\":%u,\"object\":%u,\"inputAddress\":%u,"
+        "\"upstreamReturn\":%u,\"fpControl\":%u,"
+        "\"inputBits\":[%u,%u,%u]}\n",
+        g_dah_input_state_calls, object, input, guest_return,
+        (unsigned)g_fp_control_word, MEM32(input), MEM32(input + 4u),
+        MEM32(input + 8u));
+    fflush(output);
+}
+
+void dah_velocity_source_trace(uint32_t object, uint32_t input,
+                               uint32_t guest_return)
+{
+    static int initialized;
+    static FILE *output;
+    const char *path;
+    if (!initialized) {
+        initialized = 1;
+        path = getenv("DAH_VELOCITY_SOURCE_TRACE");
+        if (path && *path) output = fopen(path, "wb");
+    }
+    if (!output || g_dah_input_state_calls < 7198u ||
+        g_dah_input_state_calls >= 7225u) return;
+    fprintf(output,
+        "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"velocitySource\","
+        "\"loop\":%u,\"object\":%u,\"inputAddress\":%u,"
+        "\"upstreamReturn\":%u,\"fpControl\":%u,"
+        "\"inputBits\":[%u,%u,%u]}\n",
+        g_dah_input_state_calls, object, input, guest_return,
+        (unsigned)g_fp_control_word, MEM32(input), MEM32(input + 4u),
+        MEM32(input + 8u));
+    fflush(output);
+}
+
+void dah_velocity_stage_trace(unsigned stage, uint32_t input)
+{
+    static const char *const names[] = {
+        "afterDirection", "afterHeading", "afterAdjustment"
+    };
+    static int initialized;
+    static FILE *output;
+    const char *path;
+    if (!initialized) {
+        initialized = 1;
+        path = getenv("DAH_VELOCITY_STAGE_TRACE");
+        if (path && *path) output = fopen(path, "wb");
+    }
+    if (!output || stage >= 3u || g_dah_input_state_calls < 7198u ||
+        g_dah_input_state_calls >= 7225u) return;
+    fprintf(output,
+        "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"velocityStage\","
+        "\"stage\":\"%s\",\"loop\":%u,\"inputAddress\":%u,"
+        "\"fpControl\":%u,\"inputBits\":[%u,%u,%u]}\n",
+        names[stage], g_dah_input_state_calls, input,
+        (unsigned)g_fp_control_word, MEM32(input), MEM32(input + 4u),
+        MEM32(input + 8u));
+    fflush(output);
+}
 
 /* Apply an actor rotation through the retail setter so the physics object and
  * the cached scene transform change together.  Generated functions operate on
@@ -121,7 +272,12 @@ void dah_player_velocity_compat(uint32_t physics_body, uint32_t vector)
     static unsigned s_vc_trace_count;
     if (enabled < 0) {
         const char *flag = getenv("DAH_PLAYER_MOVEMENT_COMPAT");
-        enabled = flag ? (flag[0] && flag[0] != '0') : 1;
+        const char *internal = getenv("DAH_INTERNAL_RUN");
+        /* The original acos COMISS/POP ordering is now restored.  Keep this
+         * old workaround only for explicit internal negative-control runs;
+         * retail movement owns velocity in normal builds. */
+        enabled = internal && internal[0] == '1' &&
+                  flag && flag[0] && flag[0] != '0';
     }
     if (!enabled || vector < 0x10000u || vector > 0x08000000u - 12u)
         return;
@@ -183,9 +339,98 @@ void dah_player_velocity_compat(uint32_t physics_body, uint32_t vector)
     MEMF(vector + 4u) = speed * expected_y / expected_length;
 }
 
-/* Rebuild Crypto's facing from the signed camera-relative input vector.  The
- * current script handoff reflects one horizontal component, so its generated
- * facing can disagree with the direction selected on the stick. */
+static int dah_movement_trace_span(uint32_t address, uint32_t bytes)
+{
+    return address >= 0x10000u && !(address & 3u) &&
+           bytes <= 0x08000000u && address <= 0x08000000u - bytes;
+}
+
+static void dah_movement_trace_words(const char *name, uint32_t address,
+                                     unsigned count)
+{
+    unsigned index;
+    fprintf(stderr, ",\"%s\":", name);
+    if (!dah_movement_trace_span(address, count * 4u)) {
+        fprintf(stderr, "null");
+        return;
+    }
+    fprintf(stderr, "[");
+    for (index = 0; index < count; ++index)
+        fprintf(stderr, "%s%u", index ? "," : "", MEM32(address + index * 4u));
+    fprintf(stderr, "]");
+}
+
+/* Read the retail result before the compatibility setter can replace it.
+ * This is a bounded internal observation, including when compatibility is
+ * disabled.  Raw words avoid altering guest float/register state. */
+static void dah_movement_precompat_trace(int compatibility_enabled)
+{
+    static int enabled = -1;
+    static uint32_t last_loop;
+    uint32_t loop, system, player, actor, object, node, movement, body;
+    uint32_t body_vtable = 0u, velocity_setter = 0u, inner = 0u;
+    uint32_t renderer, camera_node = 0u;
+
+    if (enabled < 0) {
+        const char *flag = getenv("DAH_MOVEMENT_PRECOMPAT_TRACE");
+        enabled = dah_input_is_internal() && flag && strcmp(flag, "1") == 0;
+    }
+    if (!enabled) return;
+    loop = MEM32(0x0025B1DCu);
+    if (loop < 7198u || loop > 7225u || loop == last_loop) return;
+    last_loop = loop;
+    system = MEM32(0x0025FCECu);
+    player = dah_movement_trace_span(system, 0x3Cu) ? MEM32(system + 0x38u) : 0u;
+    actor = dah_movement_trace_span(player, 0x3Cu) ? MEM32(player + 0x38u) : 0u;
+    if (!dah_movement_trace_span(actor, 0x4A4u) || MEM32(actor) != 0x0022C9F8u) {
+        fprintf(stderr, "[DAH-MOVEMENT-PRECOMPAT] {\"phase\":\"before-E7200-camera-copy\","
+                "\"loop\":%u,\"complete\":false,\"actor\":%u}\n", loop, actor);
+        return;
+    }
+    object = MEM32(actor + 0x28u);
+    node = MEM32(actor + 0x4A0u);
+    movement = MEM32(actor + 0x130u);
+    body = MEM32(actor + 0x110u);
+    if (dah_movement_trace_span(body, 0x90u)) {
+        body_vtable = MEM32(body);
+        if (dah_movement_trace_span(body_vtable, 0x94u))
+            velocity_setter = MEM32(body_vtable + 0x90u);
+        /* The retail Crypto wrapper delegates rotation through +0x0C. */
+        if (body_vtable == 0x002376E8u) inner = MEM32(body + 0x0Cu);
+    }
+    renderer = MEM32(0x00250E60u);
+    if (dah_movement_trace_span(renderer, 0xF0u)) camera_node = MEM32(renderer + 0xECu);
+    fprintf(stderr, "[DAH-MOVEMENT-PRECOMPAT] {\"phase\":\"before-E7200-camera-copy\","
+            "\"loop\":%u,\"poll\":%u,\"compatibilityEnabled\":%s,"
+            "\"actor\":%u,\"object\":%u,\"node\":%u,\"movement\":%u,"
+            "\"body\":%u,\"bodyVtable\":%u,\"velocitySetter\":%u,\"innerBody\":%u,"
+            "\"sticks\":[%d,%d]",
+            loop, g_dah_input_state_calls, compatibility_enabled ? "true" : "false",
+            actor, object, node, movement, body, body_vtable, velocity_setter, inner,
+            dah_trace_input_lx, dah_trace_input_ly);
+    dah_movement_trace_words("actorPositionBits", actor + 0x14Cu, 3u);
+    dah_movement_trace_words("objectQuaternionBits",
+        dah_movement_trace_span(object, 0x48u) ? object + 0x38u : 0u, 4u);
+    dah_movement_trace_words("nodeQuaternionBits",
+        dah_movement_trace_span(node, 0x80u) ? node + 0x40u : 0u, 4u);
+    dah_movement_trace_words("nodeBasisBits",
+        dah_movement_trace_span(node, 0x80u) ? node + 0x50u : 0u, 12u);
+    dah_movement_trace_words("cameraBasisBits",
+        dah_movement_trace_span(camera_node, 0x80u) ? camera_node + 0x50u : 0u, 12u);
+    dah_movement_trace_words("bodyVelocityBits",
+        velocity_setter == 0x0012BB30u ? body + 0x84u : 0u, 3u);
+    dah_movement_trace_words("innerQuaternionBits",
+        dah_movement_trace_span(inner, 0x48u) && MEM32(inner) == 0x00237968u ?
+        inner + 0x38u : 0u, 4u);
+    dah_movement_trace_words("movement18Bits",
+        dah_movement_trace_span(movement, 0x2B4u) ? movement + 0x18u : 0u, 3u);
+    dah_movement_trace_words("movementYawBits",
+        dah_movement_trace_span(movement, 0x2B4u) ? movement + 0x2ACu : 0u, 2u);
+    fprintf(stderr, "}\n");
+}
+
+/* Retained internal negative control for the old heading workaround.  Retail
+ * facing now uses the corrected acos flags and needs no host pose rewrite. */
 static void dah_player_movement_compat_apply(void)
 {
     static int enabled = -1;
@@ -193,17 +438,22 @@ static void dah_player_movement_compat_apply(void)
     static unsigned last_trace_poll;
     static unsigned component_dump_mask;
     uint32_t system, player, actor, node, actor_object, camera, camera_node;
+    uint32_t physics_body;
     float lx, ly, expected_x;
     float desired_yaw, half_yaw, c, s;
+    float visual_yaw, visual_half_yaw, visual_c, visual_s;
 
     if (enabled < 0) {
         const char *flag = getenv("DAH_PLAYER_MOVEMENT_COMPAT");
-        enabled = flag ? (flag[0] && flag[0] != '0') : 1;
+        const char *internal = getenv("DAH_INTERNAL_RUN");
+        enabled = internal && internal[0] == '1' &&
+                  flag && flag[0] && flag[0] != '0';
     }
     if (trace_enabled < 0) {
         const char *flag = getenv("DAH_PLAYER_MOVEMENT_TRACE");
         trace_enabled = flag && flag[0] && flag[0] != '0';
     }
+    dah_movement_precompat_trace(enabled);
     if (!enabled) return;
     system = MEM32(0x0025FCECu);
     if (system < 0x10000u || system > 0x08000000u - 0x3Cu) return;
@@ -212,6 +462,7 @@ static void dah_player_movement_compat_apply(void)
     actor = MEM32(player + 0x38u);
     if (actor < 0x10000u || actor > 0x08000000u - 0x4A4u ||
         MEM32(actor) != 0x0022C9F8u) return;
+    physics_body = MEM32(actor + 0x110u);
     node = MEM32(actor + 0x4A0u);
     if (node < 0x10000u || node > 0x08000000u - 0x80u) return;
     camera = MEM32(0x00250E60u);
@@ -235,15 +486,25 @@ static void dah_player_movement_compat_apply(void)
         half_yaw = desired_yaw * 0.5f;
         s = sinf(half_yaw);
         c = cosf(half_yaw);
+
+        /* Keep the verified physics/travel yaw unchanged.  Crypto's rendered
+         * mesh uses the opposite local-forward convention, so correct only
+         * the scene node by 180 degrees.  Feeding this visual offset to the
+         * physics setter is what previously destroyed otherwise-correct
+         * movement. */
+        visual_yaw = desired_yaw + 3.14159265358979323846f;
+        visual_half_yaw = visual_yaw * 0.5f;
+        visual_s = sinf(visual_half_yaw);
+        visual_c = cosf(visual_half_yaw);
         MEMF(node + 0x40u) = 0.0f;
         MEMF(node + 0x44u) = 0.0f;
-        MEMF(node + 0x48u) = s;
-        MEMF(node + 0x4Cu) = c;
-        MEMF(node + 0x50u) = cosf(desired_yaw);
-        MEMF(node + 0x54u) = sinf(desired_yaw);
+        MEMF(node + 0x48u) = visual_s;
+        MEMF(node + 0x4Cu) = visual_c;
+        MEMF(node + 0x50u) = cosf(visual_yaw);
+        MEMF(node + 0x54u) = sinf(visual_yaw);
         MEMF(node + 0x58u) = 0.0f;
-        MEMF(node + 0x60u) = -sinf(desired_yaw);
-        MEMF(node + 0x64u) = cosf(desired_yaw);
+        MEMF(node + 0x60u) = -sinf(visual_yaw);
+        MEMF(node + 0x64u) = cosf(visual_yaw);
         MEMF(node + 0x68u) = 0.0f;
         MEMF(node + 0x70u) = 0.0f;
         MEMF(node + 0x74u) = 0.0f;
@@ -255,7 +516,16 @@ static void dah_player_movement_compat_apply(void)
         actor_object = MEM32(actor + 0x28u);
         if (actor_object >= 0x10000u &&
             actor_object <= 0x08000000u - 0x50u) {
-            dah_player_set_physics_rotation(actor, s, c);
+            float object_z = MEMF(actor_object + 0x40u);
+            float object_w = MEMF(actor_object + 0x44u);
+            float alignment = fabsf(object_z * s + object_w * c);
+            /* Do not hammer the physics controller with the same rotation on
+             * every render pass.  The setter dirties/reset its controller
+             * state; repeating it while W is held suppresses the retail
+             * acceleration that should reach full keyboard movement speed.
+             * Quaternion q and -q are equivalent, hence abs(dot). */
+            if (!isfinite(alignment) || alignment < 0.9995f)
+                dah_player_set_physics_rotation(actor, s, c);
         }
         if (trace_enabled && g_dah_input_state_calls != last_trace_poll &&
             (g_dah_input_state_calls % 30u) == 0u) {
@@ -263,7 +533,8 @@ static void dah_player_movement_compat_apply(void)
             fprintf(stderr,
                     "[DAH-PLAYER-MOVEMENT] poll=%u sticks=%d,%d actor=%08X object=%08X component=%08X "
                     "actor_xyz=%.6g,%.6g,%.6g object_xyz=%.6g,%.6g,%.6g "
-                    "object_q=%.6g,%.6g,%.6g,%.6g component_pos=%.6g,%.6g,%.6g "
+                    "object_q=%.6g,%.6g,%.6g,%.6g body=%08X body_vel=%.6g,%.6g,%.6g "
+                    "component_pos=%.6g,%.6g,%.6g "
                     "component_axes=%.6g,%.6g,%.6g;%.6g,%.6g,%.6g;%.6g,%.6g,%.6g\n",
                     g_dah_input_state_calls, dah_trace_input_lx,
                     dah_trace_input_ly, actor, actor_object, component,
@@ -277,6 +548,13 @@ static void dah_player_movement_compat_apply(void)
                     (double)MEMF(actor_object + 0x3Cu),
                     (double)MEMF(actor_object + 0x40u),
                     (double)MEMF(actor_object + 0x44u),
+                    physics_body,
+                    physics_body >= 0x10000u && physics_body <= 0x08000000u - 0x90u ?
+                        (double)MEMF(physics_body + 0x84u) : 0.0,
+                    physics_body >= 0x10000u && physics_body <= 0x08000000u - 0x90u ?
+                        (double)MEMF(physics_body + 0x88u) : 0.0,
+                    physics_body >= 0x10000u && physics_body <= 0x08000000u - 0x90u ?
+                        (double)MEMF(physics_body + 0x8Cu) : 0.0,
                     (double)MEMF(component + 0x88u),
                     (double)MEMF(component + 0x94u),
                     (double)MEMF(component + 0xA0u),
@@ -350,6 +628,7 @@ void dah_camera_pitch_compat_apply(void)
     static float last_base[16];
     static float last_output[16];
     static unsigned trace_count;
+    static uint32_t last_player, last_camera;
     uint32_t system, player, actor, camera;
     float base[16], output[16];
     float *view;
@@ -359,7 +638,10 @@ void dah_camera_pitch_compat_apply(void)
 
     if (enabled < 0) {
         const char *flag = getenv("DAH_CAMERA_PITCH_COMPAT");
-        enabled = flag ? (flag[0] && flag[0] != '0') : 1;
+        /* Direct view-matrix rotation was useful while locating the missing
+         * retail camera update, but it is not a valid default camera model.
+         * The game must own its camera state in ordinary builds. */
+        enabled = flag && flag[0] && flag[0] != '0';
     }
     dah_player_movement_compat_apply();
     if (!enabled) return;
@@ -367,17 +649,33 @@ void dah_camera_pitch_compat_apply(void)
     system = MEM32(0x0025FCECu);
     if (system < 0x10000u || system > 0x08000000u - 0x3Cu) return;
     player = MEM32(system + 0x38u);
-    if (player < 0x10000u || player > 0x08000000u - 0x3Cu) return;
+    /* +0x50 is read below for the retail Camera Pitch setting. */
+    if (player < 0x10000u || player > 0x08000000u - 0x54u) return;
     actor = MEM32(player + 0x38u);
     if (actor < 0x10000u || actor > 0x08000000u - 0x158u) return;
     camera = MEM32(0x00250E60u);
     if (camera < 0x10000u || camera > 0x08000000u - 0x90u) return;
     view = (float *)XBOX_PTR(camera + 0x50u);
 
+    /* Camera/player objects are replaced during site loads and some frontend
+     * transitions.  Never carry a compatibility angle or a cached base
+     * matrix from the previous object into the new one. */
+    if (player != last_player || camera != last_camera) {
+        pitch = 0.0f;
+        have_output = 0;
+        last_poll = g_dah_input_state_calls;
+        last_player = player;
+        last_camera = camera;
+    }
+
     if (g_dah_input_state_calls != last_poll) {
         normalized = dah_trace_input_ry < 0 ?
             (float)dah_trace_input_ry / 32768.0f :
             (float)dah_trace_input_ry / 32767.0f;
+        /* Retail Controls stores Camera Pitch inversion in bit 0 of the
+         * active player settings word at +0x50 (Camera Turn is bit 8). */
+        if (MEM32(player + 0x50u) & 0x00000001u)
+            normalized = -normalized;
         if (fabsf(normalized) > 0.12f) {
             pitch += normalized * (1.35f / 30.0f);
             if (pitch > 0.90f) pitch = 0.90f;
@@ -415,8 +713,9 @@ void dah_camera_pitch_compat_apply(void)
 
     if (dah_trace_input_ry && trace_count++ < 64u) {
         fprintf(stderr,
-                "[DAH-CAMERA-PITCH-COMPAT] poll=%u ry=%d pitch=%.6g row2=%.6g,%.6g,%.6g translation=%.6g,%.6g,%.6g\n",
-                g_dah_input_state_calls, dah_trace_input_ry, (double)pitch,
+                "[DAH-CAMERA-PITCH-COMPAT] poll=%u ry=%d inverted=%u pitch=%.6g row2=%.6g,%.6g,%.6g translation=%.6g,%.6g,%.6g\n",
+                g_dah_input_state_calls, dah_trace_input_ry,
+                (unsigned)(MEM32(player + 0x50u) & 1u), (double)pitch,
                 (double)output[8], (double)output[9], (double)output[10],
                 (double)output[12], (double)output[13], (double)output[14]);
     }
@@ -774,7 +1073,7 @@ static int dah_console_give_weapon(const char *alias)
             dah_dev_npc_guest_ptr(manager) ? MEM32(manager + 0x10u) : 0u,
             dah_dev_npc_guest_ptr(manager) ? MEM32(manager + 0x14u) : 0u);
     if (equipped)
-        dah_console_write("%s equipped. Use the right trigger to fire.", name);
+        dah_console_write("%s equipped. Use the left trigger to fire.", name);
     else if (granted)
         dah_console_write("%s unlocked, but the original weapon manager could not equip it.", name);
     else
@@ -820,6 +1119,33 @@ static int dah_console_giveall_weapons(void)
     return granted == DAH_CONSOLE_WEAPON_COUNT;
 }
 
+/* Farm's retail ufo_enter objective grants these exact keys immediately
+ * before it asks Crypto to enter the saucer.  Internal gameplay probes can
+ * reproduce that prerequisite without skipping the original interaction,
+ * focus switch, movement, weapon, or landing code that follows. */
+static int dah_console_grant_saucer_prerequisites(void)
+{
+    static const char *const keys[] = {
+        "ability.land", "weapon.abducto", "weapon.deathray"
+    };
+    struct dah_console_guest_registers saved;
+    uint32_t store, scratch;
+    size_t i, granted = 0;
+    if (dah_console_level_is_busy() ||
+        !dah_console_level_store_ready(&store)) return 0;
+    dah_console_level_save(&saved);
+    g_esp -= 0x200u;
+    scratch = g_esp;
+    for (i = 0; i < sizeof(keys) / sizeof(keys[0]); ++i)
+        if (dah_console_level_add_key(store, scratch, keys[i])) ++granted;
+    dah_console_level_restore(&saved);
+    fprintf(stderr,
+            "[DAH-CONSOLE-SAUCER] prerequisites granted=%zu/%zu\n",
+            granted, sizeof(keys) / sizeof(keys[0]));
+    fflush(stderr);
+    return granted == sizeof(keys) / sizeof(keys[0]);
+}
+
 /* Opt-in, internal-only stand-in for a human typing "load_level <alias>" into
  * the developer console. Bounded runs have no keyboard/window focus, so this
  * retries the exact same original-game load_level path on a throttled cadence
@@ -846,6 +1172,40 @@ static void dah_console_autoload_poll(void)
     if (dah_console_load_level(target) > 0) state = 1;
 }
 
+/* Internal parity setup only. Unlocking is retried until the retail shell and
+ * profile store are ready; the scripted pad still has to enter the hangar,
+ * choose the destination, and launch it through the original UI. */
+static void dah_console_autounlock_poll(void)
+{
+    static int state = -1; /* -1=unchecked, 0=armed, 1=finished */
+    static unsigned ticks, attempts, profile_ticks;
+    const char *target;
+    int result;
+    if (state < 0) {
+        target = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_UNLOCK_SITE") : NULL;
+        state = (target && *target) ? 0 : 1;
+    }
+    if (state != 0) return;
+    if (MEM32(0x002637C4u) >= 3u) {
+        profile_ticks = 0u;
+        return;
+    }
+    /* Give New Game's profile initialization and progress cleanup ten retail
+     * seconds after slot selection. This still completes before the parity
+     * route enters the hangar, and prevents a later reset from discarding the
+     * unlock bundle. */
+    if (++profile_ticks < 600u) return;
+    if (++ticks % 30u) return;
+    target = getenv("DAH_CONSOLE_AUTO_UNLOCK_SITE");
+    if (++attempts > 400u) {
+        dah_console_write("Automatic site unlock %s timed out waiting for the shell.", target);
+        state = 1;
+        return;
+    }
+    result = dah_console_unlock_only(target);
+    if (result != 0) state = 1;
+}
+
 /* Opt-in, internal-only automation for systematic weapon crash-hunting:
  * once gameplay is idle and Crypto is active, optionally unlock every
  * weapon (DAH_CONSOLE_AUTO_GIVEALL_WEAPONS=1) and/or equip one specific
@@ -857,11 +1217,15 @@ static void dah_console_autoload_poll(void)
 static void dah_console_autoweapons_poll(void)
 {
     static int state = -1; /* -1=unchecked, 0=armed, 1=finished */
-    static unsigned ticks, attempts;
+    static unsigned ticks, attempts, ready_ticks, ready_delay;
     if (state < 0) {
         const char *giveall = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_GIVEALL_WEAPONS") : NULL;
         const char *equip = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_EQUIP_WEAPON") : NULL;
-        state = ((giveall && !strcmp(giveall, "1")) || (equip && *equip)) ? 0 : 1;
+        const char *saucer = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_GRANT_SAUCER") : NULL;
+        const char *delay = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_EQUIP_DELAY") : NULL;
+        if (delay && *delay) ready_delay = (unsigned)strtoul(delay, NULL, 10);
+        state = ((giveall && !strcmp(giveall, "1")) || (equip && *equip) ||
+                 (saucer && !strcmp(saucer, "1"))) ? 0 : 1;
     }
     if (state != 0) return;
     if (++ticks % 30u) return;
@@ -874,10 +1238,20 @@ static void dah_console_autoweapons_poll(void)
     {
         const char *giveall = getenv("DAH_CONSOLE_AUTO_GIVEALL_WEAPONS");
         const char *equip = getenv("DAH_CONSOLE_AUTO_EQUIP_WEAPON");
+        const char *saucer = getenv("DAH_CONSOLE_AUTO_GRANT_SAUCER");
         float x, y, z;
-        if (!dah_dev_npc_player_position(&x, &y, &z)) return; /* not in gameplay yet */
+        if (!dah_dev_npc_player_position(&x, &y, &z)) {
+            ready_ticks = 0u;
+            return; /* not in gameplay yet */
+        }
+        if (ready_ticks < ready_delay) {
+            ++ready_ticks;
+            return;
+        }
         if (giveall && !strcmp(giveall, "1")) dah_console_giveall_weapons();
         if (equip && *equip) dah_console_give_weapon(equip);
+        if (saucer && !strcmp(saucer, "1"))
+            dah_console_grant_saucer_prerequisites();
         state = 1;
     }
 }
@@ -893,6 +1267,7 @@ static void dah_console_poll(void)
     int tokens;
     float x, y, z;
     dah_console_level_poll_switch();
+    dah_console_autounlock_poll();
     dah_console_autoload_poll();
     dah_console_autoweapons_poll();
     if (!dah_console_take_command(line, sizeof(line))) return;
@@ -1111,15 +1486,25 @@ static int dah_key_down(int virtual_key)
 }
 
 #include "dah_scripted_input.h"
+#include "dah_keyboard_mapping.h"
 
 static void dah_apply_keyboard_overlay(XBOX_INPUT_STATE *state)
 {
     uint32_t key_mask = 0;
-    int up = dah_key_down(VK_UP) || dah_key_down('W');
-    int down = dah_key_down(VK_DOWN) || dah_key_down('S');
-    int left = dah_key_down(VK_LEFT) || dah_key_down('A');
-    int right = dah_key_down(VK_RIGHT) || dah_key_down('D');
+    int16_t keyboard_lx, keyboard_ly, keyboard_rx, keyboard_ry;
+    int move_forward = dah_key_down('W');
+    int move_backward = dah_key_down('S');
+    int move_left = dah_key_down('A');
+    int move_right = dah_key_down('D');
+    int dpad_up = dah_key_down(VK_UP);
+    int dpad_down = dah_key_down(VK_DOWN);
+    int dpad_left = dah_key_down(VK_LEFT);
+    int dpad_right = dah_key_down(VK_RIGHT);
     int action = dah_key_down(VK_RETURN) || dah_key_down(VK_SPACE);
+    int camera_up = dah_key_down('I');
+    int camera_down = dah_key_down('K');
+    int camera_left = dah_key_down('J');
+    int camera_right = dah_key_down('L');
 
     /* Opt-in boot probe for headless/recomp bring-up. Holding A for a short
      * window exercises the retail title's real frontend transition without
@@ -1201,26 +1586,27 @@ static void dah_apply_keyboard_overlay(XBOX_INPUT_STATE *state)
         ++g_dah_autoa_frames;
     }
 
-    if (up) {
-        key_mask |= 1u << 0;
-        state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_UP;
-        state->Gamepad.sThumbLY = 32767;
-    }
-    if (down) {
-        key_mask |= 1u << 1;
-        state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_DOWN;
-        state->Gamepad.sThumbLY = -32768;
-    }
-    if (left) {
-        key_mask |= 1u << 2;
-        state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_LEFT;
-        state->Gamepad.sThumbLX = -32768;
-    }
-    if (right) {
-        key_mask |= 1u << 3;
-        state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_RIGHT;
-        state->Gamepad.sThumbLX = 32767;
-    }
+    /* WASD is a gameplay-only left-stick overlay.  Do not also emit D-pad
+     * buttons: retail assigns D-pad actions independently during gameplay,
+     * so coupling the two made ordinary PC movement capable of triggering
+     * unrelated commands.  Arrow keys remain the digital menu D-pad. */
+    if (move_forward) key_mask |= 1u << 0;
+    if (move_backward) key_mask |= 1u << 1;
+    if (move_left) key_mask |= 1u << 2;
+    if (move_right) key_mask |= 1u << 3;
+    dah_keyboard_stick_axes(move_left, move_right,
+                            move_backward, move_forward,
+                            &keyboard_lx, &keyboard_ly);
+    /* Only replace an axis represented by keyboard input.  This preserves a
+     * physical pad on the other axis, while opposite keys explicitly cancel
+     * their own axis.  When both keyboard axes are active the helper emits a
+     * circular full-stick diagonal rather than an over-speed square corner. */
+    if (move_left || move_right) state->Gamepad.sThumbLX = keyboard_lx;
+    if (move_forward || move_backward) state->Gamepad.sThumbLY = keyboard_ly;
+    if (dpad_up) state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_UP;
+    if (dpad_down) state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_DOWN;
+    if (dpad_left) state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_LEFT;
+    if (dpad_right) state->Gamepad.wButtons |= XBOX_GAMEPAD_DPAD_RIGHT;
     if (action) {
         key_mask |= 1u << 4;
         state->Gamepad.bAnalogButtons[XBOX_BUTTON_A] = 255;
@@ -1255,11 +1641,17 @@ static void dah_apply_keyboard_overlay(XBOX_INPUT_STATE *state)
     }
 
     /* IJKL gives the right stick a keyboard path without conflicting with
-     * WASD movement. */
-    if (dah_key_down('I')) state->Gamepad.sThumbRY = 32767;
-    if (dah_key_down('K')) state->Gamepad.sThumbRY = -32768;
-    if (dah_key_down('J')) state->Gamepad.sThumbRX = -32768;
-    if (dah_key_down('L')) state->Gamepad.sThumbRX = 32767;
+     * WASD movement.  It uses the same cancellation and radial diagonal as
+     * the physical-stick-compatible movement mapping. */
+    if (camera_up) key_mask |= 1u << 12;
+    if (camera_down) key_mask |= 1u << 13;
+    if (camera_left) key_mask |= 1u << 14;
+    if (camera_right) key_mask |= 1u << 15;
+    dah_keyboard_stick_axes(camera_left, camera_right,
+                            camera_down, camera_up,
+                            &keyboard_rx, &keyboard_ry);
+    if (camera_left || camera_right) state->Gamepad.sThumbRX = keyboard_rx;
+    if (camera_up || camera_down) state->Gamepad.sThumbRY = keyboard_ry;
 
     if (key_mask != g_dah_keyboard_last_mask && g_dah_keyboard_trace_count < 64u) {
         fprintf(stderr,
@@ -1286,6 +1678,7 @@ static int dah_rockwell_trace_range(uint32_t address, uint32_t bytes)
 static void dah_trace_rockwell_player_camera(const XBOX_INPUT_STATE *state)
 {
     static int enabled = -1;
+    static unsigned start_tick = 1000u;
     static unsigned samples, last_transition;
     static int last_lx, last_ly, last_rx, last_ry;
     uint32_t system, player = 0, actor = 0, camera, node = 0, parent = 0, world;
@@ -1305,11 +1698,20 @@ static void dah_trace_rockwell_player_camera(const XBOX_INPUT_STATE *state)
 
     if (enabled < 0) {
         const char *flag = getenv("DAH_ROCKWELL_PLAYER_TRACE");
+        const char *start = getenv("DAH_ROCKWELL_TRACE_START");
         enabled = flag ? strcmp(flag, "0") != 0 : !dah_input_is_internal();
+        if (start && *start) {
+            unsigned long parsed = strtoul(start, NULL, 10);
+            if (parsed <= 30000u) start_tick = (unsigned)parsed;
+        }
     }
     /* Rockwell assets start near poll 3000; AUTOINTRO changes focus and
      * starts approach_ticketseller between polls 3900 and 4200. */
-    if (!enabled || samples >= 256u || tick < 1000u || tick > 30000u)
+    /* The gameplay-control probe can legitimately consume hundreds of
+     * transition samples while an intro owns the pad.  Keep enough budget for
+     * the acceptance events that follow the probe; the tick bound still caps
+     * total diagnostic volume. */
+    if (!enabled || samples >= 2048u || tick < start_tick || tick > 30000u)
         return;
     changed = lx != last_lx || ly != last_ly ||
               rx != last_rx || ry != last_ry;
@@ -1481,11 +1883,8 @@ void dah_xinput_get_state_bridge(void)
             result = ERROR_SUCCESS;
         }
         dah_apply_keyboard_overlay(&state);
-        /* Reflect the horizontal axis without turning an exact neutral value
-         * into -1.  The previous one's-complement mapping made idle input
-         * look active and could trigger movement diagnostics during startup. */
-        state.Gamepad.sThumbLX = state.Gamepad.sThumbLX == (SHORT)-32768 ?
-            (SHORT)32767 : (SHORT)-state.Gamepad.sThumbLX;
+        /* Deliver the Xbox stick axes unchanged.  The recovered guest acos
+         * flags fix the heading reflection at its source. */
         dah_trace_input_lx = state.Gamepad.sThumbLX;
         dah_trace_input_ly = state.Gamepad.sThumbLY;
         dah_trace_input_rx = state.Gamepad.sThumbRX;
@@ -1575,7 +1974,11 @@ void dah_xinput_set_state_bridge(void)
  * frequency varies by machine, so expose the equivalent monotonic value. */
 uint32_t dah_monotonic_milliseconds(void)
 {
-    return (uint32_t)GetTickCount64();
+    /* Retail D83E0 is RDTSC, unsigned multiply by 3, divide by 2200000.
+     * GetTickCount64 advances in 15/16 ms jumps even with timeBeginPeriod(1),
+     * quantizing menu timers and measured deltas. Use the same Xbox-rate QPC
+     * clock as Bink, retaining the original integer truncation and wrap. */
+    return (uint32_t)((dah_read_tsc() * 3u) / 2200000u);
 }
 
 /* The retail container code uses the CRT setjmp/longjmp pair as a local

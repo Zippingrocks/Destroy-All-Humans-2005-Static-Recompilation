@@ -1,0 +1,4 @@
+@frame
+# Skip the long attract movie at the same accepted frame used by the existing
+# menu parity route, then leave the title screen untouched for capture.
+2300 6 10 0 0 0 0 0 0

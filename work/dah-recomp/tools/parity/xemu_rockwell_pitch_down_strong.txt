@@ -1,0 +1,4 @@
+@frame
+# Lower the retail selector from +1.2 degrees to the nearby civilians' upper
+# body height.  At 26 m distance the desired forward Z is about -0.09.
+0 40 0 0 0 0 0 0 -24000

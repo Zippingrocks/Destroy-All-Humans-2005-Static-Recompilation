@@ -1,0 +1,4 @@
+@frame
+# From dah-parity-1790573474818 the two nearby Holobob-valid civilians are
+# approximately 41 degrees clockwise from the selector ray.
+0 68 0 0 0 0 0 24000 0

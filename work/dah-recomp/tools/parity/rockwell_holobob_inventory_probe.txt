@@ -1,0 +1,12 @@
+# Enter the autoloaded Rockwell gameplay path and invoke Holobob as soon as
+# the landing/tutorial state accepts gameplay.  The activation is diagnostic:
+# it inventories eligible retail actors and their transform positions.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2800 8 0 0 255 0 0 0 0

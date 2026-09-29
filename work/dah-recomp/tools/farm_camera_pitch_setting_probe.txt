@@ -1,0 +1,23 @@
+# Isolate the retail Camera Pitch option for RAM differencing.  This follows
+# the verified Farm pause/options/controls path, toggles Camera Pitch once,
+# and leaves it changed long enough for DAH_INPUT_MEMDIFF_EVENT=16 to report.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+30 2 10 0 0 0 0 0 0
+750 2 10 0 0 0 0 0 0
+1050 2 10 0 0 0 0 0 0
+1080 2 2 0 0 0 0 0 0
+1095 2 2 0 0 0 0 0 0
+1110 2 2 0 0 0 0 0 0
+1140 2 0 255 0 0 0 0 0
+1170 2 0 255 0 0 0 0 0
+# Event 16: Camera Pitch Normal -> Inverted.  Do not restore it in this run.
+1200 2 8 0 0 0 0 0 0

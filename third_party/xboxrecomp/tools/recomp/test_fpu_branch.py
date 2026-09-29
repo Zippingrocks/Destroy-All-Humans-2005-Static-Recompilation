@@ -160,33 +160,33 @@ def test_arith_honors_operands():
 
     # fmul [mem]: st0 *= mem, NO pop
     o = lift("fmul", [mem], "dword ptr [0xK]")
-    assert "fp_top() = fp_top() * MEMF(0xK)" in o and "fp_pop" not in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_top() * MEMF(0xK)" in o and "fp_pop" not in o, o
     # fadd st(0), st(0): double st0, no pop
     o = lift("fadd", [st0, st0], "st(0), st(0)")
-    assert "fp_top() = fp_top() + fp_top()" in o and "fp_pop" not in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_top() + fp_top()" in o and "fp_pop" not in o, o
     # faddp: st1 += st0, pop
     o = lift("faddp", [], "")
-    assert "fp_st1() = fp_st1() + fp_top(); fp_pop();" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_st1() + fp_top()" in o and "fp_pop();" in o, o
     # faddp st(1): capstone reports the pop form as ONE operand. Must target
     # st(i) and pop -- NOT st0 without a pop (that broke normalize's sum of
     # squares and gave Halo a 1/sqrt(2)-scaled camera basis).
     o = lift("faddp", [st1], "st(1)")
-    assert "fp_st1() = fp_st1() + fp_top(); fp_pop();" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_st1() + fp_top()" in o and "fp_pop();" in o, o
     # faddp st(2): st(2) = st(2) + st0, pop
     o = lift("faddp", [_Op("st2", type="reg", reg="st(2)")], "st(2)")
-    assert "g_fp_stack[(g_fp_top + 2) & 7] = g_fp_stack[(g_fp_top + 2) & 7] + fp_top(); fp_pop();" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(g_fp_stack[(g_fp_top + 2) & 7] + fp_top()" in o and "fp_pop();" in o, o
     # fmul st(3): non-pop single operand stays st0 *= st(3), no pop
     o = lift("fmul", [_Op("st3", type="reg", reg="st(3)")], "st(3)")
-    assert "fp_top() = fp_top() * g_fp_stack[(g_fp_top + 3) & 7]" in o and "fp_pop" not in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_top() * g_fp_stack[(g_fp_top + 3) & 7]" in o and "fp_pop" not in o, o
     # fmulp st(1): st1 *= st0, pop
     o = lift("fmulp", [st1], "st(1)")
-    assert "fp_st1() = fp_st1() * fp_top(); fp_pop();" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_st1() * fp_top()" in o and "fp_pop();" in o, o
     # fsubr [mem]: st0 = mem - st0 (reversed)
     o = lift("fsubr", [mem], "dword ptr [0xK]")
-    assert "fp_top() = MEMF(0xK) - fp_top()" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(MEMF(0xK) - fp_top()" in o, o
     # fdivrp st(1), st(0): st1 = st0 / st1, pop
     o = lift("fdivrp", [st1, st0], "st(1), st(0)")
-    assert "fp_st1() = fp_top() / fp_st1(); fp_pop();" in o, o
+    assert "RECOMP_X87_APPLY_PRECISION(fp_top() / fp_st1()" in o and "fp_pop();" in o, o
 
 
 def test_fcom_pop_counts():

@@ -1,0 +1,20 @@
+# Reach active Farm control, move away from the spawn obstruction, then test
+# a sustained forward corridor.  Values are pre-bridge logical pad axes; the
+# host's Xbox horizontal-axis conversion is intentionally part of the test.
+# Select/confirm a retail profile before the console asks retail to enter Farm.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+@gameplay
+# Pre-position with user-left for twenty seconds, then settle.
+60 600 0 0 0 -32768 0 0 0
+720 60 0 0 0 0 0 0 0
+# Slight positive camera yaw, settle, then hold user-forward for 30 seconds.
+780 10 0 0 0 0 0 32767 0
+850 60 0 0 0 0 0 0 0
+910 900 0 0 0 0 32767 0 0

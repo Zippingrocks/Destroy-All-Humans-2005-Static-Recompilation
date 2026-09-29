@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-09-25",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "retailTrace": "build-parity-xemu/retail-movie-trace-rendered-002.json",
+  "recompTrace": "build-internal/recomp-mirror-default-002.log",
+  "exactSequence": true,
+  "retailEvents": 9,
+  "recompEvents": 9,
+  "maxPostThqOpenAbsoluteDeltaMs": 31.904,
+  "withinOne30FpsFrame": true,
+  "moviePaths": [
+    "d:\\movies\\logo_thq.bik",
+    "d:\\movies\\logo_pan.bik"
+  ],
+  "postThqOpenDeltasMs": [
+    0.0,
+    -11.660,
+    -11.505,
+    -15.706,
+    -31.904,
+    27.472
+  ],
+  "productionDecision": "Retail blocking movie scheduling is the default; DAH_MOVIE_NONBLOCK=1 is diagnostic opt-in only."
+}

@@ -1,4 +1,4 @@
-param([switch]$ConfigureOnly)
+param([switch]$ConfigureOnly, [string]$Target)
 $ErrorActionPreference = 'Stop'
 $dahSource = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (!(Test-Path (Join-Path $dahSource 'CMakeLists.txt'))) { throw 'Place this script in the game tools directory.' }
@@ -14,9 +14,13 @@ if (Test-Path $dahCache) {
     $dahStamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     Copy-Item -LiteralPath $dahCache -Destination "$dahCache.$dahStamp.backup"
 }
-& $dahCmake --fresh -S $dahSource -B $dahBuild -G Ninja "-DCMAKE_MAKE_PROGRAM=$dahNinja" -DCMAKE_BUILD_TYPE=Release
+& $dahCmake --fresh -S $dahSource -B $dahBuild -G Ninja "-DCMAKE_MAKE_PROGRAM=$dahNinja" -DCMAKE_BUILD_TYPE=Release -DDAH_INTERNAL_BUILD=ON
 if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
 if (!$ConfigureOnly) {
-    & $dahCmake --build $dahBuild --parallel 4
+    if ($Target) {
+        & $dahCmake --build $dahBuild --parallel 4 --target $Target
+    } else {
+        & $dahCmake --build $dahBuild --parallel 4
+    }
     if ($LASTEXITCODE -ne 0) { throw 'Game build failed.' }
 }

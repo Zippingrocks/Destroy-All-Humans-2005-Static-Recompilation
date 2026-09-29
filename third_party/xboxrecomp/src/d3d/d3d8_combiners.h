@@ -138,6 +138,7 @@ typedef enum NV2ATextureMode {
     NV2A_TEXMODE_3D      = 1,  /* 3D / volume texture */
     NV2A_TEXMODE_CUBEMAP = 2,  /* Cube map */
     NV2A_TEXMODE_NONE    = 3,  /* No texture bound */
+    NV2A_TEXMODE_DEPENDENT_AR_T0 = 4, /* Stage 1 samples stage 0 alpha/red. */
 } NV2ATextureMode;
 
 /* ================================================================
@@ -226,6 +227,7 @@ typedef struct NV2ACombinerState {
 
     /* --- Texture modes --- */
     NV2ATextureMode tex_mode[NV2A_MAX_TEXTURES];
+    DWORD tex_alpha_one_mask; /* X8 textures sample alpha=1, including RT views. */
 
     /* --- Flags --- */
     DWORD flags;     /* Dot mapping and other flags from token bits 24-31 */
@@ -248,7 +250,8 @@ typedef struct NV2APSConstants {
     UINT  alpha_func;                       /* D3DCMPFUNC enum value */
     UINT  alpha_test_enable;                /* 0 or 1 */
     UINT  fog_enable;                       /* 0 or 1 */
-    UINT  vertex_fog_valid;                  /* TEXCOORD2 carries retail fog */
+    UINT  vertex_fog_valid;                  /* 1=TEXCOORD2, 2=constant */
+    float vertex_fog_constant;               /* transformed retail fog */
 } NV2APSConstants;
 
 /* ================================================================
@@ -349,6 +352,12 @@ void d3d8_combiners_set_pixel_shader(DWORD token);
 
 /* Indexed 3D draws provide retail vertex fog in TEXCOORD2.x. */
 void d3d8_combiners_set_vertex_fog(int enabled);
+
+/* Screen-space programmable draws provide one transformed fog value. */
+void d3d8_combiners_set_vertex_fog_constant(float factor);
+
+/* Set after the NV2A state upload. Reset by the next state upload. */
+void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask);
 
 /**
  * Get whether a combiner pixel shader is currently active.

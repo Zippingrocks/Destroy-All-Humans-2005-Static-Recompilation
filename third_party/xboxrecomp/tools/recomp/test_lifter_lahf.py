@@ -22,8 +22,9 @@ class LahfLifterTest(unittest.TestCase):
                     code, state = lift_basic_block(Lifter(), BasicBlock(
                         start=0xFA3D8, instructions=pair(mnemonic, reg(lhs), reg(rhs))))
                     self.assertEqual(code, [
-                        f"SET_HI8(eax, RECOMP_COMISS_LAHF({lhs}.f[0], {rhs}.f[0]));"
-                        f" /* {mnemonic}; lahf */"])
+                        f"_flags = RECOMP_COMISS_LAHF({lhs}.f[0], {rhs}.f[0]);"
+                        f" /* {mnemonic} flags snapshot */",
+                        "SET_HI8(eax, _flags); /* lahf */"])
                     self.assertEqual(state[0], mnemonic)
 
     def test_memory_operand_is_read_before_ah_write_and_carry_survives(self):
@@ -33,7 +34,8 @@ class LahfLifterTest(unittest.TestCase):
         code, _ = lift_basic_block(lifter, BasicBlock(
             start=0, instructions=pair(rhs=rhs)))
         self.assertIn("RECOMP_COMISS_LAHF(xmm1.f[0], MEMF(eax + 4))", code[0])
-        self.assertEqual(code[1], "_cf = (int)(HI8(eax) & 1u); /* compare CF */")
+        self.assertEqual(code[1], "SET_HI8(eax, _flags); /* lahf */")
+        self.assertEqual(code[2], "_cf = (int)(_flags & 1u); /* compare CF */")
 
     def test_retail_test_ah_and_parity_branch_are_preserved(self):
         test = Instruction(0xFA3DC, 3, "test", "ah, 0x44", "f6c444")
@@ -44,7 +46,7 @@ class LahfLifterTest(unittest.TestCase):
             code, state = lift_basic_block(Lifter(), BasicBlock(
                 start=0xFA3D8, instructions=pair() + [test, jump]))
             generated = "\n".join(code)
-            self.assertIn("SET_HI8(eax, RECOMP_COMISS_LAHF", generated)
+            self.assertIn("SET_HI8(eax, _flags)", generated)
             self.assertIn("HI8(eax)", code[-1] if "HI8(eax)" in code[-1] else generated)
             self.assertIn("RECOMP_PARITY8", code[-1])
             self.assertEqual(state[0], "test")
@@ -56,7 +58,8 @@ class LahfLifterTest(unittest.TestCase):
         intervening.operands = [reg("eax"), reg("eax")]
         instructions.insert(1, intervening)
         code, _ = lift_basic_block(Lifter(), BasicBlock(start=0, instructions=instructions))
-        self.assertNotIn("RECOMP_COMISS_LAHF", "\n".join(code))
+        self.assertNotIn("SET_HI8(eax, _flags)", "\n".join(code))
+        self.assertEqual("\n".join(code).count("RECOMP_COMISS_LAHF"), 1)
 
 
 if __name__ == "__main__":

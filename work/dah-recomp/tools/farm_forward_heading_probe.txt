@@ -1,0 +1,16 @@
+# Internal-only Farm clear-heading survey for the endurance route.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+# Orbit the camera toward the long negative-X axis, allow its retail damping to
+# settle, then hold the unchanged user-forward semantic for thirty seconds.
+60 10 0 0 0 0 0 32767 0
+180 900 0 0 0 0 32767 0 0

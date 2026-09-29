@@ -87,6 +87,10 @@ static int dah_skin62_vertex(const float v[9][4],const float c[192][4],
      * before the four palette transforms. The base normal is unchanged. */
     for(unsigned morph=0;morph<4u;++morph){
         if(!valid[85u*4u+morph]||!dah_menu_finite(c[85][morph]))return 0;
+        /* Unused morph streams may contain the Xbox quiet-NaN sentinel.
+         * NV2A MUL produces zero when either operand is zero, so do not
+         * reject an attribute the active shader mathematically discards. */
+        if(c[85][morph]==0.0f)continue;
         for(unsigned axis=0;axis<3u;++axis){
             if(!dah_menu_finite(v[5u+morph][axis]))return 0;
             inputs[0][axis]=dah_farm_mul(v[5u+morph][axis],c[85][morph])+inputs[0][axis];

@@ -335,6 +335,50 @@ static int dah_console_level_store_ready(uint32_t *store)
            MEM32(*store+0x3A80u)<=MEM32(*store+0x3A84u);
 }
 
+/* Prepare a destination with the same progression keys as the retail
+ * navicom, but deliberately leave mission.forcelaunch and the loader alone.
+ * This lets a hidden parity run exercise the real hangar map, destination
+ * selection, invasion confirmation, and mission transition instead of
+ * bypassing them with load_level. */
+static int dah_console_unlock_only(const char *alias)
+{
+    const struct dah_console_level_route *route = NULL;
+    struct dah_console_guest_registers saved;
+    uint32_t current, store, scratch;
+    unsigned i, j;
+    int prepared;
+    if (!alias || !*alias || dah_console_level_is_busy()) return 0;
+    /* New Game replaces the provisional frontend progression table after a
+     * save slot is chosen. Never seed that table; wait for the selected
+     * profile which retail autosave also requires. */
+    if (MEM32(0x002637C4u) >= 3u) return 0;
+    current = MEM32(DAH_CONSOLE_DRIVER + 0x4A28u);
+    if (!dah_console_level_path_is(current, "blocks\\shell\\main")) return 0;
+    for (i = 0; i < sizeof(dah_console_level_routes)/sizeof(dah_console_level_routes[0]); ++i)
+        if (!_stricmp(alias, dah_console_level_routes[i].alias)) {
+            route = &dah_console_level_routes[i];
+            break;
+        }
+    if (!route) {
+        fprintf(stderr, "[DAH-CONSOLE-UNLOCK] alias=%s prepared=0 reason=unknown-site\n", alias);
+        return -1;
+    }
+    if (!dah_console_level_store_ready(&store)) return 0;
+    dah_console_level_save(&saved);
+    g_esp -= 0x200u;
+    scratch = g_esp;
+    prepared = dah_console_unlock_site(store, scratch, route->site);
+    for (i = 0; prepared && i < route->preceding_missions; ++i)
+        for (j = 0; prepared && j < 2u; ++j)
+            prepared = dah_console_level_add_key(store, scratch, dah_console_story_keys[i][j]);
+    dah_console_level_restore(&saved);
+    fprintf(stderr,
+        "[DAH-CONSOLE-UNLOCK] alias=%s site=%s preceding=%u prepared=%d loader_untouched=1\n",
+        route->alias, route->site, route->preceding_missions, prepared);
+    fflush(stderr);
+    return prepared ? 1 : -1;
+}
+
 /* This routine is reached from an idle frontend, or a verified fresh shell
  * after the retail transit path. Destination progress is deliberately deferred
  * until now: shell startup is allowed to do its original progress cleanup. */

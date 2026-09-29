@@ -8,6 +8,7 @@
 #include <xbox/xboxrecomp.h>
 #include "dah_frame.h"
 #include "dah_crashlog.h"
+#include "dah_renderdoc.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
 
@@ -640,7 +641,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     }
 
     if (!load_file("default.xbe", &xbe, &xbe_size)) {
-        dah_report_startup_error("default.xbe must be beside dah.exe", MB_ICONERROR);
+        dah_report_startup_error("default.xbe must be beside the game executable", MB_ICONERROR);
         return 1;
     }
     /* Keep physical-memory probes and the host-side XAPI heap in distinct
@@ -683,6 +684,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
         dah_report_startup_error("Xbox D3D bootstrap ring allocation failed", MB_ICONERROR);
         return 5;
     }
+    dah_renderdoc_init();
     if (!init_host_renderer(instance)) {
         dah_report_startup_error("Host D3D11 renderer initialization failed", MB_ICONERROR);
         return 4;

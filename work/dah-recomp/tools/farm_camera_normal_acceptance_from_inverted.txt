@@ -1,0 +1,33 @@
+# Establish retail Camera Pitch: Normal from a save currently set to Inverted,
+# then run the same reversible pitch sweep.  The settings word logged at each
+# pitch event is authoritative; this route passes only when bit 0 is clear.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+# Skip intro/open Pause, enter Options, then Controls.
+30 2 10 0 0 0 0 0 0
+750 2 10 0 0 0 0 0 0
+1050 2 10 0 0 0 0 0 0
+1080 2 2 0 0 0 0 0 0
+1095 2 2 0 0 0 0 0 0
+1110 2 2 0 0 0 0 0 0
+1140 2 0 255 0 0 0 0 0
+1170 2 0 255 0 0 0 0 0
+# Camera Pitch: Inverted -> Normal.
+1200 2 8 0 0 0 0 0 0
+# Controls -> Options -> Pause -> gameplay.
+1230 2 0 0 255 0 0 0 0
+1260 2 0 0 255 0 0 0 0
+1290 2 0 0 255 0 0 0 0
+# Positive, negative twice as long, then positive returns to neutral.
+1350 15 0 0 0 0 0 0 32767
+1410 30 0 0 0 0 0 0 -32768
+1500 15 0 0 0 0 0 0 32767

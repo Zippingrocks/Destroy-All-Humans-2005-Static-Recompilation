@@ -47,6 +47,7 @@
 /** Current pixel shader token (0 = no combiner shader / fixed-function). */
 static DWORD g_ps_token = 0;
 static UINT g_vertex_fog_valid = 0;
+static float g_vertex_fog_constant = 1.0f;
 
 /** Current parsed combiner state. */
 static NV2ACombinerState g_combiner_state;
@@ -228,6 +229,7 @@ void d3d8_combiners_from_render_states(const DWORD *rs,
                                        NV2ACombinerState *state)
 {
     int i;
+    state->tex_alpha_one_mask = 0;
 
     /*
      * If called standalone (not from parse_token), read combiner count
@@ -525,6 +527,7 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
     EMIT("    uint   alpha_test_enable;\n");
     EMIT("    uint   fog_enable;\n");
     EMIT("    uint   vertex_fog_valid;\n");
+    EMIT("    float  vertex_fog_constant;\n");
     EMIT("};\n\n");
 
     /* ---- Input structure ---- */
@@ -546,7 +549,8 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
     EMIT("    float4 r_zero = float4(0, 0, 0, 0);\n");
     EMIT("    float4 r_c0   = c0[0];\n");
     EMIT("    float4 r_c1   = c1[0];\n");
-    EMIT("    float vertex_fog = vertex_fog_valid != 0u ? saturate(input.tc2.x) : fog_color.a;\n");
+    EMIT("    float vertex_fog = vertex_fog_valid == 1u ? saturate(input.tc2.x) :\n");
+    EMIT("                       vertex_fog_valid == 2u ? saturate(vertex_fog_constant) : fog_color.a;\n");
     EMIT("    float4 r_fog  = float4(fog_color.rgb, vertex_fog);\n");
 
     /* Vertex colors: Xbox D3DCOLOR is BGRA in memory, the vertex shader
@@ -564,10 +568,20 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
         } else if (state->tex_mode[i] == NV2A_TEXMODE_3D) {
             EMIT("    float4 r_t%d = tex%d.Sample(samp%d, float3(input.tc%d.xy, 0));\n",
                  i, i, i, i);
+        } else if (state->tex_mode[i] == NV2A_TEXMODE_DEPENDENT_AR_T0 && i == 1) {
+            /* NV2A DPNDNT_AR stage 1 has a fixed stage-0 source. Its
+             * coordinates are texture color channels, not vertex UVs. */
+            EMIT("    float4 r_t1 = tex1.Sample(samp1, r_t0.ar);\n");
         } else {
             EMIT("    float4 r_t%d = tex%d.Sample(samp%d, input.tc%d.xy);\n",
                  i, i, i, i);
         }
+        /* X8R8G8B8 has no sampled alpha. An RT's stored alpha may have
+         * changed through blending; its X8 texture view must still return 1.
+         * Apply before later dependent texture stages consume this sample. */
+        if (state->tex_mode[i] != NV2A_TEXMODE_NONE &&
+            (state->tex_alpha_one_mask & (1u << i)))
+            EMIT("    r_t%d.a = 1.0;\n", i);
     }
 
     /* Temporary registers: R0 initialized to T0 (NV2A convention),
@@ -628,8 +642,12 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
 
         /* Sum or mux */
         if (rgb_out->mux_sum) {
-            /* MUX: select AB if R0.a >= 0.5, else CD */
-            EMIT("        float3 sum_rgb = (r_r0.a >= 0.5) ? ab_rgb : cd_rgb;\n");
+            /* NV2A MUX selects CD when the chosen R0.a bit is set.  Control
+             * bit 8 selects the alpha MSB; otherwise the 8-bit LSB is used. */
+            if (state->flags & 1u)
+                EMIT("        float3 sum_rgb = (r_r0.a >= 0.5) ? cd_rgb : ab_rgb;\n");
+            else
+                EMIT("        float3 sum_rgb = ((((uint)(r_r0.a * 255.0)) & 1u) != 0u) ? cd_rgb : ab_rgb;\n");
         } else {
             EMIT("        float3 sum_rgb = ab_rgb + cd_rgb;\n");
         }
@@ -677,7 +695,10 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
         EMIT("        float cd_a = c_a * d_a;\n");
 
         if (alpha_out->mux_sum) {
-            EMIT("        float sum_a = (r_r0.a >= 0.5) ? ab_a : cd_a;\n");
+            if (state->flags & 1u)
+                EMIT("        float sum_a = (r_r0.a >= 0.5) ? cd_a : ab_a;\n");
+            else
+                EMIT("        float sum_a = ((((uint)(r_r0.a * 255.0)) & 1u) != 0u) ? cd_a : ab_a;\n");
         } else {
             EMIT("        float sum_a = ab_a + cd_a;\n");
         }
@@ -925,6 +946,7 @@ HRESULT d3d8_combiners_init(void)
     memset(&g_combiner_state, 0, sizeof(g_combiner_state));
     g_ps_token = 0;
     g_vertex_fog_valid = 0;
+    g_vertex_fog_constant = 1.0f;
     g_dirty = TRUE;
     g_frame_counter = 0;
 
@@ -997,14 +1019,29 @@ void d3d8_combiners_set_vertex_fog(int enabled)
     g_vertex_fog_valid = enabled != 0;
 }
 
+void d3d8_combiners_set_vertex_fog_constant(float factor)
+{
+    g_vertex_fog_valid = 2;
+    g_vertex_fog_constant = factor;
+}
+
+void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask)
+{
+    /* This changes generated code and is included in the existing shader
+     * state hash/equality. set_nv2a/from_render_states clear it each draw. */
+    g_combiner_state.tex_alpha_one_mask = mask & 15u;
+}
+
 void d3d8_combiners_set_nv2a(uint32_t control,uint32_t texture_modes,
     const uint32_t *rgbin,const uint32_t *rgbout,const uint32_t *ain,const uint32_t *aout,
     const uint32_t *c0,const uint32_t *c1,uint32_t final0,uint32_t final1)
 {
     NV2ACombinerState *s=&g_combiner_state;
     g_vertex_fog_valid = 0;
+    g_vertex_fog_constant = 1.0f;
     memset(s,0,sizeof(*s)); s->num_stages=control&15u;
     if(s->num_stages>8) s->num_stages=8;
+    s->flags=(control>>8u)&0x1FFu;
     for(unsigned i=0;i<8;i++) {
         parse_four_inputs(rgbin[i],s->stages[i].rgb_input);
         parse_four_inputs(ain[i],s->stages[i].alpha_input);
@@ -1013,7 +1050,12 @@ void d3d8_combiners_set_nv2a(uint32_t control,uint32_t texture_modes,
         s->c0[i]=c0[(control&0x1000u)?i:0];
         s->c1[i]=c1[(control&0x10000u)?i:0];
     }
-    for(unsigned i=0;i<4;i++){unsigned mode=(texture_modes>>(5*i))&31u;s->tex_mode[i]=mode==1u?NV2A_TEXMODE_2D:mode==3u?NV2A_TEXMODE_CUBEMAP:NV2A_TEXMODE_NONE;}
+    for(unsigned i=0;i<4;i++){
+        unsigned mode=(texture_modes>>(5*i))&31u;
+        s->tex_mode[i]=mode==1u?NV2A_TEXMODE_2D:
+            mode==3u?NV2A_TEXMODE_CUBEMAP:
+            mode==15u&&i==1u?NV2A_TEXMODE_DEPENDENT_AR_T0:NV2A_TEXMODE_NONE;
+    }
     for(unsigned i=0;i<4;i++) parse_combiner_input((final0>>(24-8*i))&255u,&s->final_input[i]);
     for(unsigned i=0;i<3;i++) parse_combiner_input((final1>>(24-8*i))&255u,&s->final_input[i+4]);
     g_ps_token=0xffffffffu; g_dirty=FALSE;
@@ -1084,6 +1126,7 @@ BOOL d3d8_combiners_prepare_draw(void)
         cb->alpha_test_enable = rs[D3DRS_ALPHATESTENABLE] ? 1 : 0;
         cb->fog_enable = rs[D3DRS_FOGENABLE] ? 1 : 0;
         cb->vertex_fog_valid = g_vertex_fog_valid;
+        cb->vertex_fog_constant = g_vertex_fog_constant;
 
         ID3D11DeviceContext_Unmap(ctx, (ID3D11Resource *)g_combiner_cb, 0);
     }

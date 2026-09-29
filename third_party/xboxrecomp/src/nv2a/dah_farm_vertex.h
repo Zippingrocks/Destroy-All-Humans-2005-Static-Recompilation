@@ -43,11 +43,92 @@ static const uint32_t dah_farm_program_reflection[36][4]={
     {0x00000000u,0x00a3a01au,0xb435b800u,0x20a02850u},
     {0x00000000u,0x00a3c01au,0xb435d800u,0x20b04851u}
 };
+/* Rockwell vehicle paint program captured at submission 8704.  This pass
+ * transforms a packed normal through c64..c66, evaluates the vehicle lighting
+ * basis, and emits a second projected texture coordinate for the paint map. */
+static const uint32_t dah_rockwell_vehicle_program[26][4]={
+    {0x00000000u,0x0048421bu,0x2c003000u,0x2f000000u},
+    {0x00000000u,0x00c4801bu,0x08369800u,0x28b00000u},
+    {0x00000000u,0x0088221bu,0x1caa306cu,0x1f000000u},
+    {0x00000000u,0x0088021bu,0x0d54306cu,0x1f000000u},
+    {0x00000000u,0x00c4a01bu,0x0836b800u,0x24b00000u},
+    {0x00000000u,0x0337601bu,0x04377bfeu,0xff003854u},
+    {0x00000000u,0x00c4c01bu,0x0836d800u,0x22b00000u},
+    {0x00000000u,0x0157a01bu,0x0437b800u,0x2f000000u},
+    {0x00000000u,0x0046201bu,0x1c000800u,0x2fa00000u},
+    {0x00000000u,0x0086401bu,0x2caa086eu,0x9fa00000u},
+    {0x00000000u,0x0086601bu,0x3d54086eu,0x9fa00000u},
+    {0x00000000u,0x0085e01bu,0xfdfe086eu,0x9fa00000u},
+    {0x00000000u,0x00c4e01bu,0x0836f800u,0x21b01800u},
+    {0x00000000u,0x0066001bu,0xa400106cu,0x3fa00000u},
+    {0x00000000u,0x0040401au,0xb4345800u,0x2090e800u},
+    {0x00000000u,0x0649801bu,0xa4379bfeu,0xdf080000u},
+    {0x00000000u,0x00a3021au,0x18351800u,0x28400000u},
+    {0x00000000u,0x0069a01bu,0x0400106fu,0x7f200000u},
+    {0x00000000u,0x00a3221au,0x18353800u,0x24400000u},
+    {0x00000000u,0x0242801au,0x2434986cu,0x9e20181cu},
+    {0x00000000u,0x0080201au,0xc4002868u,0x70b0e800u},
+    {0x00000000u,0x00e9c41bu,0x2837d800u,0x20b08848u},
+    {0x00000000u,0x00e9e41bu,0x2837f800u,0x20b04848u},
+    {0x00000000u,0x00e7001bu,0x08371800u,0x20b0f828u},
+    {0x00000000u,0x0097c015u,0x442bd857u,0xb0b0c850u},
+    {0x00000000u,0x0062601au,0x24001068u,0xf0b0e819u}
+};
+static const uint32_t dah_rockwell_vehicle_reflection_program[38][4]={
+    {0x00000000u,0x0048421bu,0x2c003000u,0x2f000000u},{0x00000000u,0x00e4001bu,0x08361800u,0x28500000u},
+    {0x00000000u,0x0088221bu,0x1caa306cu,0x1f000000u},{0x00000000u,0x0088021bu,0x0d54306cu,0x1f000000u},
+    {0x00000000u,0x00e4201bu,0x08363800u,0x24500000u},{0x00000000u,0x0337601bu,0x04377bfeu,0xff001854u},
+    {0x00000000u,0x00e4401bu,0x08365800u,0x22500000u},{0x00000000u,0x0157a01bu,0x0437b800u,0x2f000000u},
+    {0x00000000u,0x0046201bu,0x1c000800u,0x2fb00000u},{0x00000000u,0x00a0001au,0x5434a800u,0x21500000u},
+    {0x00000000u,0x0086401bu,0x2caa086eu,0xdfb00000u},{0x00000000u,0x08a4021au,0x18341bfdu,0x58410000u},
+    {0x00000000u,0x0086601bu,0x3d54086eu,0xdfb00000u},{0x00000000u,0x0040001au,0x57fe2800u,0x2e500000u},
+    {0x00000000u,0x00a4221au,0x18343800u,0x24400000u},{0x00000000u,0x00a4421au,0x18345800u,0x22400000u},
+    {0x00000000u,0x0085e01bu,0xfdfe086eu,0xdfb00000u},{0x00000000u,0x00a0001au,0x54348800u,0x21500000u},
+    {0x00000000u,0x0066001bu,0xb400106cu,0x3fb00000u},{0x00000000u,0x006000ffu,0x540013fdu,0x51500000u},
+    {0x00000000u,0x0049801bu,0xb4379800u,0x2f000000u},{0x00000000u,0x0040001au,0x45fea800u,0x2e400000u},
+    {0x00000000u,0x0069a01bu,0x0400106fu,0x7f200000u},{0x00000000u,0x0060001au,0x44001469u,0x5eb00000u},
+    {0x00000000u,0x02c4801bu,0x0836986cu,0x91a0181cu},{0x00000000u,0x00c4a01bu,0x0836b800u,0x24a00000u},
+    {0x00000000u,0x00c4c01bu,0x0836d800u,0x22a00000u},{0x00000000u,0x00c4e01bu,0x0836f800u,0x21b01800u},
+    {0x00000000u,0x004040dau,0xa4345800u,0x20a0e800u},{0x00000000u,0x0642801au,0x24349bfeu,0xde280000u},
+    {0x00000000u,0x00e7001bu,0x08371800u,0x20b0f828u},{0x00000000u,0x0080201au,0xc4002868u,0x70b0e800u},
+    {0x00000000u,0x0062601au,0x24001068u,0xf0b0e818u},{0x00000000u,0x00e9c41bu,0x2837d800u,0x20a08848u},
+    {0x00000000u,0x00e9e41bu,0x2837f800u,0x20a04848u},{0x00000000u,0x00a3801au,0xb4359800u,0x20a08850u},
+    {0x00000000u,0x00a3a01au,0xb435b800u,0x20a02850u},{0x00000000u,0x00a3c01au,0xb435d800u,0x20b04851u}
+};
+static int dah_rockwell_vehicle_reflection_program_matches(const uint32_t *p,const uint8_t *valid){
+ if(!p||!valid)return 0;for(unsigned i=0;i<152u;i++)if(!valid[i]||p[i]!=dah_rockwell_vehicle_reflection_program[i/4u][i%4u])return 0;return 1;
+}
+/* Rockwell static lit/environment-coordinate program captured from the
+ * repeatedly missing 202-index draw.  It transforms the packed normal with
+ * c32..c34, combines it with normalized clip space, and feeds texture stage
+ * zero while using c190 as the vertex colour. */
+static const uint32_t dah_rockwell_static_lit_program[15][4]={
+    {0x00000000u,0x00c4801bu,0x08369800u,0x28b00000u},
+    {0x00000000u,0x00c4a01bu,0x0836b800u,0x24b00000u},
+    {0x00000000u,0x00c4c01bu,0x0836d800u,0x22b00000u},
+    {0x00000000u,0x00c4e01bu,0x0836f800u,0x21b01800u},
+    {0x00000000u,0x00a4021au,0x18341800u,0x28400000u},
+    {0x00000000u,0x06a4221au,0x18343bfeu,0xd4480000u},
+    {0x00000000u,0x00a4421au,0x18345800u,0x22400000u},
+    {0x00000000u,0x0257c01au,0xb400286fu,0xbe00f81cu},
+    {0x00000000u,0x0049a01au,0x4435b800u,0x2e400000u},
+    {0x00000000u,0x0060001au,0x04001069u,0x1e000000u},
+    {0x00000000u,0x0040401au,0xb4345800u,0x20b0e800u},
+    {0x00000000u,0x0040601au,0x04347800u,0x2e000000u},
+    {0x00000000u,0x0080201au,0xc4002868u,0x70b0e800u},
+    {0x00000000u,0x0060801au,0x04001069u,0x30b0e848u},
+    {0x00000000u,0x00e7001bu,0x08371800u,0x20b0f829u}
+};
+static int dah_rockwell_static_lit_program_matches(const uint32_t *p,const uint8_t *valid){
+ if(!p||!valid)return 0;for(unsigned i=0;i<60u;i++)if(!valid[i]||p[i]!=dah_rockwell_static_lit_program[i/4u][i%4u])return 0;return 1;
+}
 static unsigned dah_farm_program_kind(const uint32_t *p,const uint8_t *valid){
  if(!p||!valid)return 0;
  const uint32_t *programs[]={&dah_farm_program_0[0][0],&dah_farm_program_1[0][0],&dah_farm_program_reflection[0][0]};
  const unsigned lengths[]={40,80,144};
- for(unsigned k=0;k<3;k++){unsigned i;for(i=0;i<lengths[k];i++)if(!valid[i]||p[i]!=programs[k][i])break;if(i==lengths[k])return 10+k;}return 0;
+ for(unsigned k=0;k<3;k++){unsigned i;for(i=0;i<lengths[k];i++)if(!valid[i]||p[i]!=programs[k][i])break;if(i==lengths[k])return 10+k;}
+ for(unsigned i=0;i<104u;i++)if(!valid[i]||p[i]!=dah_rockwell_vehicle_program[i/4u][i%4u])return 0;
+ return 26u;
 }
 static float dah_farm_dp4(const float a[4],const float b[4]){return ((a[0]*b[0]+a[1]*b[1])+a[2]*b[2])+a[3]*b[3];}
 static float dah_farm_dph(const float a[4],const float b[4]){return (a[0]*b[0]+a[1]*b[1])+a[2]*b[2]+b[3];}
@@ -112,6 +193,88 @@ static int dah_farm_reflection_vertex(const float v[4][4],const float c[192][4],
     tex1[2]=dah_menu_dot3(reflected,c[29]);
     tex1[3]=c[187][3];
     for(unsigned j=0;j<4;j++)if(!isfinite(out->screen[j])||!isfinite(out->diffuse[j])||!isfinite(tex1[j]))return 0;
+    return isfinite(out->uv[0])&&isfinite(out->uv[1])&&isfinite(out->fog);
+}
+static int dah_rockwell_vehicle_vertex(const float v[3][4],const float c[192][4],
+                                       DahMenuVertex *out,float tex1[4]){
+    float basis[4],lit[4],color[4],clip[4],recip;
+    if(!v||!c||!out||!tex1)return 0;
+    for(unsigned i=0;i<3u;i++)for(unsigned j=0;j<4u;j++)if(!isfinite(v[i][j]))return 0;
+    for(unsigned j=0;j<4u;j++){
+        basis[j]=c[66][j]*v[1][0]+c[65][j]*v[1][1]+c[64][j]*v[1][2];
+        basis[j]=fmaxf(basis[j],c[189][j]);
+        basis[j]=fminf(basis[j],c[187][j]);
+        lit[j]=c[49][j]*basis[0]+c[50][j]*basis[1]+c[51][j]*basis[2]+
+               c[47][j]*basis[3]+c[48][j];
+        color[j]=dah_farm_mul(lit[j],c[76][j])+c[77][j];
+    }
+    for(unsigned j=0;j<3u;j++)out->diffuse[j]=dah_farm_mul(color[j],c[20][j])+c[19][j];
+    out->diffuse[3]=color[3];
+    for(unsigned j=0;j<4u;j++)clip[j]=dah_farm_dph(v[0],c[36+j]);
+    recip=dah_menu_rcc(clip[3]);
+    for(unsigned j=0;j<3u;j++)out->screen[j]=dah_farm_mul(dah_farm_mul(clip[j],c[2][j]),recip)+c[1][j];
+    out->screen[3]=clip[3];
+    out->uv[0]=dah_farm_dp4(v[2],c[78]);
+    out->uv[1]=dah_farm_dp4(v[2],c[79]);
+    out->fog=dah_farm_dp4(v[0],c[56]);
+    tex1[0]=dah_menu_dot3(v[1],c[24])*c[190][0]+c[190][0];
+    tex1[1]=dah_menu_dot3(v[1],c[25])*c[190][1]+c[190][1];
+    tex1[2]=tex1[3]=c[187][3];
+    for(unsigned j=0;j<4u;j++)if(!isfinite(out->screen[j])||!isfinite(out->diffuse[j])||!isfinite(tex1[j]))return 0;
+    return isfinite(out->uv[0])&&isfinite(out->uv[1])&&isfinite(out->fog);
+}
+static int dah_rockwell_vehicle_reflection_vertex(const float v[3][4],const float c[192][4],
+                                                  DahMenuVertex *out,float tex1[4]){
+    float basis[4],lit[4],color[4],eye[3],normal[3],reflected[3],clip[4];
+    float len2,invlen,doubled,recip;
+    if(!v||!c||!out||!tex1)return 0;
+    for(unsigned i=0;i<3u;i++)for(unsigned j=0;j<4u;j++)if(!isfinite(v[i][j]))return 0;
+    for(unsigned j=0;j<4u;j++){
+        basis[j]=c[66][j]*v[1][0]+c[65][j]*v[1][1]+c[64][j]*v[1][2];
+        basis[j]=fmaxf(basis[j],c[189][j]);basis[j]=fminf(basis[j],c[187][j]);
+        lit[j]=c[49][j]*basis[0]+c[50][j]*basis[1]+c[51][j]*basis[2]+
+               c[47][j]*basis[3]+c[48][j];
+        color[j]=dah_farm_mul(lit[j],c[76][j])+c[77][j];
+    }
+    for(unsigned j=0;j<3u;j++){
+        eye[j]=dah_farm_dp4(v[0],c[32+j]);
+        normal[j]=dah_menu_dot3(v[1],c[32+j]);
+    }
+    len2=dah_menu_dot3(eye,eye);invlen=len2==0.0f?INFINITY:1.0f/sqrtf(fabsf(len2));
+    for(unsigned j=0;j<3u;j++)eye[j]=dah_farm_mul(eye[j],-invlen);
+    doubled=2.0f*dah_menu_dot3(eye,normal);
+    for(unsigned j=0;j<3u;j++)reflected[j]=dah_farm_mul(normal[j],doubled)-eye[j];
+    for(unsigned j=0;j<3u;j++)out->diffuse[j]=dah_farm_mul(color[j],c[20][j])+c[19][j];
+    out->diffuse[3]=color[3];
+    for(unsigned j=0;j<4u;j++)clip[j]=dah_farm_dph(v[0],c[36+j]);
+    recip=dah_menu_rcc(clip[3]);
+    for(unsigned j=0;j<3u;j++)out->screen[j]=dah_farm_mul(dah_farm_mul(clip[j],c[2][j]),recip)+c[1][j];
+    out->screen[3]=clip[3];out->uv[0]=dah_farm_dp4(v[2],c[78]);out->uv[1]=dah_farm_dp4(v[2],c[79]);
+    out->fog=dah_farm_dp4(v[0],c[56]);
+    tex1[0]=dah_menu_dot3(reflected,c[28]);tex1[1]=dah_menu_dot3(reflected,c[30]);
+    tex1[2]=dah_menu_dot3(reflected,c[29]);tex1[3]=c[187][3];
+    for(unsigned j=0;j<4u;j++)if(!isfinite(out->screen[j])||!isfinite(out->diffuse[j])||!isfinite(tex1[j]))return 0;
+    return isfinite(out->uv[0])&&isfinite(out->uv[1])&&isfinite(out->fog);
+}
+static int dah_rockwell_static_lit_vertex(const float v[3][4],const float c[192][4],
+                                          DahMenuVertex *out){
+    float clip[4],normal[3],coord[3],recip;
+    if(!v||!c||!out)return 0;
+    for(unsigned i=0;i<2u;i++)for(unsigned j=0;j<4u;j++)if(!isfinite(v[i][j]))return 0;
+    for(unsigned j=0;j<4u;j++)clip[j]=dah_farm_dph(v[0],c[36u+j]);
+    normal[0]=dah_menu_dot3(v[1],c[32]);
+    normal[1]=dah_menu_dot3(v[1],c[33]);
+    normal[2]=dah_menu_dot3(v[1],c[34]);
+    recip=dah_menu_rcc(clip[3]);
+    for(unsigned j=0;j<3u;j++){
+        out->screen[j]=dah_farm_mul(dah_farm_mul(clip[j],c[2][j]),recip)+c[1][j];
+        coord[j]=dah_farm_mul(dah_farm_mul(clip[j],recip)+
+            dah_farm_mul(normal[j],c[77][j]),c[3][j])+c[4][j];
+        out->diffuse[j]=c[190][j];
+    }
+    out->screen[3]=clip[3];out->diffuse[3]=c[190][3];
+    out->uv[0]=coord[0];out->uv[1]=coord[1];out->fog=dah_farm_dp4(v[0],c[56]);
+    for(unsigned j=0;j<4u;j++)if(!isfinite(out->screen[j])||!isfinite(out->diffuse[j]))return 0;
     return isfinite(out->uv[0])&&isfinite(out->uv[1])&&isfinite(out->fog);
 }
 #endif

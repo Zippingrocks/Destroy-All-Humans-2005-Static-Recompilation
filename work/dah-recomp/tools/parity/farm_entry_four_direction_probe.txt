@@ -1,0 +1,18 @@
+@frame
+# Normal fresh-profile retail route; preserve the complete Farm entry cinematic.
+# start duration hex_buttons A B LX LY RX RY
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+# Fifteen delivered frames per pulse, followed by 105 neutral frames.
+# Require cinematic completion and Game input access before the first pulse.
+# Use one shared input history; later pulses begin from the preceding result.
+7200 15 0 0 0 0 32767 0 0
+7320 15 0 0 0 0 -32768 0 0
+7440 15 0 0 0 -32768 0 0 0
+7560 15 0 0 0 32767 0 0 0
+# Keep recording through at least frame 7640, including final settling.

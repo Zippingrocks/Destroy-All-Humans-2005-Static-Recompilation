@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "title": "Destroy All Humans! (USA) retail Xbox reference",
+  "xbe": {
+    "size": 2568192,
+    "sha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+    "projectPath": "../build-internal/default.xbe",
+    "referencePath": "C:/Users/Bilbo/Desktop/Emulation/XEMU/ROMs/Destroy All Humans! (USA).xiso/default.xbe"
+  },
+  "xiso": {
+    "size": 2277834752,
+    "sha256": "DA61C36C235EAB4111DD540FB237EAC01DB5B2138451FA422B74E6AA9147C9B5",
+    "referencePath": "C:/Users/Bilbo/Desktop/Emulation/XEMU/ROMs/Destroy All Humans! (USA).xiso.iso"
+  },
+  "xemu": {
+    "path": "C:/Users/Bilbo/Desktop/Emulation/XEMU/xemu.exe",
+    "version": "0.8.136",
+    "gdbHost": "127.0.0.1",
+    "gdbPort": 1235,
+    "qmpPort": 4445
+  },
+  "notes": [
+    "The project, ROM extraction, source-port retail tree, and build-internal XBE were SHA-256 identical on 2026-09-25.",
+    "Use only an isolated xemu instance. Never attach automation to the user's foreground emulator.",
+    "The probe is read-only: it can halt, read registers or memory, and resume; it does not write guest memory."
+  ]
+}

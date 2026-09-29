@@ -3080,9 +3080,13 @@ static void kernel_thunk_dispatch(void)
 
     {
         static DWORD last_summary_tick = 0;
+        static int runtime_profile = -1;
         DWORD now = GetTickCount();
+        if (runtime_profile < 0)
+            runtime_profile = getenv("DAH_RUNTIME_PROFILE") != NULL;
         if (last_summary_tick == 0) last_summary_tick = now;
-        if (now - last_summary_tick >= 2000 && g_kernel_call_count > 200) {
+        if (runtime_profile &&
+            now - last_summary_tick >= 2000 && g_kernel_call_count > 200) {
             fprintf(stderr, "  [KERNEL] summary: %d total calls, latest ordinal %u (slot %d) esp=0x%08X ret=0x%08X\n",
                     g_kernel_call_count, ordinal, slot, g_esp,
                     g_esp ? BRIDGE_MEM32(g_esp) : 0);
