@@ -2261,7 +2261,13 @@ static int submit_indexed_3d(void)
              * 1DD6C0, which returns Data | 0x80000000. Its shader signature
              * and declaration were checked above. Like the Pox CRT buffers,
              * this data belongs to the separate contiguous graphics window. */
-            int contiguous = program_kind == 14u || program_kind == 17u || program_kind == 18u;
+            /* The reflection program is also used by Farm's generated
+             * landscape grid.  ECD20 fills that vertex buffer through the
+             * D3D locked/contiguous window; the same guest offset in low RAM
+             * is an all-zero mirror and collapses the whole grid to one
+             * off-screen point after entering the saucer. */
+            int contiguous = program_kind == 12u || program_kind == 14u ||
+                             program_kind == 17u || program_kind == 18u;
             arr[s] = indexed_guest_bytes_window((uint32_t)begin, (size_t)length, contiguous);
             if (!arr[s]) { dah_farm_material_trace("array-read", program_kind, NULL, 0u, s, 0); return 0; }
 

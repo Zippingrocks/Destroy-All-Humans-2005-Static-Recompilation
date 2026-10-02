@@ -388,6 +388,8 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     int control_ok=dah_parity_farm_range(control,0x3Cu);
     uint32_t player=control_ok?dah_parity_farm_word(control+0x38u):0;
     int player_ok=control_ok&&dah_parity_farm_range(player,0x3Cu);
+    uint32_t ship=player_ok?dah_parity_farm_word(player+0x34u):0;
+    int ship_ok=player_ok&&dah_parity_farm_range(ship,0x280u);
     uint32_t actor=player_ok?dah_parity_farm_word(player+0x38u):0;
     int actor_header=player_ok&&dah_parity_farm_range(actor,0x158u);
     uint32_t actor_vt=actor_header?dah_parity_farm_word(actor):0;
@@ -417,7 +419,10 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     dah_parity_farm_scalar(output,"player",control_ok,player);
     dah_parity_farm_scalar(output,"playerVtable",player_ok,player_ok?dah_parity_farm_word(player):0);
     dah_parity_farm_scalar(output,"playerFocus",player_ok,player_ok?dah_parity_farm_word(player+0x30u):0);
-    dah_parity_farm_scalar(output,"playerShip",player_ok,player_ok?dah_parity_farm_word(player+0x34u):0);
+    dah_parity_farm_scalar(output,"playerShip",player_ok,ship);
+    dah_parity_farm_scalar(output,"playerShipVtable",ship_ok,ship_ok?dah_parity_farm_word(ship):0);
+    if (ship_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
+        dah_parity_farm_words(output,"playerShipWords",1,ship,0xA0u);
     dah_parity_farm_scalar(output,"playerCrypto",player_ok,actor);
     dah_parity_farm_scalar(output,"actor",player_ok,actor);
     dah_parity_farm_scalar(output,"actorVtable",actor_header,actor_vt);
@@ -451,6 +456,8 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     int camera_header=dah_parity_farm_range(renderer,0xF0u);
     uint32_t node=camera_header?dah_parity_farm_word(renderer+0xECu):0;
     int camera_ok=camera_header&&dah_parity_farm_range(node,0x90u);
+    uint32_t global_camera=dah_parity_word(0x250E60u);
+    int global_camera_ok=dah_parity_farm_range(global_camera,0x90u);
     dah_parity_farm_scalar(output,"cameraNode",camera_header,node);
     dah_parity_farm_scalar(output,"cameraNodeParent",camera_ok,camera_ok?dah_parity_farm_word(node+8u):0);
     dah_parity_farm_words(output,"cameraViewPositionBits",camera_header,renderer+0x80u,3);
@@ -458,8 +465,11 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     dah_parity_farm_words(output,"cameraLocalBits",camera_ok,node+0x20u,3);
     dah_parity_farm_words(output,"cameraQuatBits",camera_ok,node+0x40u,4);
     dah_parity_farm_words(output,"cameraWorldBits",camera_ok,node+0x50u,16);
+    dah_parity_farm_scalar(output,"globalCamera",1,global_camera);
+    dah_parity_farm_words(output,"globalCameraProjectionBits",global_camera_ok,global_camera+0x10u,16);
+    dah_parity_farm_words(output,"globalCameraViewBits",global_camera_ok,global_camera+0x50u,16);
     fprintf(output,",\"cameraComplete\":%s,\"observer\":{\"source\":\"native-host\",\"presentationHeld\":%s}",
-        camera_ok?"true":"false",dah_frame_presentation_held()?"true":"false");
+        camera_ok&&global_camera_ok?"true":"false",dah_frame_presentation_held()?"true":"false");
     dah_parity_write_hud(output,actor,actor_ok);
 }
 
