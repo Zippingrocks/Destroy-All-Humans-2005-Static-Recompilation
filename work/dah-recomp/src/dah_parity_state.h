@@ -531,12 +531,14 @@ static void dah_parity_trace_state(uint64_t host_frame)
     root = dah_parity_word(dah_parity_word(0x258470u));
     control = dah_parity_word(0x25FCECu);
     player = control ? dah_parity_word(control + 0x38u) : 0;
-    fprintf(output, "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"000DAD3C\",\"hostFrame\":%llu,\"wallMs\":%llu,\"loop\":%u,\"renderer\":%u,\"refresh\":%u,\"divisor\":%u,\"interval\":%u,\"world\":%u,\"movie\":%u,\"movieMode\":%u,\"movieFlags\":%u,\"movieLifecycle\":%u,\"movieHeader\":[",
+    fprintf(output, "{\"schema\":1,\"source\":\"recomp\",\"phase\":\"000DAD3C\",\"hostFrame\":%llu,\"wallMs\":%llu,\"loop\":%u,\"renderer\":%u,\"refresh\":%u,\"divisor\":%u,\"interval\":%u,\"savedBackBuffer\":%u,\"savedBackBufferEnabled\":%u,\"world\":%u,\"movie\":%u,\"movieMode\":%u,\"movieFlags\":%u,\"movieLifecycle\":%u,\"movieHeader\":[",
         (unsigned long long)host_frame, (unsigned long long)GetTickCount64(),
         dah_parity_word(0x25B1DCu), renderer,
         renderer ? (dah_parity_word(renderer + 0x238u) ? 60u : 50u) : 0u,
         renderer ? dah_parity_word(renderer + 0x27Cu) : 0u,
         renderer ? dah_parity_word(renderer + 0x2C8u) : 0u,
+        renderer ? dah_parity_word(renderer + 0x484u) : 0u,
+        renderer ? dah_parity_word(renderer + 0x488u) & 255u : 0u,
         world,
         movie, dah_parity_word(0x2867F8u), dah_parity_word(0x2867F4u) & 255u,
         dah_parity_word(0x286804u));

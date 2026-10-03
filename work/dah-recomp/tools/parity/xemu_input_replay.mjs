@@ -10,6 +10,7 @@ import {performance} from 'node:perf_hooks';
 import {RspClient} from './rsp_client.mjs';
 import {readFarmState} from './xemu_farm_state.mjs';
 import {readCinematicState,CINEMATIC_MAX_READS,CINEMATIC_MAX_BYTES} from './xemu_cinematic_state.mjs';
+import {readUiState,UI_STATE_MAX_READS,UI_STATE_MAX_BYTES} from './xemu_ui_state.mjs';
 const args=process.argv.slice(2);
 const option=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
 const script=option('--script'),out=option('--out');
@@ -25,6 +26,7 @@ const movementWatchOut=option('--movement-watch-out');
 const velocityStart=Number(option('--velocity-start','7198'));
 const velocityEnd=Number(option('--velocity-end','7225'));
 const cinematicState=args.includes('--cinematic-state');
+const uiState=args.includes('--ui-state');
 const captureCinematicRaw=option('--capture-cinematic-seconds');
 const captureHelper=option('--capture-helper');
 const captureIdent=Number(option('--capture-ident','0'));
@@ -40,6 +42,7 @@ if(!Number.isSafeInteger(stateInterval)||stateInterval<1||stateInterval>1000000)
 if(args.includes('--state-interval')&&!stateOut)throw new Error('--state-interval requires --state-out');
 if(holobobState&&!stateOut)throw new Error('--holobob-state requires --state-out');
 if(cinematicState&&!stateOut)throw new Error('--cinematic-state requires --state-out');
+if(uiState&&!stateOut)throw new Error('--ui-state requires --state-out');
 if(captureCinematicSeconds.length){
  if(!cinematicState)throw new Error('--capture-cinematic-seconds requires --cinematic-state');
  if(!captureHelper||!fs.existsSync(captureHelper))throw new Error('--capture-helper must name the existing RenderDoc helper');
@@ -108,6 +111,8 @@ const trace={schema:1,source:'xemu-logical-pad',script,port,startedAt:new Date()
 if(stateOut)trace.stateObservation={path:stateOut,phase:'XInputGetState',timingPerturbed:true,
  interval:stateInterval,limit:stateLimit,inputSampling:'before-controller-result',
  cinematicState,cinematicAdditionalReadBudget:cinematicState?{reads:CINEMATIC_MAX_READS,bytes:CINEMATIC_MAX_BYTES}:null};
+if(stateOut)trace.stateObservation.uiState=uiState;
+if(stateOut&&uiState)trace.stateObservation.uiAdditionalReadBudget={reads:UI_STATE_MAX_READS,bytes:UI_STATE_MAX_BYTES};
 if(captureCinematicSeconds.length)trace.cinematicCaptures={targetsSeconds:captureCinematicSeconds,
  guestStopPhase:'XInputGetState',targetDrainBeforeTriggerMs:captureInventoryMs,records:[]};
 if(physicsQuatOut)trace.physicsQuaternionObservation={path:physicsQuatOut,start:physicsQuatStart,end:physicsQuatEnd,
@@ -317,6 +322,7 @@ try{
      }
     }
     if(cinematicState)Object.assign(observation,await readCinematicState(read));
+    if(uiState)Object.assign(observation,await readUiState(read));
     if(nextCinematicCapture<captureCinematicSeconds.length&&observation.cinematicComplete&&
        observation.cinematics?.length===1&&observation.cinematics[0].state===2){
      const elapsed=float32(observation.cinematics[0].elapsedBits);

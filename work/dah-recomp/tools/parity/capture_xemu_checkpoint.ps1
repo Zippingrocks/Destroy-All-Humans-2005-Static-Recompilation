@@ -7,8 +7,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $dahReference = Get-Process -Id $XemuPid -ErrorAction Stop
-$dahExpected = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\build-parity-xemu\xemu.exe'))
-if ($dahReference.Path -ne $dahExpected) { throw 'PID is not the private DAH1 reference executable.' }
+$dahExpected = @(
+    [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\build-parity-xemu\xemu.exe')),
+    'C:\Users\Bilbo\Desktop\Emulation\XEMU\xemu.exe'
+)
+if ($dahReference.Path -notin $dahExpected) { throw 'PID is not the private DAH1 reference executable.' }
 $dahListener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop
 if (!($dahListener | Where-Object { $_.OwningProcess -eq $XemuPid })) {
     throw 'QMP listener does not belong to the requested reference process.'

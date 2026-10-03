@@ -1,0 +1,14 @@
+# Fresh-profile startup route. It stops before selecting a mothership room;
+# the state-gated runner supplies the Hangar and Invade A presses only after
+# observing stable tthubMain and navicom UI states.
+300 4 10 0 0 0 0 0 0
+420 4 0 255 0 0 0 0 0
+540 4 10 0 0 0 0 0 0
+660 4 0 255 0 0 0 0 0
+780 4 10 0 0 0 0 0 0
+900 4 0 255 0 0 0 0 0
+
+@frame
+1200 5 10 0 0 0 0 0 0
+1240 5 0 255 0 0 0 0 0
+1280 5 10 0 0 0 0 0 0

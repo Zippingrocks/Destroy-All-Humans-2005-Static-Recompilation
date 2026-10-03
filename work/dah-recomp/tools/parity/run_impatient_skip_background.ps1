@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run,
     [ValidateSet('absolute', 'phase', 'barrage')][string]$Route = 'absolute',
+    [ValidateRange(1, 1000)][int]$StateInterval = 5,
     [ValidateRange(30, 600)][int]$Seconds = 150
 )
 
@@ -44,7 +45,7 @@ $settings = @{
     DAH_SAVE_DIR = $saveDir
     DAH_LOG_PATH = "$prefix.log"
     DAH_PARITY_STATE_TRACE = "$prefix-state.jsonl"
-    DAH_PARITY_STATE_INTERVAL = '5'
+    DAH_PARITY_STATE_INTERVAL = [string]$StateInterval
     DAH_PARITY_STATE_START = '0'
     DAH_PARITY_STATE_END = '20000'
     DAH_FRAME_CAPTURE = '0'

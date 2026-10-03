@@ -2,6 +2,7 @@
  * Kept separate so the large generated chunks do not need regeneration. */
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_trace_flags.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -833,7 +834,7 @@ void sub_00196815(void)
                 esi, frame, edi, MEM32(value), MEM32(value + 4u), argument,
                 MEM32(esp + 0x10u));
     }
-    if (call_trace_count < 512u) {
+    if (dah_script_vm_trace_enabled() && call_trace_count < 512u) {
         fprintf(stderr,
                 "[DAH-SCRIPT-CALL] phase=enter token=%08X frame=%08X owner=%08X base=%08X value=%08X type=%u arg=%08X esp=%08X\n",
                 esi, frame, edi, base, value, MEM32(value), argument, esp);
@@ -856,7 +857,7 @@ void sub_00196815(void)
                 frame, edi, eax, frame >= 8u ? MEM32(frame - 8u) : 0u,
                 frame >= 4u ? MEM32(frame - 4u) : 0u, esp);
     }
-    if (call_trace_count++ < 512u) {
+    if (dah_script_vm_trace_enabled() && call_trace_count++ < 512u) {
         fprintf(stderr,
                 "[DAH-SCRIPT-CALL] phase=return token=%08X frame=%08X owner=%08X eax=%08X esp=%08X next_stream=%08X\n",
                 esi, frame, edi, eax, esp, MEM32(esp + 0x10u));
@@ -1286,9 +1287,11 @@ void sub_00196AB8(void)
         MEM32(eax) = MEM32(source_cursor);
         MEM32(eax + 4u) = MEM32(source_cursor + 4u);
     }
-    fprintf(stderr,
-            "[DAH-SCRIPT-AGGREGATE] token=%08X key=%08X frame=%08X owner=%08X\n",
-            esi, source_key, frame, MEM32(edi));
+    if (dah_script_vm_trace_enabled()) {
+        fprintf(stderr,
+                "[DAH-SCRIPT-AGGREGATE] token=%08X key=%08X frame=%08X owner=%08X\n",
+                esi, source_key, frame, MEM32(edi));
+    }
     dah_script_dispatch_next(frame);
 }
 

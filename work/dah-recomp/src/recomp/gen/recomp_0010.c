@@ -189,6 +189,7 @@ loc_000DDB18: ;
     if (dah_message_fallback_trace_count < 96u) {
         fprintf(stderr, "[DAH-MESSAGE-FALLBACK-XBOX] key=5B33F583 this=%08X arg=%08X platform_ptr=%08X\n",
                 esi, MEM32(esp + 0x60u), MEM32(0x00233FE4u));
+        dah_message_fallback_trace_count++;
     }
     ecx = MEM32(esp + 0x60);
     PUSH32(esp, 0x233FE4);

@@ -1,12 +1,13 @@
 /* Bounded read-only observer. The supplied read function must share the input
  * adapter's stopped RSP connection. No writes or extra breakpoint operations. */
-export const FARM_STATE_MAX_READS=29;
-export const FARM_STATE_MAX_BYTES=2048;
+export const FARM_STATE_MAX_READS=30;
+export const FARM_STATE_MAX_BYTES=2056;
 export async function readFarmState(read, loop, anchor) {
  const state={schema:1,source:'xemu',phase:'XInputGetState',phaseAddress:'0x002216b5',
   timingPerturbed:true,inputSampling:'before-controller-result',loop,relativeFrame:loop-anchor,
   backend:null,backendState:null,backendName:null,pendingBackend:null,pendingBackendState:null,
   pendingBackendName:null,renderer:null,refresh:null,divisor:null,interval:null,
+  savedBackBuffer:null,savedBackBufferEnabled:null,
   world:null,worldVtable:null,worldTick:null,worldElapsedBits:null,worldStepBits:null,
   worldPaused:null,worldRealtime:null,rngState:null,movie:null,movieMode:null,movieFlags:null,
   movieLifecycle:null,movieHeader:null,cameraUpdate:null,controlSystem:null,
@@ -70,8 +71,10 @@ export async function readFarmState(read, loop, anchor) {
   else{
    const b=await get(r+0x238,0x94,['refresh','divisor','interval']);
    if(b){state.refresh=b.readUInt32LE(0)?60:50;state.divisor=b.readUInt32LE(0x44);state.interval=b.readUInt32LE(0x90);}
+   const saved=await get(r+0x484,5,['savedBackBuffer','savedBackBufferEnabled']);
+   if(saved){state.savedBackBuffer=saved.readUInt32LE(0);state.savedBackBufferEnabled=saved[4];}
   }
- }else issue(['refresh','divisor','interval'],'renderer pointer unavailable');
+ }else issue(['refresh','divisor','interval','savedBackBuffer','savedBackBufferEnabled'],'renderer pointer unavailable');
  const w=await pointer(0x286768,'world');
  const worldKeys=['worldVtable','worldTick','worldElapsedBits','worldStepBits','worldPaused','worldRealtime'];
  if(w===0)state.absent.push('world');

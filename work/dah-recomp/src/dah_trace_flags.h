@@ -21,4 +21,11 @@ static inline int dah_model_trace_enabled(void)
     return cached;
 }
 
+static inline int dah_script_vm_trace_enabled(void)
+{
+    static RECOMP_TLS int cached = -1;
+    if (cached < 0) cached = getenv("DAH_SCRIPT_VM_TRACE") != NULL;
+    return cached;
+}
+
 #endif
