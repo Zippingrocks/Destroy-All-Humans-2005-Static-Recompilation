@@ -791,12 +791,6 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
         EMIT("    }\n\n");
     }
 
-    /* ---- Fog ---- */
-    EMIT("    /* Fog application */\n");
-    EMIT("    if (fog_enable) {\n");
-    EMIT("        result.rgb = lerp(fog_color.rgb, result.rgb, r_fog.a);\n");
-    EMIT("    }\n\n");
-
     /* ---- Alpha test ---- */
     EMIT("    /* Alpha test */\n");
     EMIT("    if (alpha_test_enable) {\n");
