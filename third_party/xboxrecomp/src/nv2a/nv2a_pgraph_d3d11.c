@@ -2045,7 +2045,7 @@ static int submit_indexed_3d(void)
         static const uint8_t farm_deform[] = {1,2,36,37,38,39,46,187,189,191};
         static const uint8_t farm_push[] = {1,2,36,37,38,39,46,187,189};
         static const uint8_t farm_constant[] = {1,2,36,37,38,39,187};
-        const uint8_t *required = program_kind == 29u ? static_reflection :
+        const uint8_t *required = (program_kind == 29u || program_kind == 30u) ? static_reflection :
             program_kind == 14u ? unlit9 :
             program_kind == 28u ? rockwell_static_lit :
             program_kind == 27u ? rockwell_vehicle_reflection :
@@ -2059,7 +2059,7 @@ static int submit_indexed_3d(void)
             program_kind == 25u ? morph62 :
             program_kind == 16u ? morph62 : program_kind == 15u ? skin55 :
             program_kind == 13u ? skin : program_kind == 12u ? reflection : critical;
-        unsigned required_count = program_kind == 29u ? sizeof(static_reflection) :
+        unsigned required_count = (program_kind == 29u || program_kind == 30u) ? sizeof(static_reflection) :
             program_kind == 14u ? sizeof(unlit9) :
             program_kind == 28u ? sizeof(rockwell_static_lit) :
             program_kind == 27u ? sizeof(rockwell_vehicle_reflection) :
@@ -2204,6 +2204,9 @@ static int submit_indexed_3d(void)
         if(program_kind==12u&&(slot_count[2]!=4u||slot_count[3]<3u)){dah_farm_material_trace("slot-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;}
         if(program_kind==29u&&(slot_type[1]!=1u||slot_count[1]!=3u||slot_type[2]!=2u||slot_count[2]!=2u||slot_count[3]<3u)){
             dah_farm_material_trace("slot-static-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;
+        }
+        if(program_kind==30u&&(slot_type[1]!=1u||slot_count[1]!=3u||slot_type[2]!=2u||slot_count[2]!=2u)){
+            dah_farm_material_trace("slot-saucer-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;
         }
         if(program_kind==14u){
             static const uint32_t unlit_formats[3]={0x1832u,0x1822u,0x1840u};
@@ -2409,11 +2412,12 @@ static int submit_indexed_3d(void)
             vertex_ok=program_kind==27u ?
                 dah_rockwell_vehicle_reflection_vertex(inputs,c,&result,reflection_uv) :
                 dah_rockwell_vehicle_vertex(inputs,c,&result,reflection_uv);
-        }else if(program_kind==29u){
+        }else if(program_kind==29u||program_kind==30u){
             float inputs[4][4];
             if(slot_count[1]<4u)normal[3]=1.0f;
             if(slot_count[2]<4u)tex[3]=1.0f;
-            if(slot_count[3]<4u)extra[3]=1.0f;
+            if(program_kind==30u)extra[3]=1.0f;
+            else if(slot_count[3]<4u)extra[3]=1.0f;
             memcpy(inputs[0],pos,sizeof pos);memcpy(inputs[1],normal,sizeof normal);
             memcpy(inputs[2],tex,sizeof tex);memcpy(inputs[3],extra,sizeof extra);
             vertex_ok=dah_static_reflection_vertex(inputs,c,&result,reflection_uv);
@@ -2548,7 +2552,7 @@ static int submit_indexed_3d(void)
         out[i].w1=vertex_fog;
         out[i].fog_coord=1.0f;
         out[i].fog_pad=0.0f;
-        if(program_kind==12u||program_kind==27u||program_kind==29u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];out[i].w1=reflection_uv[2];out[i].fog_coord=vertex_fog;out[i].fog_pad=1.0f;}
+        if(program_kind==12u||program_kind==27u||program_kind==29u||program_kind==30u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];out[i].w1=reflection_uv[2];out[i].fog_coord=vertex_fog;out[i].fog_pad=1.0f;}
         else if(program_kind==26u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];}
         else if(program_kind==13u||program_kind==16u||program_kind==19u||program_kind==20u){out[i].u1=reflection_uv[0];out[i].v1=reflection_uv[1];}
         else if(program_kind==17u)out[i].u1=out[i].v1=0.0f;
@@ -2875,7 +2879,7 @@ static int submit_indexed_3d(void)
         if (fog_trace_count++ < 16u) {
             float fog_min = 1e30f, fog_max = -1e30f;
             for (uint32_t i = 0; i < g_pg.index_count; ++i) {
-                float f = (program_kind == 12u || program_kind == 27u || program_kind == 29u) ? out[i].fog_coord : out[i].w1;
+                float f = (program_kind == 12u || program_kind == 27u || program_kind == 29u || program_kind == 30u) ? out[i].fog_coord : out[i].w1;
                 if (f < fog_min) fog_min = f;
                 if (f > fog_max) fog_max = f;
             }
@@ -2893,7 +2897,7 @@ static int submit_indexed_3d(void)
      * the NV2A final combiner. TEXCOORD2.x carries it for the host combiner;
      * the reflection path widens TEXCOORD1 to preserve its cube vector. */
     dev->lpVtbl->SetVertexShader(dev, D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX3 |
-        ((program_kind==12u||program_kind==27u||program_kind==29u) ? D3DFVF_TEXCOORDSIZE3(1) : 0u));
+        ((program_kind==12u||program_kind==27u||program_kind==29u||program_kind==30u) ? D3DFVF_TEXCOORDSIZE3(1) : 0u));
     dev->lpVtbl->SetRenderState(dev, D3DRS_ZENABLE,          g_pg.depth_test);
     dev->lpVtbl->SetRenderState(dev, D3DRS_ZWRITEENABLE,     g_pg.depth_write);
     dev->lpVtbl->SetRenderState(dev, D3DRS_LIGHTING,         FALSE);
