@@ -6,10 +6,13 @@
  * this keeps accelerated tests deterministic across variable movie/load
  * completion. "@frame" uses the absolute retail main-loop counter at
  * 0025B1DC for subsequent rows, also observable in xemu. This mode does not
- * run the gameplay movement probe. No host input devices are accessed. */
+ * run the gameplay movement probe. "@holobob-idle" gates subsequent rows on
+ * an equipped, inactive Holobob; "@always" clears that gate. These directives
+ * let randomized NPC routes retry acquisition without injecting inputs after
+ * success. No host input devices are accessed. */
 static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
 {
-    struct dah_input_event { unsigned start, duration, buttons, a, b, x, y, black, white, lt, rt; int lx, ly, rx, ry; int logged, relative_gameplay, absolute_frame; };
+    struct dah_input_event { unsigned start, duration, buttons, a, b, x, y, black, white, lt, rt; int lx, ly, rx, ry; int logged, relative_gameplay, absolute_frame, holobob_idle; };
     static struct dah_input_event events[128];
     static unsigned count;
     static int loaded;
@@ -60,6 +63,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                 char line[256];
                 int relative_gameplay = 0;
                 int absolute_frame = 0;
+                int holobob_idle = 0;
                 while (fgets(line, sizeof(line), file)) {
                     struct dah_input_event event = {0};
                     if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') continue;
@@ -74,6 +78,16 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                         (line[6] == '\0' || line[6] == '\n' || line[6] == '\r' || line[6] == ' ' || line[6] == '\t')) {
                         relative_gameplay = 0;
                         absolute_frame = 1;
+                        continue;
+                    }
+                    if (!strncmp(line, "@holobob-idle", 13) &&
+                        (line[13] == '\0' || line[13] == '\n' || line[13] == '\r' || line[13] == ' ' || line[13] == '\t')) {
+                        holobob_idle = 1;
+                        continue;
+                    }
+                    if (!strncmp(line, "@always", 7) &&
+                        (line[7] == '\0' || line[7] == '\n' || line[7] == '\r' || line[7] == ' ' || line[7] == '\t')) {
+                        holobob_idle = 0;
                         continue;
                     }
                     char extra;
@@ -93,6 +107,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                     }
                     event.relative_gameplay = relative_gameplay;
                     event.absolute_frame = absolute_frame;
+                    event.holobob_idle = holobob_idle;
                     events[count++] = event;
                 }
                 fclose(file);
@@ -190,6 +205,29 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
         if (event->absolute_frame) clock_value = MEM32(0x0025B1DCu);
         event_start = event->relative_gameplay ? gameplay_anchor_frame + event->start : event->start;
         if (clock_value < event_start || clock_value - event_start >= event->duration) continue;
+        if (event->holobob_idle) {
+            uint32_t control = MEM32(0x0025FCECu), player = 0, actor = 0;
+            uint32_t manager = 0, holobob = 0;
+            unsigned slot;
+            if (control >= 0x10000u && control <= 0x08000000u - 0x3Cu)
+                player = MEM32(control + 0x38u);
+            if (player >= 0x10000u && player <= 0x08000000u - 0x3Cu)
+                actor = MEM32(player + 0x38u);
+            if (actor >= 0x10000u && actor <= 0x08000000u - 0x13Cu)
+                manager = MEM32(actor + 0x138u);
+            if (manager >= 0x10000u && manager <= 0x08000000u - 0x5Cu) {
+                for (slot = 0; slot < 4u; ++slot) {
+                    uint32_t weapon = MEM32(manager + 0x4Cu + slot * 4u);
+                    if (weapon >= 0x10000u && weapon <= 0x08000000u - 0x180u &&
+                        MEM32(weapon) == 0x0022FD50u) {
+                        holobob = weapon;
+                        break;
+                    }
+                }
+            }
+            if (!holobob || MEM8(holobob + 0x34u) || MEM32(holobob + 0x44u) != 0u)
+                continue;
+        }
         if ((int)i == memdiff_target && !memdiff_before) {
             const size_t ram_size = 0x08000000u;
             memdiff_before = (unsigned char *)malloc(ram_size);

@@ -114,6 +114,27 @@ The release build passed `dah_keyboard_mapping` and
 89547B7B12E2731DA8FF3598A60F3E6572DC03255F83C7D2E20F3EFD03C73E14
 ```
 
+## Full Holobob lifecycle
+
+The hidden retail-rate lifecycle route now follows activation through the
+Rockwell tutorial, natural concentration depletion, restoration, cortex scan,
+and a second disguise. Internal run 114 recorded:
+
+- first activation state 2 at frame 3976 and state 3 at frame 4038;
+- state 4 at frame 5017 after concentration reached zero, followed by idle
+  state 0 at frame 5078;
+- passive concentration restoration from zero at frame 5160 to full at frame
+  5320;
+- cortex-scan movement states 250/251 while holding LT and A on a human;
+- second activation state 2 at frame 5731 and state 3 at frame 5793.
+
+Both activations therefore preserve the measured xemu transition of exactly
+62 frames. Captures through frame 6200 show stable projected body geometry,
+and the state-4 exit restores Crypto without a lingering human mesh. The run
+recorded no unresolved indirect calls or vertex failures. The input harness
+supports `@holobob-idle`/`@always` gates so RNG-dependent retry rays cannot
+cancel a disguise after one attempt succeeds.
+
 ## Current visual result and remaining gate
 
 The recomp now reproduces the retail Hangar destination, Rockwell loading,
