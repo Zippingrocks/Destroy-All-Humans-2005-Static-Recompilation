@@ -17266,6 +17266,79 @@ loc_00194343: ;
 
 
 
+/* Byte-checked original Death Ray activation callback.  The weapon reaches
+ * this body through vtable 0x0022FAA0 + 0x5C when its trigger is pressed. */
+/**
+ * sub_000A1E10
+ * Original: 0x000A1E10 - 0x000A1E80 (112 bytes, 38 insns)
+ * Category: game_vtable
+ * CC: thiscall, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_000A1E10(void)
+{
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_flags; (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+
+loc_000A1E10: ;
+    PUSH32(esp, esi);
+    esi = ecx;
+    MEM32(esi + 0x1C0) = 0;
+    PUSH32(esp, 0x000A1E22u); sub_0009D0B0(); /* call 0x0009D0B0 */
+
+loc_000A1E22: ;
+    _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = _fa;
+    _fas = (int32_t)(int8_t)_fa; _fbs = (int32_t)(int8_t)_fb;
+    if (TEST_Z(_fa, _fb)) goto loc_000A1E65;
+
+loc_000A1E26: ;
+    ecx = esi;
+    PUSH32(esp, 0x000A1E2Du); sub_00098110(); /* call 0x00098110 */
+
+loc_000A1E2D: ;
+    ecx = esi + 0x4C;
+    PUSH32(esp, 0x000A1E35u); sub_0009BD40(); /* call 0x0009BD40 */
+
+loc_000A1E35: ;
+    eax = MEM32(esi + 0x10);
+    ecx = MEM32(eax + 0x38);
+    eax = MEM32(esi + 0x20);
+    PUSH32(esp, 0);
+    PUSH32(esp, ecx);
+    ecx = MEM32(eax + 0x28);
+    edx = esi + 0x190;
+    PUSH32(esp, edx);
+    PUSH32(esp, 0x000A1E50u); sub_00107CC0(); /* call 0x00107CC0 */
+
+loc_000A1E50: ;
+    ecx = MEM32(esi + 0x30);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0x00278BECu);
+    PUSH32(esp, 0x000A1E61u); sub_0009F370(); /* call 0x0009F370 */
+
+loc_000A1E61: ;
+    SET_LO8(eax, 1);
+    POP32(esp, esi);
+    esp += 4; return; /* ret */
+
+loc_000A1E65: ;
+    ecx = MEM32(esi + 0x10);
+    edx = MEM32(ecx + 0x3C);
+    eax = MEM32(esi + 0x20);
+    ecx = MEM32(eax + 0x28);
+    PUSH32(esp, 0x3F800000u);
+    PUSH32(esp, edx);
+    PUSH32(esp, 0x000A1E7Cu); sub_00107C00(); /* call 0x00107C00 */
+
+loc_000A1E7C: ;
+    SET_LO8(eax, 0);
+    POP32(esp, esi);
+    esp += 4; return; /* ret */
+}
+
 /* Byte-checked original Farm setup method. */
 /**
 

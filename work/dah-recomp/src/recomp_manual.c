@@ -2367,6 +2367,7 @@ extern void sub_001A6EE0(void);
 extern void sub_001A72B0(void);
 extern void sub_001A72A0(void);
 extern void sub_00194190(void);
+extern void sub_000A1E10(void);
 extern void sub_000A1E80(void);
 extern void sub_0011A110(void);
 extern void sub_0015D220(void);
@@ -4763,6 +4764,7 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x0018FD10u: return dah_retail_18fd10;
     case 0x00194190u: return sub_00194190;
     case 0x000A1DF0u: return dah_retail_a1df0;
+    case 0x000A1E10u: return sub_000A1E10;
     case 0x000A1E80u: return sub_000A1E80;
     case 0x000A7B60u: return dah_retail_a7b60;
     case 0x000A1DD0u: return dah_retail_a1dd0;

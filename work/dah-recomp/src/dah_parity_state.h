@@ -394,6 +394,12 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     int actor_header=player_ok&&dah_parity_farm_range(actor,0x158u);
     uint32_t actor_vt=actor_header?dah_parity_farm_word(actor):0;
     int actor_ok=actor_header&&actor_vt==0x0022C9F8u;
+    uint32_t ship_weapon_manager=ship_ok?dah_parity_farm_word(ship+0x138u):0;
+    int ship_weapon_manager_ok=ship_ok&&dah_parity_farm_range(ship_weapon_manager,0x100u);
+    uint32_t ship_active_weapon=ship_weapon_manager_ok?
+        dah_parity_farm_word(ship_weapon_manager+0x58u):0;
+    int ship_active_weapon_ok=ship_weapon_manager_ok&&
+        dah_parity_farm_range(ship_active_weapon,4u);
     uint32_t movement=actor_ok?dah_parity_farm_word(actor+0x130u):0;
     int movement_ok=actor_ok&&dah_parity_farm_range(movement,0x4Cu);
     int movement_steering_ok=movement_ok&&dah_parity_farm_range(movement+0x2ACu,8u);
@@ -423,6 +429,20 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     dah_parity_farm_scalar(output,"playerShipVtable",ship_ok,ship_ok?dah_parity_farm_word(ship):0);
     if (ship_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
         dah_parity_farm_words(output,"playerShipWords",1,ship,0xA0u);
+    dah_parity_farm_scalar(output,"shipWeaponManager",ship_ok,ship_weapon_manager);
+    dah_parity_farm_words(output,"shipWeaponSlots",ship_weapon_manager_ok,
+        ship_weapon_manager+0x4Cu,4u);
+    dah_parity_farm_scalar(output,"shipActiveWeapon",ship_weapon_manager_ok,
+        ship_active_weapon);
+    dah_parity_farm_scalar(output,"shipActiveWeaponVtable",ship_active_weapon_ok,
+        ship_active_weapon_ok?dah_parity_farm_word(ship_active_weapon):0);
+    if (ship_weapon_manager_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
+        dah_parity_farm_words(output,"shipWeaponManagerWords",1,
+            ship_weapon_manager,0x40u);
+    if (ship_active_weapon_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
+        dah_parity_farm_words(output,"shipActiveWeaponWords",
+            dah_parity_farm_range(ship_active_weapon,0x1A0u),
+            ship_active_weapon,0x68u);
     dah_parity_farm_scalar(output,"playerCrypto",player_ok,actor);
     dah_parity_farm_scalar(output,"actor",player_ok,actor);
     dah_parity_farm_scalar(output,"actorVtable",actor_header,actor_vt);
