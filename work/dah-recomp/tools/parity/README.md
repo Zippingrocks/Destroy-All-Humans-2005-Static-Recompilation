@@ -44,8 +44,14 @@ retail enumeration, open/close, and device handles. It never writes progression,
 menu, animation, or renderer state. Debugger stops perturb wall-clock timing;
 this is a game-logic test, not physical-controller certification.
 
-An explicit `@frame` script uses the retail loop counter at `0x25B1DC`; durations
-are loops rather than input polls. Both engines accept the same row format.
+Rows before `@frame` use controller-poll time. Rows after it use the retail
+loop counter at `0x25B1DC`; frame durations are loops rather than input polls.
+Both engines accept the same row format. A controller-backed xemu replay requires
+`run_isolated_xemu.ps1 -Rendered`: that window lives on the private
+`DAHParityDesktop`, so it supplies xemu's neutral keyboard device and real GPU
+path without appearing on or taking focus from the user's desktop. The
+`-display none` mode remains useful for read-only probes, but does not create
+the keyboard device needed by `xemu_input_replay.mjs`.
 For a state-gated reference step, `--relative` anchors its rows to the current
 loop. Replay emits the observed press and release loop numbers:
 

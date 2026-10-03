@@ -62,11 +62,10 @@ if(args.includes('--velocity-stage-out')&&!velocityStageOut)throw new Error('--v
 if(velocityStageOut&&(fs.existsSync(velocityStageOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(velocityStageOut).toLowerCase())))throw new Error('--velocity-stage-out must be new and different from other outputs');
 if(args.includes('--movement-watch-out')&&!movementWatchOut)throw new Error('--movement-watch-out requires a new JSONL path');
 if(movementWatchOut&&(fs.existsSync(movementWatchOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut,velocityStageOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(movementWatchOut).toLowerCase())))throw new Error('--movement-watch-out must be new and different from other outputs');
-const events=[];let frameMode=false;
+const events=[];let clockMode='poll';
 for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
  const line=raw.trim();if(!line||line.startsWith('#'))continue;
- if(line==='@frame'){frameMode=true;continue;}
- if(!frameMode)throw new Error('Only explicit @frame schedules are supported');
+ if(line==='@frame'){clockMode='frame';continue;}
  const fields=line.split(/\s+/);if(![9,10,15].includes(fields.length))throw new Error('Invalid input row');
  if(fields.some((v,i)=>!(i===2?/^(?:0x)?[0-9a-f]+$/i:/^-?\d+$/).test(v)))throw new Error('Invalid numeric token');
  const values=fields.map((v,i)=>parseInt(v,i===2?16:10));
@@ -74,7 +73,7 @@ for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
  const[start,duration,buttons,a,b,lx,ly,rx,ry,x=0,y=0,black=0,white=0,lt=0,rt=0]=values;
  if(start<0||duration<1||start>10000000||duration>100000||buttons<0||buttons>65535||
     [a,b,x,y,black,white,lt,rt].some(v=>v<0||v>255)||[lx,ly,rx,ry].some(v=>v< -32768||v>32767))throw new Error('Input outside controller range');
- events.push({start,duration,buttons,analog:[a,b,x,y,black,white,lt,rt],sticks:[lx,ly,rx,ry]});
+ events.push({clockMode,start,duration,buttons,analog:[a,b,x,y,black,white,lt,rt],sticks:[lx,ly,rx,ry]});
 }
 // Reserve the optional output before any connection/controller operation.
 const stateFd=stateOut?fs.openSync(stateOut,'wx'):null;
@@ -313,7 +312,9 @@ try{
     fs.writeSync(stateFd,JSON.stringify({...observation,sample:stateSamples,observedAt:new Date().toISOString()})+'\n');
     lastStateLoop=loop;++stateSamples;
    }
-   for(const event of events)if(loop>=anchor+event.start&&loop<anchor+event.start+event.duration){
+   for(const event of events){
+    const clock=event.clockMode==='poll'?samples:loop-anchor;
+    if(clock<event.start||clock>=event.start+event.duration)continue;
     pad.writeUInt16LE(pad.readUInt16LE(4)|event.buttons,4);
     event.analog.forEach((v,i)=>{if(v)pad[6+i]=v;});
     event.sticks.forEach((v,i)=>{if(v)pad.writeInt16LE(v,14+i*2);});
