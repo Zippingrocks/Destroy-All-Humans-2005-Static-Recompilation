@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run,
-    [ValidateSet('absolute', 'phase')][string]$Route = 'absolute',
+    [ValidateSet('absolute', 'phase', 'barrage')][string]$Route = 'absolute',
     [ValidateRange(30, 600)][int]$Seconds = 150
 )
 
@@ -8,9 +8,13 @@ $ErrorActionPreference = 'Stop'
 $project = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $build = Join-Path $project 'build-ninja'
 $exe = Join-Path $build 'dah_recomp_working.exe'
-$inputName = if ($Route -eq 'phase') { 'impatient_skip_phase_stress_probe.txt' } else { 'impatient_skip_stress_probe.txt' }
+$inputName = switch ($Route) {
+    'phase' { 'impatient_skip_phase_stress_probe.txt' }
+    'barrage' { 'impatient_cinematic_barrage_probe.txt' }
+    default { 'impatient_skip_stress_probe.txt' }
+}
 $inputPath = Join-Path $PSScriptRoot $inputName
-$prefixName = if ($Route -eq 'phase') { "impatient-skip-phase-$Run" } else { "impatient-skip-$Run" }
+$prefixName = if ($Route -eq 'absolute') { "impatient-skip-$Run" } else { "impatient-skip-$Route-$Run" }
 $prefix = Join-Path $build $prefixName
 $saveDir = "$prefix-saves"
 

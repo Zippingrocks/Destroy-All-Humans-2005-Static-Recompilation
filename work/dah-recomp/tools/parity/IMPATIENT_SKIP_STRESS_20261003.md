@@ -75,3 +75,27 @@ The bounded native runner may kill the process while the final JSONL record is
 being written. In this run, 1,475 complete records parsed and the final partial
 4,096-character line was ignored. This is a trace shutdown limitation, not a
 game-state failure.
+
+## Maximum-event cinematic barrage
+
+`impatient_cinematic_barrage_probe.txt` fills the native harness's 128-event
+capacity. It alternates short A, Start, and B presses from startup through the
+shell, Farm loading, the opening cinematic, and later gameplay. A separate
+phase-relative tail repeats pause/confirm and exercises movement, camera, and
+both triggers after controllable Farm gameplay is established.
+
+The recomp and hidden xemu ran the barrage concurrently for 240 seconds. Both
+skipped the Farm opening cinematic successfully:
+
+| Milestone | Recomp loop | xemu loop |
+| --- | ---: | ---: |
+| Farm backend/cinematic observed | 1831 | 1695 |
+| cinematic removed | 1926 | 1805 |
+| observed cinematic window | 95 loops | 110 loops |
+
+Neither engine crashed, lost its trace connection, retained a movie/cinematic,
+or lost Crypto as player focus. Their final paused state differed because the
+absolute barrage continued after gameplay and therefore reached different
+buttons at each run's different loop throughput. That difference is expected
+for this hostile stability route; phase-relative routes remain the correct
+tool for comparing equivalent gameplay outcomes.
