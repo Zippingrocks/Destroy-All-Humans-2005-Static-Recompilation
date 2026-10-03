@@ -32423,6 +32423,25 @@ void sub_000B21AB(void)
     int _cf = 0; /* carry flag */
 
 loc_000B21AB: ;
+    /* Generate the retail save-container name from its UTF-16 display name.
+     * This function is the title's base-65536 hash modulo 2^64-59, rendered
+     * as the low twelve uppercase hexadecimal digits. */
+    {
+        uint32_t source = MEM32(esp + 4), output = MEM32(esp + 8);
+        uint64_t hash = 0;
+        unsigned index;
+        for (index = 0; MEM16(source + index * 2u); ++index) {
+            hash = hash * 65536u + MEM16(source + index * 2u);
+            hash %= 0xFFFFFFFFFFFFFFC5ull;
+        }
+        for (index = 0; index < 12u; ++index) {
+            unsigned nibble = (unsigned)((hash >> (44u - index * 4u)) & 0xFu);
+            MEM8(output + index) = (uint8_t)(nibble < 10u ? '0' + nibble : 'A' + nibble - 10u);
+        }
+        MEM8(output + 12u) = 0;
+        esp += 16; return; /* ret 12 */
+    }
+
     PUSH32(esp, ebp);
     ebp = esp;
     g_ebp = ebp; /* publish frame for frameless callees */

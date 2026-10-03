@@ -956,6 +956,8 @@ class Lifter:
             return self._lift_sar(insn, ops)
         if m in ("rol", "ror"):
             return self._lift_rotate(insn, ops, m)
+        if m == "rcr":
+            return self._lift_rcr(insn, ops)
 
         # ── Comparison / test (standalone, not part of cmp+jcc pattern) ──
         if m == "cmp":
@@ -1287,6 +1289,22 @@ class Lifter:
                 _fmt_operand_write(ops[0],
                     f"({dst} >> _shift) | ({src} << (32u - _shift))") +
                 " } } /* shrd: zero count preserves destination */"]
+
+    def _lift_rcr(self, insn, ops):
+        """RCR: rotate right through the carry flag."""
+        if len(ops) < 2:
+            return ["/* rcr: bad operands */"]
+        dst = _fmt_operand_read(ops[0])
+        cnt = _fmt_operand_read(ops[1])
+        width = (_operand_width(ops[0]) or 4) * 8
+        reduce = f"_count %= {width + 1}u; " if width < 32 else ""
+        return [
+            f"{{ uint32_t _count = ({cnt}) & 31u; {reduce}while (_count--) {{ "
+            f"uint32_t _value = (uint32_t)({dst}); int _next_cf = (int)(_value & 1u); "
+            + _fmt_operand_write(ops[0],
+                f"(_value >> 1) | ((uint32_t)_cf << {width - 1})")
+            + " _cf = _next_cf; } } /* rcr */"
+        ]
 
     def _lift_imul(self, insn, ops):
         nops = len(ops)

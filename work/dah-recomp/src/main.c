@@ -542,6 +542,64 @@ static int load_file(const char *path, void **data, size_t *size)
     return 1;
 }
 
+/* Builds before the retail 64-bit remainder fix could give two profile names
+ * the same container directory. Move those folders to the deterministic
+ * retail hash derived from SaveMeta.xbx so existing progress remains usable. */
+static void dah_migrate_legacy_save_containers(const char *save_dir)
+{
+    WCHAR raw_base[MAX_PATH], base[MAX_PATH], user_data[MAX_PATH], pattern[MAX_PATH];
+    WIN32_FIND_DATAW found;
+    HANDLE search;
+    if (!save_dir || !*save_dir ||
+        !MultiByteToWideChar(CP_UTF8, 0, save_dir, -1, raw_base, MAX_PATH)) return;
+    if (!GetFullPathNameW(raw_base, MAX_PATH, base, NULL)) return;
+    if (swprintf_s(user_data, MAX_PATH, L"%s\\UserData", base) < 0 ||
+        swprintf_s(pattern, MAX_PATH, L"%s\\*", user_data) < 0) return;
+    search = FindFirstFileW(pattern, &found);
+    if (search == INVALID_HANDLE_VALUE) return;
+    do {
+        WCHAR meta_path[MAX_PATH], target_path[MAX_PATH], target_name[13];
+        uint16_t text[64]; size_t count, start = 0, name_start, name_length, i;
+        uint64_t hash = 0;
+        FILE *meta;
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+            !wcscmp(found.cFileName, L".") || !wcscmp(found.cFileName, L"..")) continue;
+        if (swprintf_s(meta_path, MAX_PATH, L"%s\\%s\\SaveMeta.xbx",
+                       user_data, found.cFileName) < 0) continue;
+        meta = _wfopen(meta_path, L"rb");
+        if (!meta) continue;
+        count = fread(text, sizeof(uint16_t), 64, meta);
+        fclose(meta);
+        if (count && text[0] == 0xFEFFu) start = 1;
+        if (count < start + 6u || text[start] != 'N' || text[start + 1] != 'a' ||
+            text[start + 2] != 'm' || text[start + 3] != 'e' || text[start + 4] != '=') continue;
+        name_start = start + 5u;
+        name_length = 0;
+        while (name_start + name_length < count && text[name_start + name_length] != '\r' &&
+               text[name_start + name_length] != '\n' && text[name_start + name_length]) ++name_length;
+        if (!name_length) continue;
+        for (i = 0; i < name_length; ++i) {
+            hash = hash * 65536u + text[name_start + i];
+            hash %= 0xFFFFFFFFFFFFFFC5ull;
+        }
+        for (i = 0; i < 12u; ++i) {
+            unsigned nibble = (unsigned)((hash >> (44u - i * 4u)) & 0xFu);
+            target_name[i] = (WCHAR)(nibble < 10u ? L'0' + nibble : L'A' + nibble - 10u);
+        }
+        target_name[12] = 0;
+        if (!_wcsicmp(found.cFileName, target_name)) continue;
+        if (swprintf_s(target_path, MAX_PATH, L"%s\\%s", user_data, target_name) < 0) continue;
+        if (GetFileAttributesW(target_path) != INVALID_FILE_ATTRIBUTES) continue;
+        {
+            WCHAR source_path[MAX_PATH];
+            if (swprintf_s(source_path, MAX_PATH, L"%s\\%s", user_data, found.cFileName) < 0) continue;
+            if (MoveFileW(source_path, target_path))
+                fprintf(stderr, "[DAH-SAVE-MIGRATE] %ls -> %ls\n", found.cFileName, target_name);
+        }
+    } while (FindNextFileW(search, &found));
+    FindClose(search);
+}
+
 
 static uintptr_t dah_watched_address;
 static DWORD dah_watched_thread;
@@ -673,9 +731,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
                 dah_report_startup_error("DAH_SAVE_DIR must be an absolute local path shorter than MAX_PATH.", MB_ICONERROR);
                 return 1;
             }
+            dah_migrate_legacy_save_containers(save_override);
             xbox_path_init(".", save_override);
             fprintf(stderr, "[DAH-SAVE] internal save directory=%s\n", save_override);
         } else {
+            dah_migrate_legacy_save_containers(".\\saves");
             xbox_path_init(".", ".\\saves");
         }
     }

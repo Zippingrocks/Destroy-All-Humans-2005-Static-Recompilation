@@ -73,6 +73,14 @@ def test_adc_consumes_and_reproduces_carry():
     assert "_cf = (int)((_t >>" in out, out
 
 
+def test_rcr_rotates_through_carry():
+    out = _lift("rcr", [EAX, ONE])
+    assert "_next_cf" in out, out
+    assert "_value & 1u" in out, out
+    assert "(uint32_t)_cf << 31" in out, out
+    assert out.index("eax =") < out.rindex("_cf = _next_cf"), out
+
+
 def test_logical_ops_clear_carry():
     out = _lift("and", [EAX, EDX])
     assert "_cf = 0" in out, out

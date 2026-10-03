@@ -22209,6 +22209,18 @@ void sub_0013A430(void)
     int _cf = 0; /* carry flag */
 
 loc_0013A430: ;
+    /* MSVC _aullrem.  Keeping the operation as one host 64-bit remainder is
+     * both exact and avoids losing the carry chain across the helper's
+     * SHR/RCR implementation. */
+    {
+        uint64_t dividend = ((uint64_t)MEM32(esp + 8) << 32) | MEM32(esp + 4);
+        uint64_t divisor = ((uint64_t)MEM32(esp + 0x10) << 32) | MEM32(esp + 0xC);
+        uint64_t remainder = divisor ? dividend % divisor : 0;
+        eax = (uint32_t)remainder;
+        edx = (uint32_t)(remainder >> 32);
+        esp += 20; return; /* ret 16 */
+    }
+
     PUSH32(esp, ebx);
     eax = MEM32(esp + 0x14);
     _cf = 0; /* logical op clears CF */
