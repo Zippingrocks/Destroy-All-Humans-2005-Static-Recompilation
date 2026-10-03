@@ -1,5 +1,6 @@
 param(
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run,
+    [ValidateSet('absolute', 'phase')][string]$Route = 'absolute',
     [ValidateRange(30, 600)][int]$Seconds = 150
 )
 
@@ -7,8 +8,10 @@ $ErrorActionPreference = 'Stop'
 $project = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $build = Join-Path $project 'build-ninja'
 $exe = Join-Path $build 'dah_recomp_working.exe'
-$inputPath = Join-Path $PSScriptRoot 'impatient_skip_stress_probe.txt'
-$prefix = Join-Path $build "impatient-skip-$Run"
+$inputName = if ($Route -eq 'phase') { 'impatient_skip_phase_stress_probe.txt' } else { 'impatient_skip_stress_probe.txt' }
+$inputPath = Join-Path $PSScriptRoot $inputName
+$prefixName = if ($Route -eq 'phase') { "impatient-skip-phase-$Run" } else { "impatient-skip-$Run" }
+$prefix = Join-Path $build $prefixName
 $saveDir = "$prefix-saves"
 
 if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Missing build: $exe" }
@@ -48,7 +51,7 @@ foreach ($name in $settings.Keys) { $start.EnvironmentVariables[$name] = $settin
 
 $process = [Diagnostics.Process]::Start($start)
 $process.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal
-Write-Output "IMPATIENT_SKIP_START pid=$($process.Id) run=$Run seconds=$Seconds"
+Write-Output "IMPATIENT_SKIP_START pid=$($process.Id) run=$Run route=$Route seconds=$Seconds"
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds($Seconds)
     while ([DateTime]::UtcNow -lt $deadline -and !$process.HasExited) {

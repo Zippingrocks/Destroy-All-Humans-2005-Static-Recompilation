@@ -66,6 +66,7 @@ const events=[];let clockMode='poll';
 for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
  const line=raw.trim();if(!line||line.startsWith('#'))continue;
  if(line==='@frame'){clockMode='frame';continue;}
+ if(line==='@gameplay'){clockMode='gameplay';continue;}
  const fields=line.split(/\s+/);if(![9,10,15].includes(fields.length))throw new Error('Invalid input row');
  if(fields.some((v,i)=>!(i===2?/^(?:0x)?[0-9a-f]+$/i:/^-?\d+$/).test(v)))throw new Error('Invalid numeric token');
  const values=fields.map((v,i)=>parseInt(v,i===2?16:10));
@@ -75,6 +76,7 @@ for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
     [a,b,x,y,black,white,lt,rt].some(v=>v<0||v>255)||[lx,ly,rx,ry].some(v=>v< -32768||v>32767))throw new Error('Input outside controller range');
  events.push({clockMode,start,duration,buttons,analog:[a,b,x,y,black,white,lt,rt],sticks:[lx,ly,rx,ry]});
 }
+const hasGameplayEvents=events.some(event=>event.clockMode==='gameplay');
 // Reserve the optional output before any connection/controller operation.
 const stateFd=stateOut?fs.openSync(stateOut,'wx'):null;
 const physicsQuatFd=physicsQuatOut?fs.openSync(physicsQuatOut,'wx'):null;
@@ -93,6 +95,7 @@ const velocitySite=0x12bb30;
 const velocitySourceSite=0x52070;
 const velocityStageSites=new Map([[0x5481f,'afterDirection'],[0x54836,'afterHeading'],[0x5487a,'afterAdjustment']]);
 const armed=[];let running=false,anchor=0,packet=0,lastPad='',samples=0;
+let gameplayAnchor=null,gameplayReadySamples=0,lastGameplayProbeLoop=null;
 let stateSamples=0,lastStateLoop=null;
 let physicsQuatArmed=false,physicsQuatSamples=0;
 let velocityArmed=false,velocitySamples=0;
@@ -255,6 +258,19 @@ try{
   if(site[0]==='state'){
    const loop=(await read(0x25b1dc,4)).readUInt32LE(),pad=Buffer.alloc(22);
    const relativeFrame=loop-anchor;
+   if(hasGameplayEvents&&gameplayAnchor===null&&loop!==lastGameplayProbeLoop&&loop%5===0){
+    const gameplay=await readFarmState(read,loop,anchor);
+    Object.assign(gameplay,await readCinematicState(read));
+    const ready=gameplay.backendName==='blocks\\sites\\farm'&&gameplay.worldPaused===0&&
+     gameplay.playerCrypto!==0&&gameplay.playerFocus===gameplay.playerCrypto&&
+     gameplay.actor===gameplay.playerCrypto&&gameplay.cinematicComplete&&gameplay.cinematics.length===0;
+    gameplayReadySamples=ready?gameplayReadySamples+1:0;
+    lastGameplayProbeLoop=loop;
+    if(gameplayReadySamples>=6){
+     gameplayAnchor=loop;
+     trace.gameplayAnchor={loop,rule:'Farm unpaused, no cinematic, Crypto focus, 6 samples/30 loops'};
+    }
+   }
    if(physicsQuatFd!==null&&!physicsQuatArmed&&relativeFrame>=physicsQuatStart&&relativeFrame<physicsQuatEnd){
     for(const address of physicsQuatSites.keys()){if(await rsp.packet(`Z0,${address.toString(16)},1`)!=='OK')throw new Error('Physics quaternion breakpoint rejected');armed.push(address);}
     physicsQuatArmed=true;
@@ -313,7 +329,9 @@ try{
     lastStateLoop=loop;++stateSamples;
    }
    for(const event of events){
-    const clock=event.clockMode==='poll'?samples:loop-anchor;
+    if(event.clockMode==='gameplay'&&gameplayAnchor===null)continue;
+    const clock=event.clockMode==='poll'?samples:
+     event.clockMode==='gameplay'?loop-gameplayAnchor:loop-anchor;
     if(clock<event.start||clock>=event.start+event.duration)continue;
     pad.writeUInt16LE(pad.readUInt16LE(4)|event.buttons,4);
     event.analog.forEach((v,i)=>{if(v)pad[6+i]=v;});

@@ -52,6 +52,11 @@ Both engines accept the same row format. A controller-backed xemu replay require
 path without appearing on or taking focus from the user's desktop. The
 `-display none` mode remains useful for read-only probes, but does not create
 the keyboard device needed by `xemu_input_replay.mjs`.
+`@gameplay` starts a phase-relative schedule. The native harness retains its
+control-proven gameplay anchor. The xemu adapter waits for six consecutive
+five-loop observations in Farm with an unpaused world, no cinematic, and
+Crypto owning player focus. This removes asset-load duration from gameplay
+input comparisons without writing or forcing guest state.
 For a state-gated reference step, `--relative` anchors its rows to the current
 loop. Replay emits the observed press and release loop numbers:
 

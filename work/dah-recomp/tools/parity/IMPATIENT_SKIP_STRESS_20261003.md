@@ -49,3 +49,29 @@ hostile startup and transition stress.
 - xemu input trace: `build-parity-xemu/impatient-skip-xemu-02-input.json`
 
 Build output and traces remain local diagnostics and are not committed.
+
+## Phase-aware follow-up
+
+`impatient_skip_phase_stress_probe.txt` adds an `@gameplay` section with 25
+rapid pause/resume, A/B, movement, camera, face-button, shoulder-button, and
+trigger events. The xemu adapter anchors this section only after six
+consecutive five-loop samples confirm Farm, an unpaused world, no cinematic,
+and Crypto as player focus. The native harness keeps its existing stronger
+anchor, which also proves player control by moving Crypto with a bounded
+forward pulse.
+
+The recomp and hidden xemu ran this route concurrently for 180 seconds. Both
+executed every gameplay event without a crash or fatal log entry. Both ended
+paused in Farm with Crypto focused, no cinematic or movie, and movement state
+20. This result proves stability under the input storm; it is not an exact
+gameplay-state comparison. xemu entered Farm early enough for the absolute A
+presses to skip its cinematic, while the recomp entered after the final such
+press and played the cinematic to completion before establishing its gameplay
+anchor. A future transition gate should key the skip press to an observed
+active Farm cinematic so both runs enter the gameplay phase from the same
+cutscene outcome.
+
+The bounded native runner may kill the process while the final JSONL record is
+being written. In this run, 1,475 complete records parsed and the final partial
+4,096-character line was ignored. This is a trace shutdown limitation, not a
+game-state failure.
