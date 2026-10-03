@@ -156,6 +156,27 @@ static uint32_t nv2a_texture_address_to_d3d(uint32_t nv)
     }
 }
 
+static uint32_t nv2a_texture_min_filter_to_d3d(uint32_t filter)
+{
+    uint32_t mode = (filter >> 16u) & 0xFFu;
+    return mode == 1u || mode == 3u || mode == 5u
+        ? D3DTEXF_POINT : D3DTEXF_LINEAR;
+}
+
+static uint32_t nv2a_texture_mag_filter_to_d3d(uint32_t filter)
+{
+    return ((filter >> 24u) & 0xFu) == 1u
+        ? D3DTEXF_POINT : D3DTEXF_LINEAR;
+}
+
+static uint32_t nv2a_texture_mip_filter_to_d3d(uint32_t filter)
+{
+    uint32_t mode = (filter >> 16u) & 0xFFu;
+    if (mode == 3u || mode == 4u) return D3DTEXF_POINT;
+    if (mode == 5u || mode == 6u) return D3DTEXF_LINEAR;
+    return D3DTEXF_NONE;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
  * Translator State
  * ══════════════════════════════════════════════════════════════════════ */
@@ -2926,9 +2947,12 @@ static int submit_indexed_3d(void)
             nv2a_texture_address_to_d3d(g_pg.tex[0].address));
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSV,
             nv2a_texture_address_to_d3d(g_pg.tex[0].address >> 8u));
-        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
-        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MAGFILTER, D3DTEXF_LINEAR);
-        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MIPFILTER, D3DTEXF_NONE);
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MINFILTER,
+            nv2a_texture_min_filter_to_d3d(g_pg.tex[0].filter));
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MAGFILTER,
+            nv2a_texture_mag_filter_to_d3d(g_pg.tex[0].filter));
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MIPFILTER,
+            nv2a_texture_mip_filter_to_d3d(g_pg.tex[0].filter));
     } else {
         dev->lpVtbl->SetTexture(dev, 0, NULL);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_COLOROP,   D3DTOP_SELECTARG1);
@@ -2945,8 +2969,12 @@ static int submit_indexed_3d(void)
         dev->lpVtbl->SetTexture(dev,1,(IDirect3DBaseTexture8*)tex1_obj);
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
-        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MINFILTER,D3DTEXF_LINEAR);
-        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MINFILTER,
+            nv2a_texture_min_filter_to_d3d(g_pg.tex[1].filter));
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MAGFILTER,
+            nv2a_texture_mag_filter_to_d3d(g_pg.tex[1].filter));
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MIPFILTER,
+            nv2a_texture_mip_filter_to_d3d(g_pg.tex[1].filter));
     }
     /* The common kind 1/2 Farm meshes use the same register combiner and fog
      * equation as the advanced mesh paths. The former fixed-function
@@ -2962,9 +2990,12 @@ static int submit_indexed_3d(void)
             dev->lpVtbl->SetTexture(dev,stage,(IDirect3DBaseTexture8*)pox_textures[stage]);
             dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
             dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
-            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MINFILTER,D3DTEXF_LINEAR);
-            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
-            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MIPFILTER,D3DTEXF_NONE);
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MINFILTER,
+                nv2a_texture_min_filter_to_d3d(g_pg.tex[stage].filter));
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MAGFILTER,
+                nv2a_texture_mag_filter_to_d3d(g_pg.tex[stage].filter));
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MIPFILTER,
+                nv2a_texture_mip_filter_to_d3d(g_pg.tex[stage].filter));
             if(pox_render_targets[stage] && FAILED(d3d8_PgraphBindRenderTargetTexture(stage,g_pg.tex[stage].offset))){
                 dah_farm_material_trace("texture-pox-rt",program_kind,out,g_pg.index_count,stage,E_FAIL);
                 free(out);return 0;

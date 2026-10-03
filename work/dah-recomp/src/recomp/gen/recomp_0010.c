@@ -15954,7 +15954,7 @@ loc_000E5247: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, edi (32-bit) */
 
 loc_000E5249: ;
-    if (_flags /* jne: not equal / not zero */) goto loc_000E525B;
+    if (CMP_NE(_fa, _fb)) goto loc_000E525B; /* jne: not equal / not zero */
 
 loc_000E524B: ;
     eax = MEM32(esi + 0x2C);
@@ -16026,7 +16026,7 @@ loc_000E5297: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, edi (32-bit) */
 
 loc_000E5299: ;
-    if (_flags /* jne: not equal / not zero */) goto loc_000E52AB;
+    if (CMP_NE(_fa, _fb)) goto loc_000E52AB; /* jne: not equal / not zero */
 
 loc_000E529B: ;
     eax = MEM32(esi + 0x2C);

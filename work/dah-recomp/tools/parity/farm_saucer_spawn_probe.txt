@@ -39,6 +39,11 @@
 1080 6 0 0 255 0 0 0 0 0 0 0 0 0 0
 1200 6 0 0 0 0 0 0 0 0 255 0 0 0 0
 1350 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+# The saucer weapon manager is created around gameplay tick 1250 on the
+# bounded Farm route.  Exercise the retail X cycle only after that point,
+# then pull RT while the newly selected primary is observable in state.
+1500 6 0 0 0 0 0 0 0 255 0 0 0 0 0
+1560 90 0 0 0 0 0 0 0 0 0 0 0 0 255
 1950 6 0 0 0 0 0 0 0
 2300 6 0 0 0 0 0 0 0
 2700 6 0 0 0 0 0 0 0
