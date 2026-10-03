@@ -88,6 +88,7 @@ static BOOL                    g_gamma_ramp_valid;
 #define PGRAPH_RT_COUNT 8
 typedef struct PgraphRenderTarget {
     UINT offset, width, height;
+    ULONGLONG last_used;
     ID3D11Texture2D *texture;
     ID3D11RenderTargetView *rtv;
     ID3D11ShaderResourceView *srv;
@@ -95,6 +96,7 @@ typedef struct PgraphRenderTarget {
     ID3D11ShaderResourceView *feedback_srv;
 } PgraphRenderTarget;
 static PgraphRenderTarget g_pgraph_rt[PGRAPH_RT_COUNT];
+static ULONGLONG g_pgraph_rt_use_serial;
 static ID3D11RenderTargetView *g_current_rtv;
 static ID3D11DepthStencilView *g_current_dsv;
 typedef struct { UINT offset,width,height,format; ID3D11Texture2D *texture; ID3D11DepthStencilView *dsv; } PgraphDepth;
@@ -537,6 +539,17 @@ static PgraphRenderTarget *pgraph_find_rt(UINT offset)
             return &g_pgraph_rt[i];
     return NULL;
 }
+
+static void pgraph_release_rt(PgraphRenderTarget *rt)
+{
+    if (!rt) return;
+    if (rt->feedback_srv) ID3D11ShaderResourceView_Release(rt->feedback_srv);
+    if (rt->feedback_texture) ID3D11Texture2D_Release(rt->feedback_texture);
+    if (rt->srv) ID3D11ShaderResourceView_Release(rt->srv);
+    if (rt->rtv) ID3D11RenderTargetView_Release(rt->rtv);
+    if (rt->texture) ID3D11Texture2D_Release(rt->texture);
+    memset(rt, 0, sizeof(*rt));
+}
 BOOL d3d8_PgraphHasRenderTarget(UINT offset)
 {
     return pgraph_find_rt(offset) != NULL;
@@ -557,19 +570,30 @@ HRESULT d3d8_PgraphBindRenderTarget(UINT offset, BOOL backbuffer,
     if (!height) height = g_device_state.height;
     rt = pgraph_find_rt(offset);
     if (rt && (rt->width != width || rt->height != height)) {
-        if (rt->feedback_srv) ID3D11ShaderResourceView_Release(rt->feedback_srv);
-        if (rt->feedback_texture) ID3D11Texture2D_Release(rt->feedback_texture);
-        if (rt->srv) ID3D11ShaderResourceView_Release(rt->srv);
-        if (rt->rtv) ID3D11RenderTargetView_Release(rt->rtv);
-        if (rt->texture) ID3D11Texture2D_Release(rt->texture);
-        memset(rt, 0, sizeof(*rt));
+        pgraph_release_rt(rt);
         rt = NULL; /* Recreate the resized resource below. */
     }
     if (!rt) {
         D3D11_TEXTURE2D_DESC td;
         for (i = 0; i < PGRAPH_RT_COUNT; ++i)
             if (!g_pgraph_rt[i].texture) { rt = &g_pgraph_rt[i]; break; }
-        if (!rt) return E_OUTOFMEMORY;
+        if (!rt) {
+            PgraphRenderTarget *oldest = NULL;
+            for (i = 0; i < PGRAPH_RT_COUNT; ++i) {
+                PgraphRenderTarget *candidate = &g_pgraph_rt[i];
+                if (candidate == g_current_pgraph_rt) continue;
+                if (!oldest || candidate->last_used < oldest->last_used)
+                    oldest = candidate;
+            }
+            if (!oldest) return E_OUTOFMEMORY;
+            ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
+                                                     0, 4, null_srvs);
+            fprintf(stderr, "[PGRAPH-RT-EVICT] old=%08X new=%08X age=%llu\n",
+                    oldest->offset, offset,
+                    (unsigned long long)(g_pgraph_rt_use_serial - oldest->last_used));
+            pgraph_release_rt(oldest);
+            rt = oldest;
+        }
         memset(&td, 0, sizeof(td));
         td.Width = width; td.Height = height;
         td.MipLevels = 1; td.ArraySize = 1;
@@ -591,6 +615,7 @@ HRESULT d3d8_PgraphBindRenderTarget(UINT offset, BOOL backbuffer,
                 offset, width, height);
         fflush(stderr);
     }
+    rt->last_used = ++g_pgraph_rt_use_serial;
 
     /* D3D11 forbids one resource being simultaneously bound for input and
      * output.  Clear stale PGRAPH sampling slots before changing targets. */
@@ -681,6 +706,7 @@ HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD stage, UINT offset)
     if (stage >= 4 || !g_device_state.d3d11_context) return E_INVALIDARG;
     rt = pgraph_find_rt(offset);
     if (rt == g_current_pgraph_rt && rt && rt->feedback_srv) {
+        rt->last_used = ++g_pgraph_rt_use_serial;
         ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
                                                  stage, 1, &rt->feedback_srv);
         return S_OK;
@@ -714,6 +740,7 @@ HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD stage, UINT offset)
     }
     ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
                                              stage, 1, &rt->srv);
+    rt->last_used = ++g_pgraph_rt_use_serial;
     return S_OK;
 }
 
@@ -725,6 +752,7 @@ BOOL d3d8_PgraphTryBindRenderTargetTexture(DWORD stage, UINT offset)
     if (!rt || !rt->srv || rt == g_current_pgraph_rt) return FALSE;
     ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
                                              stage, 1, &rt->srv);
+    rt->last_used = ++g_pgraph_rt_use_serial;
     return TRUE;
 }
 
@@ -1093,6 +1121,7 @@ static ULONG __stdcall dev_Release(IDirect3DDevice8 *self)
             if (g_pgraph_rt[i].texture) ID3D11Texture2D_Release(g_pgraph_rt[i].texture);
         }
         memset(g_pgraph_rt, 0, sizeof(g_pgraph_rt));
+        g_pgraph_rt_use_serial = 0;
         g_current_rtv = NULL;
         g_current_pgraph_rt = NULL;
         g_current_pgraph_presentable = FALSE;

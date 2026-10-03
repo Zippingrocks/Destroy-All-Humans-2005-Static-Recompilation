@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),os=require('os'),{spawnSync}=require('child_process');
 const root=path.resolve(__dirname,'../../..');
-const s=fs.readFileSync(root+'/Repos/xboxrecomp-main/src/d3d/d3d8_device.c','utf8');
+const s=fs.readFileSync(root+'/third_party/xboxrecomp/src/d3d/d3d8_device.c','utf8');
 const globals=s.slice(s.indexOf('#define PGRAPH_RT_COUNT'),s.indexOf('/* Forward declarations */'));
 const body=s.slice(s.indexOf('static PgraphRenderTarget *pgraph_find_rt'),s.indexOf('static void pgraph_copy_presentable_to_swapchain',s.indexOf('HRESULT d3d8_PgraphBindRenderTargetTexture')));
 const pre=`#define COBJMACROS\n#include <windows.h>\n#include <d3d11.h>\n#include <stdio.h>\n#include <string.h>\nstruct {ID3D11Device *d3d11_device;ID3D11DeviceContext *d3d11_context;ID3D11DepthStencilView *default_dsv;UINT width,height;} g_device_state;\n`;
@@ -21,7 +21,9 @@ ID3D11DepthStencilView *bound_depth=NULL;ID3D11DeviceContext_OMGetRenderTargets(
 CHECK(SUCCEEDED(d3d8_PgraphBindDepthSurface(0x9000,2)));CHECK(g_current_dsv&&g_current_dsv!=saved_depth);
 CHECK(SUCCEEDED(d3d8_PgraphBindDepthSurface(0,2)));CHECK(!g_current_dsv);
 CHECK(SUCCEEDED(d3d8_PgraphBindDepthSurface(0xa000,1)));CHECK(g_current_dsv);
-printf("PASS: sampling binding and feedback guards, 12 real WARP target resizes, 1x1 offscreen target, 640x480 presentable target\\n");return 0;}
+for(unsigned i=0;i<PGRAPH_RT_COUNT+4u;++i){UINT offset=0x100000u+i*0x10000u;CHECK(SUCCEEDED(d3d8_PgraphBindRenderTarget(offset,FALSE,320,240)));CHECK(g_current_pgraph_rt&&g_current_pgraph_rt->offset==offset);}
+CHECK(pgraph_find_rt(0x100000u)==NULL);CHECK(pgraph_find_rt(0x1b0000u)==g_current_pgraph_rt);
+printf("PASS: sampling and feedback guards, target resize, and bounded LRU recycling across %u transient targets\\n",PGRAPH_RT_COUNT+4u);return 0;}
 `;
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'dah-rt-test-'));
 for(const negative of [false,true]) {fs.writeFileSync(dir+'/test.c',pre+globals+(negative?body.replace('rt = NULL; /* Recreate the resized resource below. */','/* negative control: missing recreation */'):body)+main);let r=spawnSync('cl.exe',['/nologo','/O2','/std:c11','test.c','d3d11.lib','dxgi.lib','/Fe:test.exe'],{cwd:dir,encoding:'utf8',timeout:120000});if(r.status!==0)throw Error(r.stdout+r.stderr);r=spawnSync(dir+'/test.exe',[],{encoding:'utf8',timeout:30000});console.log(negative?'Negative control:':'Production:',r.stdout,r.stderr);if(r.status!==(negative?1:0))process.exit(1);}
