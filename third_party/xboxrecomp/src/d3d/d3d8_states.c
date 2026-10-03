@@ -304,6 +304,10 @@ void d3d8_states_apply_sampler(DWORD stage)
     sd.AddressV = d3d8_to_d3d11_address(tss[D3DTSS_ADDRESSV] ? tss[D3DTSS_ADDRESSV] : D3DTADDRESS_WRAP);
     sd.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
     sd.MaxAnisotropy = tss[D3DTSS_MAXANISOTROPY] ? tss[D3DTSS_MAXANISOTROPY] : 1;
+    if (sd.MaxAnisotropy > 16u) sd.MaxAnisotropy = 16u;
+    memcpy(&sd.MipLODBias, &tss[D3DTSS_MIPMAPLODBIAS], sizeof(sd.MipLODBias));
+    if (sd.MaxAnisotropy > 1u && tss[D3DTSS_MIPFILTER] != D3DTEXF_NONE)
+        sd.Filter = D3D11_FILTER_ANISOTROPIC;
     sd.ComparisonFunc = D3D11_COMPARISON_NEVER;
     sd.MaxLOD = D3D11_FLOAT32_MAX;
 

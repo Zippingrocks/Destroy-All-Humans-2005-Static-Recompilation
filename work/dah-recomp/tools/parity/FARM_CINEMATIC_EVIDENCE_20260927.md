@@ -415,3 +415,27 @@ Coarse retained frames 7710, 7740 and 7770 keep the tree line and foreground
 scenery coherent through the affected pan. These results establish the native
 stability correction; they do not by themselves prove full-frame pixel
 identity with xemu.
+
+## Road and foliage mip selection
+
+The visible detail change on the Farm dirt road and broadleaf trees was traced
+separately from scene visibility and geometric LOD. The game continuously
+computes its model fade, but the NV2A sampler translator was dropping two
+texture-control fields: the signed 13-bit mip LOD bias and maximum anisotropy.
+Xemu sign-extends bit 12 of the bias and divides by 256; it decodes anisotropy
+as `1 << MAX_ANISOTROPY`.
+
+Farm material trace run 121 records active landscape draws with sampler filter
+words `02023F01`, `02063F01` and `01023F01`. All request raw bias `0x1F01`, or
+`-255 / 256 = -0.99609375`, and anisotropy 1. The native D3D11 sampler now
+receives those values for every bound texture stage. The nearly one-mip bias is
+the active correction for the road and alpha-tested leaves; anisotropy decoding
+is preserved for other materials but does not alter these sampled Farm draws.
+
+Hidden run 121 captured the opening cinematic from 0.50 through 63.81 seconds.
+The landscape pan at approximately 5, 10, 15 and 20 seconds retains the road,
+broadleaf canopy and tree line while selecting the sharper mip at the same
+threshold requested by the Xbox state. The consecutive 18.8-to-21.7-second
+road frames show continuous camera motion without a hard model replacement.
+The run reports no fatal, exception, unresolved indirect-call, rejected-state,
+sampler-creation, Farm vertex or Crypto vertex marker.

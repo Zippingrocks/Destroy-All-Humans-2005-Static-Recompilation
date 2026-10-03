@@ -177,6 +177,25 @@ static uint32_t nv2a_texture_mip_filter_to_d3d(uint32_t filter)
     return D3DTEXF_NONE;
 }
 
+static float nv2a_texture_lod_bias(uint32_t filter)
+{
+    int32_t bias = (int32_t)(filter & 0x1FFFu);
+    if (bias & 0x1000) bias |= ~0x1FFF;
+    return (float)bias / 256.0f;
+}
+
+static uint32_t nv2a_texture_max_anisotropy(uint32_t control0)
+{
+    return 1u << ((control0 >> 4u) & 3u);
+}
+
+static uint32_t float_bits(float value)
+{
+    uint32_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
  * Translator State
  * ══════════════════════════════════════════════════════════════════════ */
@@ -1432,6 +1451,7 @@ unique_checked:
         "prog=%08X,%08X target=%08X tex0=%u,%08X,%08X tex1=%u,%08X,%08X "
         "xy=%.2f,%.2f..%.2f,%.2f z=%.5g..%.5g at_y400=%u front=%u "
         "argb0=%08X argb_or=%08X argb_and=%08X "
+        "sampler0=%08X,%08X bias=%.3f aniso=%u "
         "combiner=%08X final=%08X,%08X stage=%08X "
         "blend=%u,%04X,%04X depth=%d,%d,%04X alpha=%d,%04X,%u hr=%08lX\n",
         g_pg.active_submission, g_pg.indexed_diagnostic_id, reason, kind,
@@ -1442,6 +1462,9 @@ unique_checked:
         xmin, ymin, xmax, ymax, zmin, zmax,
         count && ymin <= 400.0f && ymax >= 400.0f, visible,
         count ? out[0].color : 0u, color_or, color_and,
+        g_pg.tex[0].filter, g_pg.tex[0].control0,
+        nv2a_texture_lod_bias(g_pg.tex[0].filter),
+        nv2a_texture_max_anisotropy(g_pg.tex[0].control0),
         g_pg.combiner_control, g_pg.final_cw0, g_pg.final_cw1,
         g_pg.shader_stage_program,
         g_pg.blend_enable, g_pg.blend_sfactor, g_pg.blend_dfactor,
@@ -2953,6 +2976,10 @@ static int submit_indexed_3d(void)
             nv2a_texture_mag_filter_to_d3d(g_pg.tex[0].filter));
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MIPFILTER,
             nv2a_texture_mip_filter_to_d3d(g_pg.tex[0].filter));
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MIPMAPLODBIAS,
+            float_bits(nv2a_texture_lod_bias(g_pg.tex[0].filter)));
+        dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MAXANISOTROPY,
+            nv2a_texture_max_anisotropy(g_pg.tex[0].control0));
     } else {
         dev->lpVtbl->SetTexture(dev, 0, NULL);
         dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_COLOROP,   D3DTOP_SELECTARG1);
@@ -2975,6 +3002,10 @@ static int submit_indexed_3d(void)
             nv2a_texture_mag_filter_to_d3d(g_pg.tex[1].filter));
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MIPFILTER,
             nv2a_texture_mip_filter_to_d3d(g_pg.tex[1].filter));
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MIPMAPLODBIAS,
+            float_bits(nv2a_texture_lod_bias(g_pg.tex[1].filter)));
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MAXANISOTROPY,
+            nv2a_texture_max_anisotropy(g_pg.tex[1].control0));
     }
     /* The common kind 1/2 Farm meshes use the same register combiner and fog
      * equation as the advanced mesh paths. The former fixed-function
@@ -2996,6 +3027,10 @@ static int submit_indexed_3d(void)
                 nv2a_texture_mag_filter_to_d3d(g_pg.tex[stage].filter));
             dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MIPFILTER,
                 nv2a_texture_mip_filter_to_d3d(g_pg.tex[stage].filter));
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MIPMAPLODBIAS,
+                float_bits(nv2a_texture_lod_bias(g_pg.tex[stage].filter)));
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MAXANISOTROPY,
+                nv2a_texture_max_anisotropy(g_pg.tex[stage].control0));
             if(pox_render_targets[stage] && FAILED(d3d8_PgraphBindRenderTargetTexture(stage,g_pg.tex[stage].offset))){
                 dah_farm_material_trace("texture-pox-rt",program_kind,out,g_pg.index_count,stage,E_FAIL);
                 free(out);return 0;
