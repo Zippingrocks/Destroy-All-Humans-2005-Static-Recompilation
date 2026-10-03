@@ -466,6 +466,17 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     if (active_weapon_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
         dah_parity_farm_words(output,"activeWeaponWords",dah_parity_farm_range(active_weapon,0x1A0u),active_weapon,0x68u);
     dah_parity_farm_scalar(output,"holobobMain",weapon_manager_ok,holobob_main);
+    {
+        int holobob_ok=dah_parity_farm_range(holobob_main,0x180u);
+        dah_parity_farm_scalar(output,"holobobActive",holobob_ok,
+            holobob_ok?*(const uint8_t *)((uintptr_t)g_xbox_mem_offset+holobob_main+0x34u):0);
+        dah_parity_farm_scalar(output,"holobobState",holobob_ok,
+            holobob_ok?dah_parity_farm_word(holobob_main+0x44u):0);
+        dah_parity_farm_scalar(output,"holobobTarget",holobob_ok,
+            holobob_ok?dah_parity_farm_word(holobob_main+0x178u):0);
+        dah_parity_farm_scalar(output,"holobobToken",holobob_ok,
+            holobob_ok?dah_parity_farm_word(holobob_main+0x17Cu):0);
+    }
     if (holobob_main&&getenv("DAH_PARITY_WEAPON_DETAIL"))
         dah_parity_farm_words(output,"holobobMainWords",dah_parity_farm_range(holobob_main,0x1A0u),holobob_main,0x68u);
     fprintf(output,",\"weaponManagerComplete\":%s",weapon_manager_ok&&active_weapon_ok&&weapon_slot_vtables_ok?"true":"false");

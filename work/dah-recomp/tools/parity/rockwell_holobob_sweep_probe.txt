@@ -27,4 +27,12 @@
 4000 8 0 0 0 0 0 24000 0
 4010 5 0 0 255 0 0 0 0
 4030 8 0 0 0 0 0 24000 0
-4040 30 0 0 255 0 0 0 0
+4040 5 0 0 255 0 0 0 0
+# The measured successful Rockwell ray points farther right
+# (forward approximately 0.965,0.252).  Cover that retail reference angle and
+# one adjacent sample so civilian movement does not make the probe brittle.
+4050 8 0 0 0 0 0 24000 0
+4060 5 0 0 255 0 0 0 0
+4080 8 0 0 0 0 0 24000 0
+4090 5 0 0 255 0 0 0 0
+4120 90 0 0 255 0 0 0 0

@@ -56,7 +56,8 @@ class FarmStateConsistency(unittest.TestCase):
                               player=0x330000, actor=0x340000, movement=0x350000,
                               renderer=0x360000, node=0x370000,
                               actor_object=0x398000, actor_node=0x39A000, body=0x39C000,
-                              physics_inner=0x3A0000)
+                              physics_inner=0x3A0000, weapon_manager=0x3A2000,
+                              holobob=0x3A3000)
         self.populate()
 
     def word(self, address, value):
@@ -186,6 +187,41 @@ class FarmStateConsistency(unittest.TestCase):
                 self.word(bar + offset + i * 4, struct.unpack('<I', struct.pack('<f', value))[0])
         self.word(bar + 0x14C, 1)
         return parent, bar
+
+    def populate_holobob(self, high=False):
+        window = 0x80000000 if high else 0
+        actor = window | self.addresses['actor']
+        manager = window | self.addresses['weapon_manager']
+        holobob = window | self.addresses['holobob']
+        self.word(actor + 0x138, manager)
+        for index in range(4):
+            self.word(manager + 0x4C + index * 4, holobob)
+        self.word(manager + 0x58, holobob)
+        self.word(holobob, 0x22FD50)
+        self.word(holobob + 0x34, 1)
+        self.word(holobob + 0x44, 3)
+        self.word(holobob + 0x178, 0x81234560)
+        self.word(holobob + 0x17C, 0x89ABCDEF)
+        return manager, holobob
+
+    def test_holobob_lifecycle_fields_in_both_windows(self):
+        for high in (False, True):
+            self.populate(high)
+            manager, holobob = self.populate_holobob(high)
+            capture = self.root / f'holobob-{int(high)}.bin'
+            capture.write_bytes(self.data[:4 * 1024 * 1024])
+            process = subprocess.run([str(self.executable), str(capture)],
+                                     capture_output=True, text=True, timeout=10)
+            self.assertEqual(process.returncode, 0, process.stderr)
+            native = json.loads(process.stdout)
+            decoded = XboxRam(self.data, 0x3000).farm_state()
+            expected = dict(weaponManager=manager, holobobMain=holobob,
+                            holobobActive=1, holobobState=3,
+                            holobobTarget=0x81234560,
+                            holobobToken=0x89ABCDEF)
+            for field, value in expected.items():
+                self.assertEqual(native[field], value)
+                self.assertEqual(decoded[field], value)
 
     def test_enemy_bar_fields_and_activity_in_both_windows(self):
         for high in (False, True):

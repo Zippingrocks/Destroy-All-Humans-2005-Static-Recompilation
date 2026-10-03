@@ -262,6 +262,10 @@ class XboxRam:
             activeWeaponVtable=word(active_weapon_header),
             activeWeaponWords=words(active_weapon_header, 0, 0x68),
             holobobMain=holobob_main,
+            holobobActive=holobob_main_header[0x34] if holobob_main_header is not None else None,
+            holobobState=word(holobob_main_header, 0x44),
+            holobobTarget=word(holobob_main_header, 0x178),
+            holobobToken=word(holobob_main_header, 0x17C),
             holobobMainWords=words(holobob_main_header, 0, 0x68),
             weaponManagerComplete=(weapon_manager_header is not None and
                                    active_weapon_header is not None and
