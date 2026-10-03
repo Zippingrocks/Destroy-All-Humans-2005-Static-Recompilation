@@ -9,7 +9,8 @@ param(
     [ValidateRange(0, 1000000)][uint32]$RenderDocEffectSubmission = 0,
     [ValidateRange(0, 307200)][uint32]$RenderDocBlackPixels = 0,
     [ValidateRange(0, 307200)][uint32]$RenderDocBlackPixelsMax = 230399,
-    [ValidateRange(0, 120)][double]$RenderDocBlackCinematicMinSeconds = 0
+    [ValidateRange(0, 120)][double]$RenderDocBlackCinematicMinSeconds = 0,
+    [switch]$SceneFlipTrace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +67,9 @@ $settings = @{
 }
 foreach ($name in $settings.Keys) {
     $start.EnvironmentVariables[$name] = [string]$settings[$name]
+}
+if ($SceneFlipTrace) {
+    $start.EnvironmentVariables['DAH_SCENE_FLIP_TRACE'] = '1'
 }
 if ((@([bool]($RenderDocFrame -gt 0), [bool]($RenderDocCinematicSeconds -gt 0),
         [bool]($RenderDocEffectSubmission -gt 0), [bool]($RenderDocBlackPixels -gt 0)) | Where-Object { $_ }).Count -gt 1) {

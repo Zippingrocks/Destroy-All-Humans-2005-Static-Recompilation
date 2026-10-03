@@ -390,3 +390,28 @@ differences and is not pixel identity.
 The verified build was published as the single root `DestroyAllHumans.exe`
 with SHA-256
 `BC8F01DDB1CAF5F007BC46E25C02D951A1BCA013B2BB9388C96C961BED261378`.
+
+## Static scenery cull stability
+
+Hidden Farm runs 115, 116 and 118 added an opt-in scene-cull transition trace
+and isolated the reported brief tree-line disappearance to the title's static
+world-cluster class: object flag `0x2000`, model type 7 and static model marker
+`0x88`. Dynamic cows, the saucer and other actors have different object/model
+flags and are excluded from the correction.
+
+The host now retains a previously visible static cluster for one frame when a
+single frustum test rejects it. The raw rejection is still recorded, so a
+cluster that remains outside the view is removed on the next frame. Camera
+translation discontinuities larger than 25 world units clear the retention on
+that frame, preventing scenery from leaking across cinematic cuts. This does
+not expand model bounds or disable normal scene culling.
+
+Validation run 119 covered 755 consecutive Farm cinematic samples. It applied
+45 one-frame holds to static world clusters, including the repeatedly observed
+cluster at `(912, 412, 27)`. The effective visibility trace no longer reports
+that cluster's one-frame disappearance. The run reports no fatal, exception,
+unresolved indirect-call, rejected-state, Farm vertex or Crypto vertex marker.
+Coarse retained frames 7710, 7740 and 7770 keep the tree line and foreground
+scenery coherent through the affected pan. These results establish the native
+stability correction; they do not by themselves prove full-frame pixel
+identity with xemu.

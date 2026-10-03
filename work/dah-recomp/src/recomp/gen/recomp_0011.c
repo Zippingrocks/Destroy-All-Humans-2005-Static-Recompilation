@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_frame.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1698,6 +1699,76 @@ loc_000F694B: ;
 
 loc_000F696C: ;
     if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-CULL] object=%08X visible=%u viewpos=%g,%g,%g\n",esi,LO8(eax),MEMF(esp+0xC0),MEMF(esp+0xC4),MEMF(esp+0xC8));
+    /* Static world clusters can sit exactly on a frustum plane during a slow
+     * cinematic pan.  Host float rounding occasionally rejects one isolated
+     * frame even though the adjacent retail frames submit the same cluster.
+     * Preserve that previous submission once, while recording the raw result
+     * so a genuinely departing cluster is removed on the following frame.
+     * A camera discontinuity clears the hold and prevents cut-to-cut ghosts. */
+    {
+        typedef struct { uint32_t object, frame; unsigned char raw_visible, used; } DahStaticCullHistory;
+        static DahStaticCullHistory history[8192];
+        static uint32_t camera_frame, camera_cut_frame;
+        static float camera_position[3];
+        uint32_t frame = (uint32_t)dah_frame_serial();
+        uint32_t camera = MEM32(0x250E60);
+        uint32_t model = MEM32(esi + 0x18);
+        unsigned raw_visible = LO8(eax) != 0;
+        unsigned is_static_cluster = (MEM32(esi + 0x2C) & 0x2000u) &&
+            MEM32(model + 0x10) == 7u && (MEM32(model + 0x18) & 0xFFu) == 0x88u;
+        if (camera_frame != frame) {
+            float x = MEMF(camera + 0x80), y = MEMF(camera + 0x84), z = MEMF(camera + 0x88);
+            float dx = x - camera_position[0], dy = y - camera_position[1], dz = z - camera_position[2];
+            if (camera_frame + 1u != frame || dx*dx + dy*dy + dz*dz > 625.0f)
+                camera_cut_frame = frame;
+            camera_frame = frame;
+            camera_position[0] = x; camera_position[1] = y; camera_position[2] = z;
+        }
+        if (is_static_cluster) {
+            uint32_t slot = (esi >> 4) & 8191u;
+            unsigned probe;
+            for (probe = 0; probe < 8192u; ++probe, slot = (slot + 1u) & 8191u) {
+                DahStaticCullHistory *entry = &history[slot];
+                if (!entry->used || entry->object == esi) {
+                    if (!raw_visible && entry->used && entry->raw_visible &&
+                        entry->frame + 1u == frame && camera_cut_frame != frame) {
+                        SET_LO8(eax, 1);
+                        if (getenv("DAH_SCENE_FLIP_TRACE"))
+                            fprintf(stderr,"[DAH-SCENE-STATIC-HOLD] frame=%u object=%08X model=%08X position=%g,%g,%g\n",
+                                    frame,esi,model,MEMF(esi+0x80),MEMF(esi+0x84),MEMF(esi+0x88));
+                    }
+                    entry->used = 1; entry->object = esi; entry->frame = frame;
+                    entry->raw_visible = (unsigned char)raw_visible;
+                    break;
+                }
+            }
+        }
+    }
+    /* Internal diagnostic: report only rapid visible/culled/visible oscillation
+     * for the same scene object. Ordinary camera-edge transitions are quiet. */
+    if (getenv("DAH_SCENE_FLIP_TRACE")) {
+        typedef struct { uint32_t object, frame, transition_frame; unsigned char visible, used; } DahSceneFlip;
+        static DahSceneFlip flips[8192];
+        uint32_t frame = (uint32_t)dah_frame_serial();
+        uint32_t slot = (esi >> 4) & 8191u;
+        unsigned probe;
+        for (probe = 0; probe < 8192u; ++probe, slot = (slot + 1u) & 8191u) {
+            DahSceneFlip *entry = &flips[slot];
+            unsigned visible = LO8(eax) != 0;
+            if (!entry->used || entry->object == esi) {
+                if (entry->used && entry->frame + 1u == frame && entry->visible != visible) {
+                    if (entry->transition_frame && frame - entry->transition_frame <= 3u)
+                        fprintf(stderr,"[DAH-SCENE-FLASH] frame=%u object=%08X model=%08X object-flags=%08X model-type=%u model-flags=%08X visible=%u previous=%u transition-gap=%u position=%g,%g,%g viewpos=%g,%g,%g\n",
+                                frame,esi,MEM32(esi+0x18),MEM32(esi+0x2C),MEM32(MEM32(esi+0x18)+0x10),MEM32(MEM32(esi+0x18)+0x18),visible,entry->visible,
+                                frame-entry->transition_frame,MEMF(esi+0x80),MEMF(esi+0x84),MEMF(esi+0x88),
+                                MEMF(esp+0xC0),MEMF(esp+0xC4),MEMF(esp+0xC8));
+                    entry->transition_frame = frame;
+                }
+                entry->used = 1; entry->object = esi; entry->frame = frame; entry->visible = (unsigned char)visible;
+                break;
+            }
+        }
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_000F6BAF; /* je: equal / zero */
