@@ -1699,23 +1699,29 @@ loc_000F694B: ;
 
 loc_000F696C: ;
     if(dah_scene_trace) fprintf(stderr,"[DAH-SCENE-CULL] object=%08X visible=%u viewpos=%g,%g,%g\n",esi,LO8(eax),MEMF(esp+0xC0),MEMF(esp+0xC4),MEMF(esp+0xC8));
-    /* Static world clusters can sit exactly on a frustum plane during a slow
-     * cinematic pan.  Host float rounding occasionally rejects one isolated
-     * frame even though the adjacent retail frames submit the same cluster.
-     * Preserve that previous submission once, while recording the raw result
-     * so a genuinely departing cluster is removed on the following frame.
-     * A camera discontinuity clears the hold and prevents cut-to-cut ghosts. */
+    /* World meshes can sit exactly on a frustum plane during a slow camera
+     * move. Host float rounding occasionally rejects one isolated frame even
+     * though adjacent retail frames submit the same mesh. Preserve that
+     * previous submission once, while recording the raw result so a genuinely
+     * departing mesh is removed on the following frame. Dynamic meshes also
+     * require a continuous position; camera discontinuities clear every hold. */
     {
-        typedef struct { uint32_t object, frame; unsigned char raw_visible, used; } DahStaticCullHistory;
-        static DahStaticCullHistory history[8192];
+        typedef struct {
+            uint32_t object, frame, visible_frame;
+            float position[3];
+            unsigned char raw_visible, used;
+        } DahCullHistory;
+        static DahCullHistory history[8192];
         static uint32_t camera_frame, camera_cut_frame;
         static float camera_position[3];
         uint32_t frame = (uint32_t)dah_frame_serial();
         uint32_t camera = MEM32(0x250E60);
         uint32_t model = MEM32(esi + 0x18);
         unsigned raw_visible = LO8(eax) != 0;
+        unsigned model_type = MEM32(model + 0x10);
         unsigned is_static_cluster = (MEM32(esi + 0x2C) & 0x2000u) &&
-            MEM32(model + 0x10) == 7u && (MEM32(model + 0x18) & 0xFFu) == 0x88u;
+            model_type == 7u && (MEM32(model + 0x18) & 0xFFu) == 0x88u;
+        unsigned is_world_mesh = model_type == 7u;
         if (camera_frame != frame) {
             float x = MEMF(camera + 0x80), y = MEMF(camera + 0x84), z = MEMF(camera + 0x88);
             float dx = x - camera_position[0], dy = y - camera_position[1], dz = z - camera_position[2];
@@ -1724,21 +1730,31 @@ loc_000F696C: ;
             camera_frame = frame;
             camera_position[0] = x; camera_position[1] = y; camera_position[2] = z;
         }
-        if (is_static_cluster) {
+        if (is_world_mesh) {
             uint32_t slot = (esi >> 4) & 8191u;
             unsigned probe;
             for (probe = 0; probe < 8192u; ++probe, slot = (slot + 1u) & 8191u) {
-                DahStaticCullHistory *entry = &history[slot];
+                DahCullHistory *entry = &history[slot];
                 if (!entry->used || entry->object == esi) {
-                    if (!raw_visible && entry->used && entry->raw_visible &&
-                        entry->frame + 1u == frame && camera_cut_frame != frame) {
+                    float x = MEMF(esi + 0x80), y = MEMF(esi + 0x84), z = MEMF(esi + 0x88);
+                    float dx = x - entry->position[0], dy = y - entry->position[1], dz = z - entry->position[2];
+                    unsigned position_continuous = is_static_cluster || dx*dx + dy*dy + dz*dz <= 625.0f;
+                    uint32_t retention_frames = is_static_cluster ? 1u : 3u;
+                    if (!raw_visible && entry->used && entry->visible_frame &&
+                        frame > entry->visible_frame && frame - entry->visible_frame <= retention_frames &&
+                        entry->frame + 1u == frame && camera_cut_frame < entry->visible_frame &&
+                        position_continuous) {
                         SET_LO8(eax, 1);
                         if (getenv("DAH_SCENE_FLIP_TRACE"))
-                            fprintf(stderr,"[DAH-SCENE-STATIC-HOLD] frame=%u object=%08X model=%08X position=%g,%g,%g\n",
-                                    frame,esi,model,MEMF(esi+0x80),MEMF(esi+0x84),MEMF(esi+0x88));
+                            fprintf(stderr,is_static_cluster ?
+                                    "[DAH-SCENE-STATIC-HOLD] frame=%u age=%u object=%08X model=%08X position=%g,%g,%g\n" :
+                                    "[DAH-SCENE-DYNAMIC-HOLD] frame=%u age=%u object=%08X model=%08X position=%g,%g,%g\n",
+                                    frame,frame-entry->visible_frame,esi,model,x,y,z);
                     }
                     entry->used = 1; entry->object = esi; entry->frame = frame;
                     entry->raw_visible = (unsigned char)raw_visible;
+                    if (raw_visible) entry->visible_frame = frame;
+                    entry->position[0] = x; entry->position[1] = y; entry->position[2] = z;
                     break;
                 }
             }

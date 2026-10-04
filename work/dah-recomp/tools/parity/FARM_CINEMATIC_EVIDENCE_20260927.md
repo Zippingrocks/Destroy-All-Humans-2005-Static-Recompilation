@@ -439,3 +439,29 @@ threshold requested by the Xbox state. The consecutive 18.8-to-21.7-second
 road frames show continuous camera motion without a hard model replacement.
 The run reports no fatal, exception, unresolved indirect-call, rejected-state,
 sampler-creation, Farm vertex or Crypto vertex marker.
+
+## Dynamic actor and vehicle mesh stability
+
+The static-cluster trace was extended while pursuing the Farm police and
+military arrival sequences. It found the same rapid visible/culled/visible
+pattern on dynamic model-type 7 objects, including independent child meshes
+with actor-style flags `0xCA` and `0xCE`. These objects were deliberately
+excluded from the original static-tree correction, which explains why a body,
+weapon, wheel or other child mesh could still disappear while nearby scenery
+remained stable.
+
+Dynamic world meshes now retain their current game-submitted transform for at
+most three rejected frames. Retention requires consecutive renderer frames,
+less than 25 world units of object movement between frames, and no intervening
+camera discontinuity. Static clusters retain their earlier one-frame limit.
+The rule does not retain an object that the game stopped submitting, crossed a
+camera cut, teleported, or moved beyond the continuity bound.
+
+State-gated hidden Farm run `vehicle-gated-006` applied 502 guarded dynamic
+holds and 123 static holds. The remaining two model-type 7 transitions were
+objects naturally outside the frustum for more than the three-frame bound;
+neither was extended. The run reports zero fatal, exception, unresolved
+indirect-call, rejected-state, sampler-creation or vertex-failure marker.
+This validates the shared actor/vehicle mesh-stability path, but the later
+police and military arrival cinematics still require a completed retail
+mission route for same-object xemu image comparison.
