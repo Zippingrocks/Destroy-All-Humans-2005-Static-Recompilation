@@ -89,5 +89,8 @@
   {"start":"0x0002DFC0"},
   {"start":"0x00046C70"},
   {"start":"0x0009C310"},
-  {"start":"0x000A56C0"}
+  {"start":"0x000A56C0"},
+  {"start":"0x000A21C0"},
+  {"start":"0x000A56A0"},
+  {"start":"0x000A5000"}
 ]

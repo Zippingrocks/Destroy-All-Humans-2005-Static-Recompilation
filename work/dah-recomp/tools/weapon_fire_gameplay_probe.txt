@@ -1,0 +1,34 @@
+# Reach Farm through the normal front-end route. Weapon firing below is
+# anchored to verified player control, so movie and load timing may vary.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2050 25 2 0 0 0 0 0 0
+2090 25 0 255 0 0 0 0 0
+2350 25 2 0 0 0 0 0 0
+2390 25 0 255 0 0 0 0 0
+2650 20 2 0 0 0 0 0 0
+2685 20 1 0 0 0 0 0 0
+2720 200 0 255 0 0 0 0 0
+3050 20 2 0 0 0 0 0 0
+3085 20 1 0 0 0 0 0 0
+3120 200 0 255 0 0 0 0 0
+3450 20 2 0 0 0 0 0 0
+3485 20 1 0 0 0 0 0 0
+3520 200 0 255 0 0 0 0 0
+
+@gameplay
+# Exercise short pulls, sustained fire/charge, alternate action, and firing
+# while moving. Full rows: start duration buttons A B LX LY RX RY X Y BLACK
+# WHITE LT RT.
+120 12 0 0 0 0 0 0 0 0 0 0 0 255 0
+180 12 0 0 0 0 0 0 0 0 0 0 0 255 0
+240 90 0 0 0 0 0 0 0 0 0 0 0 255 0
+380 20 0 0 255 0 0 0 0 0 0 0 0 0 0
+450 120 0 0 0 0 24000 0 0 0 0 0 0 255 0
+620 180 0 0 0 0 0 0 0 0 0 0 0 255 0

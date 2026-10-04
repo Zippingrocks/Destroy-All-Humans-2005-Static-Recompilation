@@ -1007,7 +1007,7 @@ static int dah_console_give_weapon(const char *alias)
         }
     }
     if (!key) {
-        dah_console_write("Unknown weapon. Use help or giveall_weapons for the full list.");
+        dah_console_write("Unknown weapon. Use help or giveallweapons for the full list.");
         return -1;
     }
     if (dah_console_level_is_busy()) {
@@ -1218,18 +1218,33 @@ static void dah_console_autoweapons_poll(void)
 {
     static int state = -1; /* -1=unchecked, 0=armed, 1=finished */
     static unsigned ticks, attempts, ready_ticks, ready_delay;
+    static unsigned sequence_wait, sequence_interval_steps = 10u;
+    static int gave_all;
+    static char sequence_storage[512];
+    static char *sequence_cursor;
     if (state < 0) {
         const char *giveall = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_GIVEALL_WEAPONS") : NULL;
         const char *equip = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_EQUIP_WEAPON") : NULL;
         const char *saucer = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_GRANT_SAUCER") : NULL;
         const char *delay = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_EQUIP_DELAY") : NULL;
+        const char *sequence = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_WEAPON_SEQUENCE") : NULL;
+        const char *interval = dah_input_is_internal() ? getenv("DAH_CONSOLE_AUTO_WEAPON_INTERVAL") : NULL;
         if (delay && *delay) ready_delay = (unsigned)strtoul(delay, NULL, 10);
+        if (interval && *interval) {
+            unsigned frames = (unsigned)strtoul(interval, NULL, 10);
+            if (frames >= 30u) sequence_interval_steps = (frames + 29u) / 30u;
+        }
+        if (sequence && *sequence && strlen(sequence) < sizeof(sequence_storage)) {
+            strcpy(sequence_storage, sequence);
+            sequence_cursor = sequence_storage;
+            sequence_wait = sequence_interval_steps;
+        }
         state = ((giveall && !strcmp(giveall, "1")) || (equip && *equip) ||
-                 (saucer && !strcmp(saucer, "1"))) ? 0 : 1;
+                 (saucer && !strcmp(saucer, "1")) || sequence_cursor) ? 0 : 1;
     }
     if (state != 0) return;
     if (++ticks % 30u) return;
-    if (++attempts > 400u) {
+    if (++attempts > (sequence_cursor ? 2400u : 400u)) {
         dah_console_write("Automatic weapon grant timed out waiting for a ready state.");
         state = 1;
         return;
@@ -1248,10 +1263,38 @@ static void dah_console_autoweapons_poll(void)
             ++ready_ticks;
             return;
         }
-        if (giveall && !strcmp(giveall, "1")) dah_console_giveall_weapons();
+        if (!gave_all && giveall && !strcmp(giveall, "1")) {
+            dah_console_giveall_weapons();
+            gave_all = 1;
+        }
+        if (sequence_cursor) {
+            char alias[64];
+            char *end;
+            size_t length;
+            if (++sequence_wait < sequence_interval_steps) return;
+            while (*sequence_cursor == ',' || *sequence_cursor == ' ' || *sequence_cursor == '\t')
+                ++sequence_cursor;
+            if (!*sequence_cursor) {
+                dah_console_write("Automatic weapon sequence completed.");
+                state = 1;
+                return;
+            }
+            end = sequence_cursor;
+            while (*end && *end != ',') ++end;
+            length = (size_t)(end - sequence_cursor);
+            while (length && (sequence_cursor[length-1] == ' ' || sequence_cursor[length-1] == '\t'))
+                --length;
+            if (length && length < sizeof(alias)) {
+                memcpy(alias, sequence_cursor, length);
+                alias[length] = 0;
+                dah_console_give_weapon(alias);
+            }
+            sequence_cursor = end;
+            sequence_wait = 0;
+            return;
+        }
         if (equip && *equip) dah_console_give_weapon(equip);
-        if (saucer && !strcmp(saucer, "1"))
-            dah_console_grant_saucer_prerequisites();
+        if (saucer && !strcmp(saucer, "1")) dah_console_grant_saucer_prerequisites();
         state = 1;
     }
 }
@@ -1293,7 +1336,8 @@ static void dah_console_poll(void)
         dah_console_give_weapon(arg);
         return;
     }
-    if (tokens == 1 && !_stricmp(command, "giveall_weapons")) {
+    if (tokens == 1 &&
+        (!_stricmp(command, "giveallweapons") || !_stricmp(command, "giveall_weapons"))) {
         dah_console_giveall_weapons();
         return;
     }
@@ -2302,6 +2346,9 @@ extern void sub_00012270(void);
 extern void sub_0002DFC0(void);
 extern void sub_00046C70(void);
 extern void sub_0009C310(void);
+extern void sub_000A21C0(void);
+extern void sub_000A5000(void);
+extern void sub_000A56A0(void);
 extern void sub_000A56C0(void);
 extern void sub_0007D430(void);
 extern void sub_0005E640(void);
@@ -4719,6 +4766,9 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x0002DFC0u: return sub_0002DFC0;
     case 0x00046C70u: return sub_00046C70;
     case 0x0009C310u: return sub_0009C310;
+    case 0x000A21C0u: return sub_000A21C0;
+    case 0x000A5000u: return sub_000A5000;
+    case 0x000A56A0u: return sub_000A56A0;
     case 0x000A56C0u: return sub_000A56C0;
     case 0x0007D430u: return sub_0007D430;
     case 0x0005E640u: return sub_0005E640;
