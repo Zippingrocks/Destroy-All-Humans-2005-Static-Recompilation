@@ -3574,10 +3574,13 @@ static int submit_postprocess(void)
             uint32_t lut[4]={0};
             const uint8_t *source=indexed_guest_bytes_window(g_pg.tex[1].offset,1024u,1);
             if(source){memcpy(&lut[0],source,4);memcpy(&lut[1],source+256u,4);memcpy(&lut[2],source+512u,4);memcpy(&lut[3],source+1020u,4);}
-            fprintf(stderr,"[DAH-POSTPROCESS-LUT] submit=%u target=%08X scene=%08X table=%08X format=%08X samples=%08X,%08X,%08X,%08X depth=%u,%X,%u cull=%u xy=%.1f,%.1f z=%g color=%08X combiner=%08X final=%08X,%08X\n",
+            fprintf(stderr,"[DAH-POSTPROCESS-LUT] submit=%u target=%08X scene=%08X table=%08X format=%08X rect=%08X,%08X filter=%08X,%08X samples=%08X,%08X,%08X,%08X depth=%u,%X,%u cull=%u xy=%.1f,%.1f z=%g color=%08X combiner=%08X rgb=%08X/%08X alpha=%08X/%08X factor=%08X/%08X final=%08X,%08X\n",
                 g_pg.active_submission,g_pg.surface_color_offset,g_pg.tex[0].offset,g_pg.tex[1].offset,g_pg.tex[1].format,
+                g_pg.tex[0].image_rect,g_pg.tex[1].image_rect,g_pg.tex[0].filter,g_pg.tex[1].filter,
                 lut[0],lut[1],lut[2],lut[3],g_pg.depth_test,g_pg.depth_func,g_pg.depth_write,g_pg.cull_enable,
-                v[0].x,v[0].y,v[0].z,v[0].color,g_pg.combiner_control,g_pg.final_cw0,g_pg.final_cw1);
+                v[0].x,v[0].y,v[0].z,v[0].color,g_pg.combiner_control,
+                g_pg.color_icw[0],g_pg.color_ocw[0],g_pg.alpha_icw[0],g_pg.alpha_ocw[0],
+                g_pg.factor0[0],g_pg.factor1[0],g_pg.final_cw0,g_pg.final_cw1);
         }
     }
     if(dah_pass_trace_submission() && g_pg.active_submission==dah_pass_trace_submission()){

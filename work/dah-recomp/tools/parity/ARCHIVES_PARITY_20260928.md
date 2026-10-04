@@ -44,3 +44,24 @@ The next visible comparison should recapture the same Archives item from this bu
 1. red-eye pixel counts,
 2. room color bias after the corrected postprocess state,
 3. remaining figure/smoke/edge differences after alignment.
+
+## 2026-10-03 follow-up
+
+A fresh pre-Present capture confirms that both display figures now retain their
+red reflective eyes. Across settled frames `1097` through `1125`, comparison
+against `live-xemu.png` is temporally stable: the room stays approximately
+`+14.29` RGB levels brighter, while a fitted slope remains approximately `1.0`.
+This points to the Archives grading/composite path rather than geometry or
+animation drift.
+
+The opt-in compositor trace identifies the active retail pass as a dependent-AR
+lookup from scene target `03F11000` through table `0412E000`. Its state is
+stable across alternating output surfaces: texture program `000001E1`,
+combiner `00011101`, lookup filter `02023F01`, and final combiner
+`0000000E,00001C80`. The table itself is a monotonic 256-entry color ramp.
+
+There is no Archives-specific xemu GPU capture in the current evidence set.
+Do not compensate with a global brightness offset: later Farm evidence already
+matches closely and would regress. A runtime correction should wait for a
+same-frame xemu capture of this lookup pass so its dependent coordinates,
+sampler behavior, and final composite can be compared directly.

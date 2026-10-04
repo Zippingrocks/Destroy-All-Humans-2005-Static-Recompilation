@@ -24,6 +24,19 @@ movie files are present in the packaged `movies` directory. Hidden/occluded
 runs prove menu state, file selection, decoding, playback lifecycle, and return
 behavior; final pixel comparison still requires a non-occluded capture.
 
+## Captured transition checks
+
+Pre-Present captures of the Videos path show three intentional black preroll
+frames (`1320` through `1322`), followed immediately by decoded THQ-logo image
+data at frame `1323`. Natural completion fades the final THQ frame to black at
+`1488`, restores the Archives theater at `1489`, restores the list at `1490`,
+and completes the room fade without a white or retained-movie frame.
+
+`analyze_movie_transition.py` turns these frame sequences into a JSON record,
+rejects all-white frames, and can enforce the expected preroll length. This
+keeps the former white-screen/image-burn failure covered without changing game
+timing or movie content.
+
 ## Diagnostics
 
 `DAH_MUSEUM_TRACE=1` emits bounded, read-only snapshots when an Archives panel
