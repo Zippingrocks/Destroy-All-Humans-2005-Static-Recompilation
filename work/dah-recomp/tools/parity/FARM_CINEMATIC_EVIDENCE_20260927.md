@@ -481,3 +481,11 @@ actors therefore follow the game's raw visibility result immediately.  The
 proven static-cluster tree correction remains unchanged.  The player binary
 compiled successfully to the staged `build-ninja/dah_recomp_working.exe`;
 promotion waits for the currently running player executable to close.
+
+## 2026-10-03 military-vehicle / saucer live callback recovery
+
+A user-driven Farm run (PID 37404, left foreground and uninterrupted) exposed four retail functions that the existing build was skipping through unresolved indirect dispatch during the military-vehicle and saucer sequence. The recurring targets were `00012110`, `0009C310`, `000A56C0`, and—during the vehicle sequence—`0002DFC0` from caller return `0001E9E6`. The last routine was hot enough to coincide with multi-second stalls and large mid-ring drains.
+
+All four functions are now byte-derived from `work/disasm-seeded/asm/text.asm`, registered in the manual indirect-call lookup, and retained in `icall_seeds.json`. `00012110` restores the missing vtable-slot `+84` thunk; `000A56C0` restores the saucer/HUD boolean query; `0009C310` restores the event reset path; and the full 620-byte `0002DFC0` vehicle/actor update was lifted through the project translator with the exact retail range `0002DFC0..0002E22C`. This removes skipped game logic rather than hiding the visual symptoms in renderer heuristics.
+
+Validation: `cmake --build build-ninja --target DestroyAllHumans` completed and linked successfully. The running old executable cannot validate the new dispatches in-place; the staged binary is queued for promotion after that user-run process exits normally.
