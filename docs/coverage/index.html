@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090d14">
+  <title>DAH Recomp Coverage</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-mark">DAH</span><span>Recomp Coverage</span></a>
+    <nav><a href="https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation">Repository</a></nav>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Destroy All Humans! (2005) · Original Xbox</p>
+      <h1>Function coverage map</h1>
+      <p class="lede">Every tile is an original Xbox function, sized by its machine-code bytes. Translation coverage and parity evidence are tracked separately.</p>
+    </section>
+
+    <section class="stats" id="stats" aria-label="Coverage summary"></section>
+
+    <section class="controls" aria-label="Coverage filters">
+      <label>
+        <span>Status</span>
+        <select id="statusFilter">
+          <option value="all">All functions</option>
+          <option value="recovered">Recovered callbacks</option>
+          <option value="seeded">Observed seeds</option>
+          <option value="translated">Auto translated</option>
+          <option value="stubbed">Explicit stubs</option>
+          <option value="missing">Missing</option>
+          <option value="evidence">Parity evidence linked</option>
+        </select>
+      </label>
+      <label class="search-label">
+        <span>Filter</span>
+        <input id="search" type="search" spellcheck="false" placeholder="Try: 55B50, recovered, >1kb, confidence>80%">
+      </label>
+    </section>
+
+    <section class="workspace">
+      <div class="map-panel">
+        <div class="legend" id="legend"></div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="treemap" aria-label="Interactive function coverage treemap"></canvas>
+          <div class="empty" id="empty" hidden>No functions match this filter.</div>
+          <div class="tooltip" id="tooltip" hidden></div>
+        </div>
+      </div>
+      <aside class="details" id="details">
+        <p class="eyebrow">Selected function</p>
+        <h2>Hover or select a tile</h2>
+        <p>Large tiles are large original functions. Use the filter box to search by address, status, size, or confidence.</p>
+      </aside>
+    </section>
+
+    <section class="method">
+      <h2>What the colors mean</h2>
+      <p><strong>Recovered</strong> means a dedicated callback translation exists. <strong>Observed seed</strong> means runtime evidence caused the address to be retained for dispatch. <strong>Auto translated</strong> means the static translator emitted and dispatches the function. <strong>Stubbed</strong> means a known target still has placeholder behavior. A parity-note marker means the address appears in captured comparison evidence; it does not by itself claim pixel accuracy.</p>
+    </section>
+  </main>
+
+  <footer>Generated from the repository function inventory, dispatch table, callback seeds, explicit stubs, and parity notes.</footer>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
