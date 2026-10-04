@@ -43,3 +43,18 @@ timing or movie content.
 becomes active. It exposes menu/slot names, active highlights, and UTF-16 label
 storage without mutating save data or UI state. The trace is disabled by
 default.
+
+## Furonigami black-screen correction
+
+The normal PC player could remain on the movie-transition black clear after
+opening `introani.bik`. The decoder and full-screen draw were healthy in the
+cooperative diagnostic run; the failure was the production update spinning in
+`BinkWait` on the game thread instead of returning to the host frame pump.
+
+`introani.bik` now yields only when a regular update finds its next frame not
+ready. Its initial preload remains blocking, decoded frames still flip and call
+`BinkNextFrame` through the retail path, and its close lifecycle is unchanged.
+The THQ and Pandemic startup movies retain their measured blocking scheduler.
+`test_movie_nonblock.mjs` covers both schedules and completes 3,811 assertions
+for the cooperative path, including pending-frame preservation, native-rate
+decode/advance cadence, texture selection, preload, and final-frame close.

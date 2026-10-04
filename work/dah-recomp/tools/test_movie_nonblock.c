@@ -13,6 +13,7 @@ static unsigned lock_calls, copy_calls, material_calls, next_calls, close_calls,
 static uint32_t wait_sequence[16], wait_length, wait_index, copy_result;
 static unsigned schedule_mode;
 static uint64_t host_tick, next_movie_tick;
+static int dah_furonigami_movie_active, force_furonigami;
 enum { STACK = 0x100000, HANDLE = 0x180000, TEXTURE0 = 0x181000,
        TEXTURE1 = 0x182000, PIXELS = 0x190000, UPDATE_PC = 0x5A46D, OPEN_PC = 0x123299 };
 #define MEM8(a) (ram[(uint32_t)(a)])
@@ -97,6 +98,7 @@ static void reset(void)
     material_calls = next_calls = close_calls = release_calls = 0;
     wait_index = wait_length = copy_result = schedule_mode = 0;
     host_tick = next_movie_tick = 0;
+    dah_furonigami_movie_active = force_furonigami;
     MEM32(0x286804) = 0; MEM32(0x28681C) = HANDLE;
     MEM32(0x286820) = 0x10203040;
     MEM16(0x2591AC) = 0; MEM16(0x286808) = 71; MEM16(0x28680A) = 72;
@@ -131,7 +133,9 @@ static void sequence(uint32_t a, uint32_t b, uint32_t c)
 int main(int argc, char **argv)
 {
     unsigned enabled, i;
-    CHECK(argc == 2); enabled = (unsigned)strtoul(argv[1], NULL, 10);
+    CHECK(argc == 2 || argc == 3);
+    enabled = (unsigned)strtoul(argv[1], NULL, 10);
+    force_furonigami = argc == 3 && (unsigned)strtoul(argv[2], NULL, 10) == 1u;
     reset(); sequence(1, 1, 0); pending_snapshot(); invoke(UPDATE_PC);
     CHECK(LO8(eax) == 1);
     if (enabled) {

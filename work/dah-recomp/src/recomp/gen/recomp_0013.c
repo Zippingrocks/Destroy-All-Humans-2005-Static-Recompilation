@@ -19,6 +19,23 @@ extern void d3d8_BeginFullScreenMovieTransition(void);
 extern void d3d8_EndFullScreenMovieTransition(void);
 extern void d3d8_SetFullScreenMovieOpaque(int enabled);
 
+/* Furonigami's intro movie is launched from the Archives shell while the
+ * normal host frame pump is responsible for presenting its decoded quad.
+ * Spinning inside BinkWait here can therefore leave the last transition clear
+ * on screen indefinitely.  Keep the original blocking scheduler for every
+ * other movie (including the measured startup logos), and let this one return
+ * to the shell until its next frame is ready. */
+static int dah_furonigami_movie_active;
+
+static int dah_movie_path_is(uint32_t address, const char *expected)
+{
+    unsigned i;
+    for (i = 0; expected[i]; ++i) {
+        if (MEM8(address + i) != (uint8_t)expected[i]) return 0;
+    }
+    return MEM8(address + i) == 0;
+}
+
 /* Temporary, bounded diagnostics at the retail movie boundary. */
 static void dah_movie_trace(const char *stage, uint32_t *calls)
 {
@@ -12247,6 +12264,7 @@ void sub_00122CA0(void)
     static uint32_t calls;
     dah_movie_trace("CLOSE", &calls);
     d3d8_EndFullScreenMovieTransition();
+    dah_furonigami_movie_active = 0;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -12479,7 +12497,8 @@ loc_00122D9E: ;
         /* BinkWait has serviced its normal audio/IO work. A pending frame
          * leaves the previous real texture intact; do not decode, flip the
          * surface, or advance BinkNextFrame until a later ready update. */
-        if (dah_movie_nonblock && dah_movie_update_call) goto loc_00122E4A;
+        if ((dah_movie_nonblock || dah_furonigami_movie_active) &&
+            dah_movie_update_call) goto loc_00122E4A;
         goto loc_00122D93; /* original jne: not equal / not zero */
     }
 
@@ -12763,6 +12782,11 @@ void sub_00123180(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_00123180: ;
+    dah_furonigami_movie_active =
+        dah_movie_path_is(ecx, "d:\\movies\\introani.bik");
+    if (dah_furonigami_movie_active)
+        fprintf(stderr,
+                "[DAH-MOVIE-SCHEDULE] Furonigami update uses cooperative BinkWait\n");
     PUSH32(esp, ebx);
     PUSH32(esp, esi);
     PUSH32(esp, 0x122C90);
