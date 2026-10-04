@@ -756,6 +756,24 @@ BOOL d3d8_PgraphTryBindRenderTargetTexture(DWORD stage, UINT offset)
     return TRUE;
 }
 
+BOOL d3d8_PgraphTryBindRenderTargetTextureSized(DWORD stage, UINT offset,
+                                                UINT width, UINT height)
+{
+    PgraphRenderTarget *rt;
+    if (stage >= 4 || !g_device_state.d3d11_context) return FALSE;
+    rt = pgraph_find_rt(offset);
+    /* Guest allocations are routinely recycled.  An address match alone can
+     * therefore identify an obsolete scene target when the current draw is
+     * actually sampling an ordinary effect texture at the same address. */
+    if (!rt || !rt->srv || rt == g_current_pgraph_rt ||
+        (width && rt->width != width) ||
+        (height && rt->height != height)) return FALSE;
+    ID3D11DeviceContext_PSSetShaderResources(g_device_state.d3d11_context,
+                                             stage, 1, &rt->srv);
+    rt->last_used = ++g_pgraph_rt_use_serial;
+    return TRUE;
+}
+
 static void pgraph_copy_presentable_to_swapchain(void)
 {
     ID3D11Texture2D *backbuffer = NULL;

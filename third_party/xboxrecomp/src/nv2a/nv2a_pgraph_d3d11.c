@@ -3550,7 +3550,9 @@ static int submit_postprocess(void)
                  * 80000000. This generated resource has contiguous backing. */
                 IDirect3DTexture8 *table=dah_mesh_texture_window(t,dev,1);
                 bind_result=table?dev->lpVtbl->SetTexture(dev,t,(IDirect3DBaseTexture8*)table):E_FAIL;
-            }else if(d3d8_PgraphTryBindRenderTargetTexture(t,g_pg.tex[t].offset)){
+            }else if(d3d8_PgraphTryBindRenderTargetTextureSized(t,
+                     g_pg.tex[t].offset, g_pg.tex[t].image_rect >> 16u,
+                     g_pg.tex[t].image_rect & 0xFFFFu)){
                 bind_result=S_OK;
             }else{
                 /* Effect and HUD quads can share this screen-space vertex
@@ -3712,7 +3714,9 @@ static int submit_inline_screen_mov(void)
         }
     }
     if (g_pg.tex[0].enabled) {
-        if (!d3d8_PgraphTryBindRenderTargetTexture(0,g_pg.tex[0].offset)) {
+        if (!d3d8_PgraphTryBindRenderTargetTextureSized(0,
+                g_pg.tex[0].offset, g_pg.tex[0].image_rect >> 16u,
+                g_pg.tex[0].image_rect & 0xFFFFu)) {
             IDirect3DTexture8 *texture=dah_mesh_texture(0,dev);
             if (!texture || FAILED(dev->lpVtbl->SetTexture(dev,0,
                     (IDirect3DBaseTexture8*)texture)))

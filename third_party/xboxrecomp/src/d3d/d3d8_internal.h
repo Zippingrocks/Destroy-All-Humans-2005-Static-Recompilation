@@ -45,6 +45,8 @@ HRESULT d3d8_PgraphBindRenderTarget(UINT offset, BOOL backbuffer,
 HRESULT d3d8_PgraphBindDepthSurface(UINT offset, UINT format);
 HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD stage, UINT offset);
 BOOL d3d8_PgraphTryBindRenderTargetTexture(DWORD stage, UINT offset);
+BOOL d3d8_PgraphTryBindRenderTargetTextureSized(DWORD stage, UINT offset,
+                                                UINT width, UINT height);
 BOOL d3d8_PgraphHasRenderTarget(UINT offset);
 HRESULT d3d8_PgraphPreserveCurrentRenderTarget(void);
 
