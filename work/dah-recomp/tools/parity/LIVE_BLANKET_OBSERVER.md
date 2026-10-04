@@ -35,6 +35,17 @@ python tools/parity/live_blanket_observer.py --pid 1234 `
 The default follows that process until it exits and then emits actor summaries
 and a `run-end` event. Use `--seconds N` only for a deliberately bounded probe.
 
+For a test session containing several user-launched runs,
+`watch_blanket_runs.py` can watch one exact executable path and start one hidden,
+read-only observer per detected process. It does not launch, focus, control, or
+terminate the game:
+
+```powershell
+python tools/parity/watch_blanket_runs.py `
+  --executable C:\exact\path\DestroyAllHumans.exe `
+  --output-dir build-internal\blanket-runs
+```
+
 Decode an existing atomic xemu RAM checkpoint into the same census fields:
 
 ```powershell
