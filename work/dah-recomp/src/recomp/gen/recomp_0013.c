@@ -12398,6 +12398,13 @@ loc_00122D20: ;
     PUSH32(esp, edi);
     edi = 0x286810;
     esi = 0x286808;
+    /* DAH movies all use the same two 640x448 X8 presentation surfaces.
+     * The Xbox D3D allocator keeps these as a reusable video-memory pool;
+     * its deferred-free fence has no host equivalent here. Retain the fixed
+     * pair after unbinding it and reuse it on the next Bink session. */
+    if (MEM32(0x286810) && MEM32(0x286814) &&
+        SMEM16(0x286808) >= 0 && SMEM16(0x28680A) >= 0)
+        goto loc_00122D54;
     /* nop */
 
 loc_00122D30: ;
@@ -12801,6 +12808,9 @@ loc_001231C0: ;
     MEM32(0x286818) = eax;
     edi = 0x286808;
     esi = 0x286810;
+    if (MEM32(0x286810) && MEM32(0x286814) &&
+        SMEM16(0x286808) >= 0 && SMEM16(0x28680A) >= 0)
+        goto loc_0012321F;
     goto loc_001231E0;
 
     /* nop */
