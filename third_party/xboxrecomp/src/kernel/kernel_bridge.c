@@ -936,10 +936,23 @@ static void bridge_NtClearEvent(void)
  * context's go-event and only the first 14 KB of the map ever loaded. */
 static void bridge_NtSetEvent(void)
 {
+    static int trace_enabled = -1;
     HANDLE   handle = bridge_resolve_handle(STACK_ARG(0));
     uint32_t prev   = STACK_ARG(1);
-    fprintf(stderr, "  [KERNEL] NtSetEvent: token=%08X handle=%p\n", STACK_ARG(0), handle);
-    fflush(stderr);
+    if (trace_enabled < 0) {
+        const char *setting = getenv("DAH_KERNEL_EVENT_TRACE");
+        trace_enabled = setting && setting[0] && setting[0] != '0';
+    }
+    /* Event signaling is a high-frequency gameplay path.  Synchronously
+     * writing and flushing every signal can suspend the guest between frames
+     * even though render and present remain comfortably within budget.  Keep
+     * the bridge behavior unchanged and expose its old diagnostic only for a
+     * bounded, explicit kernel-event trace. */
+    if (trace_enabled) {
+        fprintf(stderr, "  [KERNEL] NtSetEvent: token=%08X handle=%p\n",
+                STACK_ARG(0), handle);
+        fflush(stderr);
+    }
     g_eax = (uint32_t)xbox_NtSetEvent(handle, XBOX_TO_NATIVE(prev));
 }
 
