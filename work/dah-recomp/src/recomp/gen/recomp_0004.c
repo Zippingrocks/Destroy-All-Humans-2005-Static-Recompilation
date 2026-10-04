@@ -15148,8 +15148,11 @@ loc_0006BF4A: ;
  */
 void sub_0006BF60(void)
 {
-    fprintf(stderr, "[DAH-OBJECTIVE-START] manager=%08X mission=%08X\n",
-            MEM32(0x24883C), MEM32(MEM32(0x24883C) + 0x34));
+    const int objective_trace = getenv("DAH_OBJECTIVE_TRACE") != NULL;
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-START] manager=%08X mission=%08X\n",
+                MEM32(0x24883C), MEM32(MEM32(0x24883C) + 0x34));
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -15168,7 +15171,9 @@ loc_0006BF6F: ;
     PUSH32(esp, 0x0006BF76u); sub_00139520(); /* call 0x00139520 */
 
 loc_0006BF76: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-NAME] ptr=%08X words=%08X %08X\n", eax, MEM32(eax), MEM32(eax + 4));
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-NAME] ptr=%08X words=%08X %08X\n", eax, MEM32(eax), MEM32(eax + 4));
+    }
     if (getenv("DAH_OBJECTIVE_TEXT_TRACE")) {
         fprintf(stderr, "[DAH-OBJECTIVE-TEXT] ptr=%08X text=", eax);
         for (unsigned i = 0; i < 64u; ++i) {
@@ -15198,7 +15203,9 @@ loc_0006BF8D: ;
     PUSH32(esp, 0x0006BFA6u); sub_00070840(); /* call 0x00070840 */
 
 loc_0006BFA6: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-LOOKUP] result=%08X status=%u\n", eax, eax ? MEM32(eax + 0x48) : 0);
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-LOOKUP] result=%08X status=%u\n", eax, eax ? MEM32(eax + 0x48) : 0);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0006BFC0; /* je: equal / zero */
@@ -19956,8 +19963,11 @@ loc_0006DEFC: ;
 void sub_0006DF10(void)
 {
     uint32_t objective_activate_target;
-    fprintf(stderr, "[DAH-OBJECTIVE-ACTIVATE] object=%08X vt=%08X status=%u arg=%u\n",
-            ecx, MEM32(ecx), MEM32(ecx + 0x48), MEM32(esp + 4));
+    const int objective_trace = getenv("DAH_OBJECTIVE_TRACE") != NULL;
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-ACTIVATE] object=%08X vt=%08X status=%u arg=%u\n",
+                ecx, MEM32(ecx), MEM32(ecx + 0x48), MEM32(esp + 4));
+    }
 
 loc_0006DF10: ;
     PUSH32(esp, esi);
@@ -19975,18 +19985,22 @@ loc_0006DF1B: ;
     PUSH32(esp, 0x0006DF35u); sub_0006DD60(); /* call 0x0006DD60 */
 
 loc_0006DF35: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-STARTED] object=%08X status=%u interval=%f last=%f\n",
-            esi, MEM32(esi + 0x48), MEMF(esi + 0x54), MEMF(esi + 0x58));
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-STARTED] object=%08X status=%u interval=%f last=%f\n",
+                esi, MEM32(esi + 0x48), MEMF(esi + 0x54), MEMF(esi + 0x58));
+    }
     edx = MEM32(esi);
     { uint32_t _icall_esp = g_esp;
     PUSH32(esp, 0x84EBAEEDu);
     ecx = esi;
     objective_activate_target = MEM32(edx + 4);
-    fprintf(stderr,
-            "[DAH-OBJECTIVE-VTABLE] object=%08X vt=%08X e0=%08X e4=%08X e8=%08X eC=%08X e10=%08X e14=%08X target=%08X fields50=%08X 54=%08X 58=%08X 5C=%08X\n",
-            esi, edx, MEM32(edx), MEM32(edx + 4u), MEM32(edx + 8u), MEM32(edx + 0xCu),
-            MEM32(edx + 0x10u), MEM32(edx + 0x14u), objective_activate_target,
-            MEM32(esi + 0x50u), MEM32(esi + 0x54u), MEM32(esi + 0x58u), MEM32(esi + 0x5Cu));
+    if (objective_trace) {
+        fprintf(stderr,
+                "[DAH-OBJECTIVE-VTABLE] object=%08X vt=%08X e0=%08X e4=%08X e8=%08X eC=%08X e10=%08X e14=%08X target=%08X fields50=%08X 54=%08X 58=%08X 5C=%08X\n",
+                esi, edx, MEM32(edx), MEM32(edx + 4u), MEM32(edx + 8u), MEM32(edx + 0xCu),
+                MEM32(edx + 0x10u), MEM32(edx + 0x14u), objective_activate_target,
+                MEM32(esi + 0x50u), MEM32(esi + 0x54u), MEM32(esi + 0x58u), MEM32(esi + 0x5Cu));
+    }
     { uint32_t _icall_target = objective_activate_target; PUSH32(esp, 0x0006DF41u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
 
