@@ -53,26 +53,24 @@ function compile(label, source) {
   assert.equal(build.status, 0, `${label}: ${build.error || ''}\n${build.stdout}\n${build.stderr}`);
   return exe;
 }
-function run(exe, envValue, enabled, mustPass, archives = false) {
+function run(exe, envValue, enabled, mustPass) {
   const env = { ...process.env };
   delete env.DAH_MOVIE_NONBLOCK;
   if (envValue !== undefined) env.DAH_MOVIE_NONBLOCK = envValue;
   const args = [enabled ? '1' : '0'];
-  if (archives) args.push('1');
   const result = spawnSync(exe, args, { env, encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, mustPass ? 0 : 1, `${result.error || ''}\n${result.stdout}\n${result.stderr}`);
   console.log(mustPass ? `env=${JSON.stringify(envValue)} ${result.stdout.trim()}` : `PASS negative control: ${result.stderr.trim()}`);
 }
 const productionExe = compile('production', fixture);
-run(productionExe, undefined, false, true); // Normal launches preserve retail blocking semantics.
+run(productionExe, undefined, true, true); // Production regular updates are always cooperative.
 for (const value of ['', '0', 'true', '01', '10', '1 ']) run(productionExe, value, false, true);
 run(productionExe, '1', true, true);
-assert(production.includes('dah_archives_movie_active = ecx == 0x00F7F9E4u;'));
-run(productionExe, undefined, true, true, true); // Archives yields without the diagnostic env switch.
+assert(production.includes('if (dah_movie_update_call) goto loc_00122E4A;'));
 for (const [label, oldText, replacement] of [
-  ['missing-pending-defer', '(dah_movie_nonblock || dah_archives_movie_active) &&\n            dah_movie_update_call', '(dah_movie_nonblock > 1 || dah_archives_movie_active) &&\n            dah_movie_update_call'],
-  ['unsafe-preload-defer', '(dah_movie_nonblock || dah_archives_movie_active) &&\n            dah_movie_update_call', 'dah_movie_nonblock || dah_archives_movie_active'],
-  ['omitted-nextframe-call', 'sub_0020D460();', 'if (dah_movie_nonblock != 1) sub_0020D460(); else esp += 8;'],
+  ['missing-pending-defer', 'if (dah_movie_update_call) goto loc_00122E4A;', 'if (0) goto loc_00122E4A;'],
+  ['unsafe-preload-defer', 'if (dah_movie_update_call) goto loc_00122E4A;', 'if (1) goto loc_00122E4A;'],
+  ['omitted-nextframe-call', 'sub_0020D460();', 'if (0) sub_0020D460(); else esp += 8;'],
 ]) {
   assert(fixture.includes(oldText));
   let changed = fixture.replace(oldText, replacement);

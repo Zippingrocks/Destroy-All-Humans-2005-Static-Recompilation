@@ -19,13 +19,13 @@ extern void d3d8_BeginFullScreenMovieTransition(void);
 extern void d3d8_EndFullScreenMovieTransition(void);
 extern void d3d8_SetFullScreenMovieOpaque(int enabled);
 
-/* Every movie selected inside the Archives is launched through the retail
- * shell's dedicated path buffer at 00F7F9E4.  Its decoded quad is presented by
- * the normal host frame pump, so spinning inside BinkWait can leave the movie
- * transition black indefinitely.  Keep the original blocking scheduler for
- * boot and gameplay movies, and let Archives playback return to the shell
- * until each next frame is ready. */
-static int dah_archives_movie_active;
+/* BinkWait services the native movie clock, audio, and async IO. On Xbox the
+ * game can spin there until the next frame is ready. In the PC host that spin
+ * can consume the render turn which presents the decoded quad: repeated
+ * Archives playback and the new-game intro both reproduced a healthy decoder
+ * advancing behind a permanent black transition. Every regular movie update
+ * therefore returns to the host when BinkWait reports a pending frame. The
+ * distinct open/preload call still blocks until it has decoded frame one. */
 
 /* Temporary, bounded diagnostics at the retail movie boundary. */
 static void dah_movie_trace(const char *stage, uint32_t *calls)
@@ -12255,7 +12255,6 @@ void sub_00122CA0(void)
     static uint32_t calls;
     dah_movie_trace("CLOSE", &calls);
     d3d8_EndFullScreenMovieTransition();
-    dah_archives_movie_active = 0;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -12435,21 +12434,10 @@ loc_00122D54: ;
 void sub_00122D70(void)
 {
     static uint32_t calls;
-    static int dah_movie_nonblock = -1;
-    /* Host scheduling adapter (DAH_MOVIE_NONBLOCK=1 opts in).
-     * This does not change the native Bink clock.
+    /* Host scheduling adapter. This does not change the native Bink clock.
      * Only the regular update caller (via the 122890 tail-call) may defer.
      * The 123180 open/preload call must still prepare its first frame here. */
     const int dah_movie_update_call = MEM32(esp) == 0x0005A46Du;
-    if (dah_movie_nonblock < 0) {
-        const char *setting = getenv("DAH_MOVIE_NONBLOCK");
-        /* Mirrored xemu timing proved the original blocking path matches the
-         * retail THQ/Pandemic lifecycle within one 30 Hz frame. Keep that
-         * behavior as the player default; nonblocking remains diagnostic-only. */
-        dah_movie_nonblock = setting && setting[0] == '1' && setting[1] == '\0';
-        if (dah_movie_nonblock)
-            fprintf(stderr, "[DAH-MOVIE-SCHEDULE] nonblocking update enabled; native movie clock and preload retained\n");
-    }
     dah_movie_trace("DECODE", &calls);
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
@@ -12488,8 +12476,7 @@ loc_00122D9E: ;
         /* BinkWait has serviced its normal audio/IO work. A pending frame
          * leaves the previous real texture intact; do not decode, flip the
          * surface, or advance BinkNextFrame until a later ready update. */
-        if ((dah_movie_nonblock || dah_archives_movie_active) &&
-            dah_movie_update_call) goto loc_00122E4A;
+        if (dah_movie_update_call) goto loc_00122E4A;
         goto loc_00122D93; /* original jne: not equal / not zero */
     }
 
@@ -12773,10 +12760,6 @@ void sub_00123180(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_00123180: ;
-    dah_archives_movie_active = ecx == 0x00F7F9E4u;
-    if (dah_archives_movie_active)
-        fprintf(stderr,
-                "[DAH-MOVIE-SCHEDULE] Archives update uses cooperative BinkWait\n");
     PUSH32(esp, ebx);
     PUSH32(esp, esi);
     PUSH32(esp, 0x122C90);

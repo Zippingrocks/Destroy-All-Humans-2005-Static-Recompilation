@@ -68,11 +68,14 @@ opening `introani.bik`. The decoder and full-screen draw were healthy in the
 cooperative diagnostic run; the failure was the production update spinning in
 `BinkWait` on the game thread instead of returning to the host frame pump.
 
-Every movie launched by the Archives browser now yields only when a regular
-update finds its next frame not ready. Initial preload remains blocking,
-decoded frames still flip and call `BinkNextFrame` through the retail path, and
-the close lifecycle is unchanged. The THQ and Pandemic startup movies retain
-their measured blocking scheduler.
-`test_movie_nonblock.mjs` covers both schedules and completes 3,811 assertions
-for the cooperative path, including pending-frame preservation, native-rate
-decode/advance cadence, texture selection, preload, and final-frame close.
+Every movie now yields only when a regular update finds its next frame not
+ready. Live repeated playback proved that Archives movies can use several path
+buffers, and the same starvation later affected the new-game intro, so the
+former address-specific exception was incomplete. Initial preload remains
+blocking, decoded frames still flip and call `BinkNextFrame` through the retail
+path, and close lifecycle is unchanged. Startup logos retain their native
+movie clock and frame order; the host may present a duplicate movie frame
+while Bink reports that its next frame is pending.
+`test_movie_nonblock.mjs` completes 3,811 assertions for the cooperative path,
+including pending-frame preservation, native-rate decode/advance cadence,
+texture selection, preload, and final-frame close.

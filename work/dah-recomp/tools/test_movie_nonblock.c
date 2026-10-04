@@ -13,7 +13,6 @@ static unsigned lock_calls, copy_calls, material_calls, next_calls, close_calls,
 static uint32_t wait_sequence[16], wait_length, wait_index, copy_result;
 static unsigned schedule_mode;
 static uint64_t host_tick, next_movie_tick;
-static int dah_archives_movie_active, force_archives;
 enum { STACK = 0x100000, HANDLE = 0x180000, TEXTURE0 = 0x181000,
        TEXTURE1 = 0x182000, PIXELS = 0x190000, UPDATE_PC = 0x5A46D, OPEN_PC = 0x123299 };
 #define MEM8(a) (ram[(uint32_t)(a)])
@@ -98,7 +97,6 @@ static void reset(void)
     material_calls = next_calls = close_calls = release_calls = 0;
     wait_index = wait_length = copy_result = schedule_mode = 0;
     host_tick = next_movie_tick = 0;
-    dah_archives_movie_active = force_archives;
     MEM32(0x286804) = 0; MEM32(0x28681C) = HANDLE;
     MEM32(0x286820) = 0x10203040;
     MEM16(0x2591AC) = 0; MEM16(0x286808) = 71; MEM16(0x28680A) = 72;
@@ -133,18 +131,15 @@ static void sequence(uint32_t a, uint32_t b, uint32_t c)
 int main(int argc, char **argv)
 {
     unsigned enabled, i;
-    CHECK(argc == 2 || argc == 3);
+    CHECK(argc == 2);
     enabled = (unsigned)strtoul(argv[1], NULL, 10);
-    force_archives = argc == 3 && (unsigned)strtoul(argv[2], NULL, 10) == 1u;
     reset(); sequence(1, 1, 0); pending_snapshot(); invoke(UPDATE_PC);
     CHECK(LO8(eax) == 1);
-    if (enabled) {
-        CHECK(wait_calls == 1 && io_services == 1);
-        CHECK(!decode_calls && !copy_calls && !lock_calls && !material_calls && !next_calls);
-        CHECK(!close_calls && !release_calls); verify_pending_snapshot();
-        invoke(UPDATE_PC); CHECK(wait_calls == 2 && !decode_calls); verify_pending_snapshot();
-        invoke(UPDATE_PC);
-    }
+    CHECK(wait_calls == 1 && io_services == 1);
+    CHECK(!decode_calls && !copy_calls && !lock_calls && !material_calls && !next_calls);
+    CHECK(!close_calls && !release_calls); verify_pending_snapshot();
+    invoke(UPDATE_PC); CHECK(wait_calls == 2 && !decode_calls); verify_pending_snapshot();
+    invoke(UPDATE_PC);
     CHECK(wait_calls == 3 && io_services == 3);
     CHECK(decode_calls == 1 && copy_calls == 1 && lock_calls == 1 && material_calls == 1 && next_calls == 1);
     CHECK(MEM32(HANDLE + 0xC) == 2 && MEM16(0x2591AC) == 1 && MEM32(0x286820) == 0);
@@ -156,7 +151,7 @@ int main(int argc, char **argv)
         CHECK(wait_calls == 3 && decode_calls == 1 && next_calls == 1 && LO8(eax) == 1);
     }
     /* Any nonzero native wait result is pending; preserved globals/texture. */
-    if (enabled) for (i = 1; i <= 128; ++i) {
+    for (i = 1; i <= 128; ++i) {
         reset(); sequence(0x10204081u * i, 0, 0); pending_snapshot(); invoke(UPDATE_PC);
         CHECK(wait_calls == 1 && !decode_calls && !next_calls && LO8(eax) == 1);
         verify_pending_snapshot();
@@ -183,7 +178,7 @@ int main(int argc, char **argv)
     CHECK(wait_calls == 1 && MEM32(0x286804) == 0 && LO8(eax) == 0 && release_calls == 1);
     CHECK(MEM16(0x2591AC) == 0xFFFFu);
 
-    if (enabled) {
+    {
         unsigned pending = 0;
         reset(); schedule_mode = 1;
         for (i = 0; i < 150; ++i) {
