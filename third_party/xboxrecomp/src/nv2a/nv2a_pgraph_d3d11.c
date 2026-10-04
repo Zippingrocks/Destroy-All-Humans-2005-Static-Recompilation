@@ -267,6 +267,11 @@ static struct {
     uint32_t blend_dfactor;
     uint32_t blend_equation;
     int cull_enable;
+    int poly_offset_point;
+    int poly_offset_line;
+    int poly_offset_fill;
+    float poly_offset_scale;
+    float poly_offset_bias;
     int alpha_test;
     uint32_t alpha_func;
     uint32_t alpha_ref;
@@ -333,6 +338,16 @@ static struct {
     /* Init flag */
     int initialized;
 } g_pg;
+
+static void dah_apply_polygon_offset(void)
+{
+    /* All currently translated solid triangles use the fill setting. Keep
+     * point/line enables so topology-specific support can select them without
+     * losing guest state. */
+    d3d8_SetRasterDepthBias(g_pg.poly_offset_fill,
+                            g_pg.poly_offset_scale,
+                            g_pg.poly_offset_bias);
+}
 
 static int dah_apply_blend_state(IDirect3DDevice8 *dev, int enabled)
 {
@@ -4414,6 +4429,24 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
 
     case NV097_SET_DEPTH_FUNC: g_pg.depth_func = param; return 1;
     case NV097_SET_DEPTH_MASK: g_pg.depth_write = param != 0; return 1;
+    case NV097_SET_POLY_OFFSET_POINT_ENABLE:
+        g_pg.poly_offset_point = param != 0;
+        return 1;
+    case NV097_SET_POLY_OFFSET_LINE_ENABLE:
+        g_pg.poly_offset_line = param != 0;
+        return 1;
+    case NV097_SET_POLY_OFFSET_FILL_ENABLE:
+        g_pg.poly_offset_fill = param != 0;
+        dah_apply_polygon_offset();
+        return 1;
+    case NV097_SET_POLYGON_OFFSET_SCALE_FACTOR:
+        g_pg.poly_offset_scale = u2f(param);
+        dah_apply_polygon_offset();
+        return 1;
+    case NV097_SET_POLYGON_OFFSET_BIAS:
+        g_pg.poly_offset_bias = u2f(param);
+        dah_apply_polygon_offset();
+        return 1;
 
     case NV097_SET_BLEND_ENABLE:
         g_pg.blend_enable = param ? 1 : 0;

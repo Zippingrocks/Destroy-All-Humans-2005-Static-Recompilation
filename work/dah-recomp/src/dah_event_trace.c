@@ -7,20 +7,34 @@
 #include "dah_event_trace.h"
 
 enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
+enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2 };
 
-typedef struct DahAiStateEvent {
+typedef struct DahTraceEvent {
     uint64_t sequence;
     uint32_t world_tick;
-    uint32_t manager, owner;
-    uint32_t old_state, new_state;
-    uint32_t old_id, new_id;
-    uint32_t old_name_pointer, new_name_pointer;
-    uint32_t caller;
-    char old_name[DAH_EVENT_NAME];
-    char new_name[DAH_EVENT_NAME];
-} DahAiStateEvent;
+    uint32_t type;
+    union {
+        struct {
+            uint32_t manager, owner;
+            uint32_t old_state, new_state;
+            uint32_t old_id, new_id;
+            uint32_t old_name_pointer, new_name_pointer;
+            uint32_t caller;
+            char old_name[DAH_EVENT_NAME];
+            char new_name[DAH_EVENT_NAME];
+        } ai;
+        struct {
+            uint64_t host_frame;
+            uint32_t loop;
+            uint32_t interval_us, target_us;
+            uint32_t logic_us, render_us, present_us, total_us;
+            uint32_t draw_count, draw_delta;
+            uint32_t present_result, flags;
+        } frame;
+    } payload;
+} DahTraceEvent;
 
-static DahAiStateEvent events[DAH_EVENT_CAPACITY];
+static DahTraceEvent events[DAH_EVENT_CAPACITY];
 static volatile LONG write_index;
 static volatile LONG read_index;
 static volatile LONG dropped_events;
@@ -62,16 +76,18 @@ static void guest_name(uint32_t address, char destination[DAH_EVENT_NAME])
 
 static DWORD WINAPI writer_main(void *unused)
 {
+    DWORD last_flush = GetTickCount();
     (void)unused;
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
     while (InterlockedCompareExchange(&running, 0, 0) ||
            InterlockedCompareExchange(&read_index, 0, 0) !=
            InterlockedCompareExchange(&write_index, 0, 0)) {
         LONG read = InterlockedCompareExchange(&read_index, 0, 0);
         LONG write = InterlockedCompareExchange(&write_index, 0, 0);
         while (read != write) {
-            const DahAiStateEvent *event = &events[(uint32_t)read &
-                                                   (DAH_EVENT_CAPACITY - 1u)];
-            fprintf(output,
+            const DahTraceEvent *event = &events[(uint32_t)read &
+                                                  (DAH_EVENT_CAPACITY - 1u)];
+            if (event->type == DAH_EVENT_AI_STATE) fprintf(output,
                     "{\"event\":\"ai-state-commit\",\"sequence\":%llu,"
                     "\"worldTick\":%u,\"manager\":\"%08X\","
                     "\"owner\":\"%08X\",\"oldState\":\"%08X\","
@@ -80,15 +96,35 @@ static DWORD WINAPI writer_main(void *unused)
                     "\"newStateName\":\"%s\",\"oldNamePointer\":\"%08X\","
                     "\"newNamePointer\":\"%08X\",\"caller\":\"%08X\"}\n",
                     (unsigned long long)event->sequence, event->world_tick,
-                    event->manager, event->owner, event->old_state,
-                    event->new_state, event->old_id, event->new_id,
-                    event->old_name, event->new_name,
-                    event->old_name_pointer, event->new_name_pointer,
-                    event->caller);
+                    event->payload.ai.manager, event->payload.ai.owner,
+                    event->payload.ai.old_state, event->payload.ai.new_state,
+                    event->payload.ai.old_id, event->payload.ai.new_id,
+                    event->payload.ai.old_name, event->payload.ai.new_name,
+                    event->payload.ai.old_name_pointer,
+                    event->payload.ai.new_name_pointer,
+                    event->payload.ai.caller);
+            else if (event->type == DAH_EVENT_FRAME) fprintf(output,
+                    "{\"event\":\"frame\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"hostFrame\":%llu,\"loop\":%u,"
+                    "\"intervalUs\":%u,\"targetUs\":%u,\"logicUs\":%u,"
+                    "\"renderUs\":%u,\"presentUs\":%u,\"totalUs\":%u,"
+                    "\"drawCount\":%u,\"drawDelta\":%u,"
+                    "\"presentResult\":\"%08X\",\"flags\":%u}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    (unsigned long long)event->payload.frame.host_frame,
+                    event->payload.frame.loop, event->payload.frame.interval_us,
+                    event->payload.frame.target_us, event->payload.frame.logic_us,
+                    event->payload.frame.render_us, event->payload.frame.present_us,
+                    event->payload.frame.total_us, event->payload.frame.draw_count,
+                    event->payload.frame.draw_delta,
+                    event->payload.frame.present_result, event->payload.frame.flags);
             ++read;
             InterlockedExchange(&read_index, read);
         }
-        fflush(output);
+        if (GetTickCount() - last_flush >= 1000u) {
+            fflush(output);
+            last_flush = GetTickCount();
+        }
         if (InterlockedCompareExchange(&running, 0, 0))
             WaitForSingleObject(wake_event, 50u);
     }
@@ -98,7 +134,11 @@ static DWORD WINAPI writer_main(void *unused)
 void dah_event_trace_initialize(void)
 {
     const char *path = getenv("DAH_EVENT_TRACE");
-    if (!path || !*path) return;
+    /* Always retain the most recent run so a one-frame hitch or transient AI
+     * state is available after the fact. A custom path is useful for parity
+     * sessions; DAH_EVENT_TRACE=0 is the explicit opt-out. */
+    if (path && !strcmp(path, "0")) return;
+    if (!path || !*path) path = "dah_event_trace.jsonl";
     output = fopen(path, "wb");
     if (!output) return;
     setvbuf(output, NULL, _IOFBF, 64u * 1024u);
@@ -128,7 +168,7 @@ void dah_event_trace_ai_state(uint32_t manager, uint32_t owner,
                               uint32_t caller)
 {
     LONG write, read;
-    DahAiStateEvent *event;
+    DahTraceEvent *event;
     uint32_t world;
     if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
     write = InterlockedCompareExchange(&write_index, 0, 0);
@@ -140,19 +180,59 @@ void dah_event_trace_ai_state(uint32_t manager, uint32_t owner,
     event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
     memset(event, 0, sizeof(*event));
     event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_AI_STATE;
     world = guest_u32(0x00286768u);
     event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
-    event->manager = manager;
-    event->owner = owner;
-    event->old_state = old_state;
-    event->new_state = new_state;
-    event->old_id = old_id;
-    event->new_id = new_id;
-    event->old_name_pointer = old_name;
-    event->new_name_pointer = new_name;
-    event->caller = caller;
-    guest_name(old_name, event->old_name);
-    guest_name(new_name, event->new_name);
+    event->payload.ai.manager = manager;
+    event->payload.ai.owner = owner;
+    event->payload.ai.old_state = old_state;
+    event->payload.ai.new_state = new_state;
+    event->payload.ai.old_id = old_id;
+    event->payload.ai.new_id = new_id;
+    event->payload.ai.old_name_pointer = old_name;
+    event->payload.ai.new_name_pointer = new_name;
+    event->payload.ai.caller = caller;
+    guest_name(old_name, event->payload.ai.old_name);
+    guest_name(new_name, event->payload.ai.new_name);
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
+                           uint32_t interval_us, uint32_t target_us,
+                           uint32_t logic_us, uint32_t render_us,
+                           uint32_t present_us, uint32_t total_us,
+                           uint32_t draw_count, uint32_t draw_delta,
+                           uint32_t present_result, uint32_t flags)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_FRAME;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event->payload.frame.host_frame = host_frame;
+    event->payload.frame.loop = loop;
+    event->payload.frame.interval_us = interval_us;
+    event->payload.frame.target_us = target_us;
+    event->payload.frame.logic_us = logic_us;
+    event->payload.frame.render_us = render_us;
+    event->payload.frame.present_us = present_us;
+    event->payload.frame.total_us = total_us;
+    event->payload.frame.draw_count = draw_count;
+    event->payload.frame.draw_delta = draw_delta;
+    event->payload.frame.present_result = present_result;
+    event->payload.frame.flags = flags;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);
 }

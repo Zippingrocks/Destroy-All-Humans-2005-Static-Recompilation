@@ -174,6 +174,11 @@ void    d3d8_states_shutdown(void);
 /* Apply current D3D8 render states as D3D11 state objects */
 void    d3d8_states_apply(void);
 
+/* NV2A polygon offset is not part of the subset of D3D8 render-state enums
+ * exposed by this runtime. Feed its native factor/units into the D3D11
+ * rasterizer state used by the next draw. */
+void    d3d8_SetRasterDepthBias(int enabled, float slope, float units);
+
 /* Create sampler state from TSS and apply to slot */
 void    d3d8_states_apply_sampler(DWORD stage);
 

@@ -72,14 +72,30 @@ resource streaming, render visibility, audio cues, mission/objective state,
 and cutscene/HUD gates. Those events should feed the same JSONL timeline from a
 buffered writer so diagnostic output never blocks the game thread.
 
-`DAH_EVENT_TRACE=<new-jsonl-path>` enables the first exact boundary layer in a
-new build. The retail AI state-manager commit at `0001E870` pushes fixed-size
-old/new state records into a 16,384-entry memory ring. A background writer
+The exact in-process boundary layer records to the rolling
+`dah_event_trace.jsonl` by default. Set `DAH_EVENT_TRACE=<new-jsonl-path>` when a
+parity run must keep a named capture, or `DAH_EVENT_TRACE=0` for an explicit
+opt-out. The retail AI state-manager commit at `0001E870` and every complete
+host frame push fixed-size records into a 16,384-entry memory ring. A background writer
 drains it every 50 ms; the game thread performs no file I/O and emits an
 explicit `trace-overflow` record if the ring ever fills. Each event includes
-world tick, manager, owning actor, old/new state pointers, IDs and names, plus
-the retail caller. The variable is read only at startup and is unset for normal
-play. It cannot be enabled retroactively in an already-running process.
+world tick. AI events include manager, owning actor, old/new state pointers, IDs
+and names, plus the retail caller. Frame events preserve every interval, target,
+logic phase, pushbuffer/render phase, present phase, total work time, draw delta,
+present result, and pacing flags. The variable is read only at startup, so its
+path cannot be changed retroactively in an already-running process. Its writer
+runs below normal priority and flushes in one-second batches
+so disk I/O does not stall the game thread.
+
+Rank the exact dips without discarding faster frames:
+
+```powershell
+python tools/parity/summarize_frame_dips.py event-trace.jsonl --top 40
+```
+
+Use `--all-over-target` to emit every frame beyond its own retail-selected
+30/50/60 Hz target. The raw JSONL remains the authoritative record, so a smaller
+deviation threshold can always be applied later without another gameplay run.
 
 ## The blanket
 
@@ -118,8 +134,8 @@ exercised**, **recomp captured**, **both captured**, or **matched**:
 
 The next additions are ordered by how much ambiguity they remove:
 
-- instrument the central AI transition function with old/new descriptor IDs,
-  state names, actor serial, caller address, and reason;
+- extend the central AI transition event with the actor's stable serial and the
+  reason selected by its caller;
 - instrument damage and death application with attacker, victim, weapon/power,
   hit part, amount, impulse, and the chosen death-state descriptor;
 - track PK constraints from acquire through force, collision, release,

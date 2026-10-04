@@ -13,6 +13,8 @@
 #include "d3d8_internal.h"
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
+#include <limits.h>
 
 /* ================================================================
  * Cached D3D11 state objects
@@ -30,6 +32,23 @@ static DWORD g_last_blend_hash = 0;
 static DWORD g_last_ds_hash = 0;
 static DWORD g_last_raster_hash = 0;
 static BOOL g_fullscreen_movie_opaque = FALSE;
+static BOOL g_raster_depth_bias_enabled = FALSE;
+static float g_raster_slope_bias = 0.0f;
+static float g_raster_constant_bias = 0.0f;
+
+void d3d8_SetRasterDepthBias(int enabled, float slope, float units)
+{
+    BOOL next_enabled = enabled ? TRUE : FALSE;
+    if (!isfinite(slope)) slope = 0.0f;
+    if (!isfinite(units)) units = 0.0f;
+    if (g_raster_depth_bias_enabled == next_enabled &&
+        g_raster_slope_bias == slope && g_raster_constant_bias == units)
+        return;
+    g_raster_depth_bias_enabled = next_enabled;
+    g_raster_slope_bias = slope;
+    g_raster_constant_bias = units;
+    g_last_raster_hash = ~0u;
+}
 
 void d3d8_SetFullScreenMovieOpaque(int enabled)
 {
@@ -236,6 +255,16 @@ static void update_rasterizer_state(const DWORD *rs)
     }
 
     rd.FrontCounterClockwise = FALSE;
+    if (g_raster_depth_bias_enabled) {
+        double rounded = g_raster_constant_bias >= 0.0f ?
+                         (double)g_raster_constant_bias + 0.5 :
+                         (double)g_raster_constant_bias - 0.5;
+        if (rounded > INT_MAX) rounded = INT_MAX;
+        if (rounded < INT_MIN) rounded = INT_MIN;
+        rd.DepthBias = (INT)rounded;
+        rd.SlopeScaledDepthBias = g_raster_slope_bias;
+        rd.DepthBiasClamp = 0.0f;
+    }
     rd.DepthClipEnable = TRUE;
     rd.ScissorEnable = FALSE;
     rd.MultisampleEnable = FALSE;
@@ -361,6 +390,9 @@ void d3d8_states_shutdown(void)
     g_last_blend_hash = 0;
     g_last_ds_hash = 0;
     g_last_raster_hash = 0;
+    g_raster_depth_bias_enabled = FALSE;
+    g_raster_slope_bias = 0.0f;
+    g_raster_constant_bias = 0.0f;
 }
 
 void d3d8_states_apply(void)

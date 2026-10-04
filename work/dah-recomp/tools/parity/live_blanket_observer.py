@@ -183,6 +183,8 @@ class Actor:
     motion_samples: int = 0
     state_events: int = 0
     ai_state_entered: float = 0.0
+    physics_state_entered: float = 0.0
+    ragdoll_stuck_reported: bool = False
     last_moved: float = 0.0
     distance_travelled: float = 0.0
     ai_transitions: int = 0
@@ -295,6 +297,8 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         motion_samples=old.motion_samples if old else 0,
         state_events=old.state_events if old else 0,
         ai_state_entered=old.ai_state_entered if old else now,
+        physics_state_entered=old.physics_state_entered if old else now,
+        ragdoll_stuck_reported=old.ragdoll_stuck_reported if old else False,
         last_moved=old.last_moved if old else now,
         distance_travelled=old.distance_travelled if old else 0.0,
         ai_transitions=old.ai_transitions if old else 0,
@@ -335,6 +339,13 @@ def ident(actor: Actor) -> dict:
 
 def rounded(values: tuple[float, ...] | None) -> list[float] | None:
     return [round(value, 5) for value in values] if values else None
+
+
+def float_bits(bits: int | None) -> float | None:
+    if bits is None:
+        return None
+    value = struct.unpack("<f", struct.pack("<I", bits))[0]
+    return round(value, 6) if math.isfinite(value) else None
 
 
 def emit(output, kind: str, now: float, tick: int, **fields) -> None:
@@ -508,6 +519,21 @@ def main() -> int:
                              previousStateByte140=old.gate140,
                              previousRender=f"{old.render:08X}", changes=changes)
                         count("actor-state")
+                    if (current.health_divisor_bits != old.health_divisor_bits or
+                            current.health_current_bits != old.health_current_bits):
+                        emit(output, "health-change", now, tick, **ident(current),
+                             previousDivisorBits=(f"{old.health_divisor_bits:08X}"
+                                                  if old.health_divisor_bits is not None else None),
+                             divisorBits=(f"{current.health_divisor_bits:08X}"
+                                          if current.health_divisor_bits is not None else None),
+                             previousCurrentBits=(f"{old.health_current_bits:08X}"
+                                                  if old.health_current_bits is not None else None),
+                             currentBits=(f"{current.health_current_bits:08X}"
+                                          if current.health_current_bits is not None else None),
+                             previousCurrent=float_bits(old.health_current_bits),
+                             current=float_bits(current.health_current_bits),
+                             attribution="not-yet-instrumented")
+                        count("health-change")
                     if (current.ai_state != old.ai_state or
                             current.ai_state_id != old.ai_state_id or
                             current.ai_state_name != old.ai_state_name or
@@ -523,6 +549,7 @@ def main() -> int:
                                           current.ai_target_540 != old.ai_target_540)
                         physics_changed = current.physics_vtable != old.physics_vtable
                         previous_state_seconds = now - old.ai_state_entered
+                        previous_physics_seconds = now - old.physics_state_entered
                         if ai_changed:
                             current.ai_transitions += 1
                             current.ai_state_entered = now
@@ -532,8 +559,11 @@ def main() -> int:
                             current.target_transitions += 1
                         if physics_changed:
                             current.physics_transitions += 1
+                            current.physics_state_entered = now
+                            current.ragdoll_stuck_reported = False
                         emit(output, "ai-state", now, tick, **ident(current),
                              previousStateSeconds=round(previous_state_seconds, 3),
+                             previousPhysicsSeconds=round(previous_physics_seconds, 3),
                              previousState=f"{old.ai_state:08X}" if old.ai_state else None,
                              previousStateId=(f"{old.ai_state_id:08X}"
                                               if old.ai_state_id else None),
@@ -552,6 +582,24 @@ def main() -> int:
                                  code="dead-pedestrian-became-alive",
                                  previousStateName=old.ai_state_name)
                             count("anomaly")
+                        if (old.physics_vtable == 0x00237FA8 and
+                                current.physics_vtable == 0x002376E8):
+                            emit(output, "physics-recovery", now, tick, **ident(current),
+                                 ragdollSeconds=round(previous_physics_seconds, 3),
+                                 result="returned-to-active-body")
+                            count("physics-recovery")
+                    if (current.kind == "pedestrian" and
+                            current.life_state == "alive" and
+                            current.physics_vtable == 0x00237FA8 and
+                            now - current.physics_state_entered >= 4.0 and
+                            not current.ragdoll_stuck_reported):
+                        current.ragdoll_stuck_reported = True
+                        current.anomalies.append("living-pedestrian-ragdoll-stuck")
+                        emit(output, "anomaly", now, tick, **ident(current),
+                             code="living-pedestrian-ragdoll-stuck",
+                             ragdollSeconds=round(now - current.physics_state_entered, 3),
+                             detail="Alive pedestrian did not return to active physics body")
+                        count("anomaly")
                     if current.position and old.position:
                         distance = math.dist(current.position, old.position)
                         current.motion_samples += 1
@@ -609,6 +657,8 @@ def main() -> int:
                      "despawns": counts.get("actor-despawn", 0) > 0,
                      "anomalies": counts.get("anomaly", 0) > 0,
                      "damageCause": False,
+                     "healthTransitions": counts.get("health-change", 0) > 0,
+                     "physicsRecovery": counts.get("physics-recovery", 0) > 0,
                      "aliveDeadMeaning": observed_life_state,
                      "effectOwnership": False,
                      "aiTaskNames": observed_ai_state_name,

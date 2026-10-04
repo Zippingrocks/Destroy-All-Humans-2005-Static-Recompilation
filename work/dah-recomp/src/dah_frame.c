@@ -10,6 +10,7 @@
 #include "d3d8_xbox.h"
 #include "nv2a_pgraph_d3d11.h"
 #include "dah_frame.h"
+#include "dah_event_trace.h"
 #include "dah_retail_ring.h"
 #include "dah_timing.h"
 #include "dah_renderdoc.h"
@@ -120,6 +121,7 @@ typedef struct DahFrameState {
     double report_start;
     double last_start;
     double frame_start;
+    double current_interval;
     double period;
     double simulation_seconds;
     double interval_sum;
@@ -142,6 +144,7 @@ typedef struct DahFrameState {
     uint32_t draws_before;
     uint32_t timer_resolution;
     uint8_t variable_step;
+    uint8_t current_late;
     int active;
 } DahFrameState;
 
@@ -478,17 +481,19 @@ void dah_frame_begin(void)
      * Re-anchor after a missed deadline and report it as a slow frame. */
     if (now - frame.next_start > frame.period * 0.5) {
         frame.late_frames++;
+        frame.current_late = 1;
         frame.next_start = now;
-    }
+    } else frame.current_late = 0;
     frame.next_start += frame.period;
     if (frame.last_start != 0) {
         double interval = now - frame.last_start;
+        frame.current_interval = interval;
         frame.interval_sum += interval;
         if (frame.interval_count < 1024u)
             frame.interval_samples[frame.interval_count++] = interval;
         if (interval < frame.interval_min) frame.interval_min = interval;
         if (interval > frame.interval_max) frame.interval_max = interval;
-    }
+    } else frame.current_interval = 0.0;
     frame.last_start = now;
     frame.frame_start = now;
     pgraph_d3d11_get_stats(&stats);
@@ -556,7 +561,8 @@ void dah_frame_end(void)
 {
     PgraphD3D11Stats stats;
     double now, elapsed;
-    double phase_start, present_start;
+    double phase_start, present_start, present_end;
+    double frame_logic_ms, frame_render_ms, frame_present_ms, frame_total_ms;
     static double logic_ms, render_ms, present_ms;
     HRESULT result;
     int host_draw = 0;
@@ -564,7 +570,8 @@ void dah_frame_end(void)
     if (!frame.active || GetCurrentThreadId() != frame.thread_id) return;
 
     phase_start=clock_seconds();
-    logic_ms += (phase_start-frame.frame_start)*1000.0;
+    frame_logic_ms = (phase_start-frame.frame_start)*1000.0;
+    logic_ms += frame_logic_ms;
     drain_retail_pushbuffer();
     pgraph_d3d11_flush();
     pgraph_d3d11_get_stats(&stats);
@@ -586,14 +593,37 @@ void dah_frame_end(void)
     d3d8_SetPresentationHold(dah_presentation_held);
     dah_parity_trace_state(g_dah_frame_serial);
     present_start=clock_seconds();
-    render_ms += (present_start-phase_start)*1000.0;
+    frame_render_ms = (present_start-phase_start)*1000.0;
+    render_ms += frame_render_ms;
     result = d3d8_PresentFrameWithInterval(0u);
     dah_renderdoc_end(g_dah_frame_serial,guest_u32(0x0025B1DCu));
-    present_ms += (clock_seconds()-present_start)*1000.0;
+    present_end = clock_seconds();
+    frame_present_ms = (present_end-present_start)*1000.0;
+    frame_total_ms = (present_end-frame.frame_start)*1000.0;
+    present_ms += frame_present_ms;
     if (result == S_OK && real_draw) dah_host_set_render_activity(1);
     if (result == DXGI_STATUS_OCCLUDED) frame.occluded_presents++;
     else if (SUCCEEDED(result)) frame.visible_presents++;
     else frame.failed_presents++;
+
+    /* The opt-in event recorder uses a lock-free producer and a background
+     * writer. Preserve every interval and phase, including frames that are
+     * faster than target, so single-frame hitches cannot disappear inside a
+     * five-second aggregate. flags: bit0 late, bit1 real draw, bit2 occluded,
+     * bit3 presentation held, bit4 variable timestep. */
+    dah_event_trace_frame(g_dah_frame_serial, guest_u32(0x0025B1DCu),
+        (uint32_t)(frame.current_interval * 1000000.0 + 0.5),
+        (uint32_t)(frame.period * 1000000.0 + 0.5),
+        (uint32_t)(frame_logic_ms * 1000.0 + 0.5),
+        (uint32_t)(frame_render_ms * 1000.0 + 0.5),
+        (uint32_t)(frame_present_ms * 1000.0 + 0.5),
+        (uint32_t)(frame_total_ms * 1000.0 + 0.5),
+        stats.draw_calls, stats.draw_calls - frame.draws_before,
+        (uint32_t)result,
+        (frame.current_late ? 1u : 0u) | (real_draw ? 2u : 0u) |
+        (result == DXGI_STATUS_OCCLUDED ? 4u : 0u) |
+        (dah_presentation_held ? 8u : 0u) |
+        (frame.variable_step ? 16u : 0u));
 
     if (frame.world) {
         float step = *(const float *)((uintptr_t)g_xbox_mem_offset +
