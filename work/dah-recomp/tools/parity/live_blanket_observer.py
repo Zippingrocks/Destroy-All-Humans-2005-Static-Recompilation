@@ -161,6 +161,10 @@ class Actor:
     life_state: str | None
     physics_body: int
     physics_vtable: int
+    physics_velocity: tuple[float, float, float] | None
+    physics_inner: int
+    physics_inner_vtable: int
+    physics_quaternion: tuple[float, float, float, float] | None
     ai_target_53c: int
     ai_target_540: int
     first_seen: float
@@ -177,6 +181,7 @@ class Actor:
     target_transitions: int = 0
     physics_transitions: int = 0
     render_transitions: int = 0
+    max_speed: float = 0.0
     anomalies: list[str] = field(default_factory=list)
 
 
@@ -242,6 +247,24 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         life_state = None
     physics_body = u32(raw, 0x110) if size >= 0x114 else 0
     physics_vtable = reader.u32(physics_body) if pointer(physics_body) else 0
+    physics_velocity = None
+    physics_inner = 0
+    physics_inner_vtable = 0
+    physics_quaternion = None
+    if physics_vtable == 0x002376E8:
+        velocity_setter = reader.u32(physics_vtable + 0x90)
+        body_raw = reader.read(physics_body, 0x90)
+        if velocity_setter == 0x0012BB30 and body_raw:
+            candidate = tuple(f32(body_raw, 0x84 + index * 4) for index in range(3))
+            if all(math.isfinite(value) for value in candidate):
+                physics_velocity = candidate
+        physics_inner = reader.u32(physics_body + 0x0C)
+        physics_inner_vtable = reader.u32(physics_inner) if pointer(physics_inner) else 0
+        inner_raw = reader.read(physics_inner, 0x48) if physics_inner_vtable == 0x00237968 else None
+        if inner_raw:
+            candidate_quat = tuple(f32(inner_raw, 0x38 + index * 4) for index in range(4))
+            if all(math.isfinite(value) for value in candidate_quat):
+                physics_quaternion = candidate_quat
     actor = Actor(
         address=address, kind=kind, size=size, vtable=vtable,
         serial=u32(raw, 8), resource=resource, resource_name=resource_name,
@@ -253,6 +276,9 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         ai_state=ai_state, ai_state_id=ai_state_id, ai_state_name=ai_state_name,
         life_state=life_state, physics_body=physics_body,
         physics_vtable=physics_vtable,
+        physics_velocity=physics_velocity, physics_inner=physics_inner,
+        physics_inner_vtable=physics_inner_vtable,
+        physics_quaternion=physics_quaternion,
         ai_target_53c=u32(raw, 0x53C) if kind == "pedestrian" else 0,
         ai_target_540=u32(raw, 0x540) if kind == "pedestrian" else 0,
         first_seen=old.first_seen if old else now, last_seen=now,
@@ -267,10 +293,14 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         target_transitions=old.target_transitions if old else 0,
         physics_transitions=old.physics_transitions if old else 0,
         render_transitions=old.render_transitions if old else 0,
+        max_speed=old.max_speed if old else 0.0,
         anomalies=list(old.anomalies) if old else [])
     if position:
         actor.max_height = (position[2] if actor.max_height is None else
                             max(actor.max_height, position[2]))
+    if physics_velocity:
+        actor.max_speed = max(actor.max_speed, math.sqrt(sum(value * value for value in
+                                                              physics_velocity)))
     return actor
 
 
@@ -285,6 +315,11 @@ def ident(actor: Actor) -> dict:
             "aiStateName": actor.ai_state_name, "lifeState": actor.life_state,
             "physicsBody": f"{actor.physics_body:08X}" if actor.physics_body else None,
             "physicsVtable": f"{actor.physics_vtable:08X}" if actor.physics_vtable else None,
+            "physicsVelocity": rounded(actor.physics_velocity),
+            "physicsInner": f"{actor.physics_inner:08X}" if actor.physics_inner else None,
+            "physicsInnerVtable": (f"{actor.physics_inner_vtable:08X}"
+                                    if actor.physics_inner_vtable else None),
+            "physicsQuaternion": rounded(actor.physics_quaternion),
             "aiTarget53C": f"{actor.ai_target_53c:08X}" if actor.ai_target_53c else None,
             "aiTarget540": f"{actor.ai_target_540:08X}" if actor.ai_target_540 else None}
 
@@ -313,6 +348,7 @@ def actor_summary(actor: Actor, now: float) -> dict:
         "targetTransitions": actor.target_transitions,
         "physicsTransitions": actor.physics_transitions,
         "renderTransitions": actor.render_transitions,
+        "maxSpeed": round(actor.max_speed, 5),
         "lastPosition": rounded(actor.position),
         "maxHeight": actor.max_height,
         "anomalies": actor.anomalies,

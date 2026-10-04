@@ -19,7 +19,8 @@ Version 2 also records the executable path and SHA-256, an every-second census
 by class/resource/named AI state/life state, observed world-tick rate, and a
 history summary for every actor. Histories include total movement, time in the
 current AI state, time since movement, AI/life/target/physics/render transition
-counts, last position, and maximum height. A dead-to-alive transition and a
+counts, last position, maximum height, verified retail body velocity, inner
+physics quaternion, and maximum observed speed. A dead-to-alive transition and a
 living pedestrian that disappears without an observed death are explicit
 anomalies. This makes quiet, stuck, streamed, killed, and allocator-reused
 objects distinguishable in the run report.
