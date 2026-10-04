@@ -12484,6 +12484,7 @@ loc_000A8E77: ;
  */
 void sub_000A8E80(void)
 {
+    static uint32_t rejected_candidate_count;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -12700,7 +12701,30 @@ loc_000A8FFB: ;
 loc_000A9000: ;
     eax = MEM32(esp + 0x6C);
     ecx = MEM32(eax + ebp * 4);
+    /* The spatial-query result owns actor/interface pointers.  A stale entry
+     * observed after a PK release contained 0x0001EA84 (guest .text), so the
+     * following virtual call interpreted instruction bytes as a vtable and
+     * faulted while reading slot +0x48.  Retail cannot dispatch that entry:
+     * live scene objects come from the game arena and their interface tables
+     * live in the XBE's read-only vtable region.  Skip only entries that fail
+     * both invariants, preserving the retail loop for every valid candidate. */
+    if (ecx < 0x00F80000u || ecx >= 0x08000000u) {
+        if (rejected_candidate_count++ < 32u) {
+            fprintf(stderr,
+                    "[DAH-SPATIAL-CANDIDATE-REJECT] object=%08X reason=address\n",
+                    ecx);
+        }
+        goto loc_000A90DC;
+    }
     edx = MEM32(ecx);
+    if (edx < 0x00225C00u || edx >= 0x00248000u) {
+        if (rejected_candidate_count++ < 32u) {
+            fprintf(stderr,
+                    "[DAH-SPATIAL-CANDIDATE-REJECT] object=%08X vtable=%08X reason=vtable\n",
+                    ecx, edx);
+        }
+        goto loc_000A90DC;
+    }
     { uint32_t _icall_esp = g_esp;
     { uint32_t _icall_target = MEM32(edx + 0x48); PUSH32(esp, 0x000A900Cu); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
