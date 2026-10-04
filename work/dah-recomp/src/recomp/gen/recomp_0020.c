@@ -38938,6 +38938,12 @@ loc_0020E5A2: ;
     MEM32(esi + 0x1C) = 1;
     MEM32(esi + 0x20) = 0;
     MEM32(esi + 4) = eax;
+    /* The Xbox allocator may return a recycled worker object. Native worker
+     * threads can run before the creator publishes the replacement handles;
+     * clear the two synchronization slots first so the entry gate cannot
+     * mistake closed 0x48-tagged tokens from the prior movie for new ones. */
+    MEM32(esi + 8) = 0;
+    MEM32(esi + 0x14) = 0;
     eax = esi + 0x10;
     PUSH32(esp, eax);
     PUSH32(esp, 4);

@@ -86,10 +86,28 @@ that compact initialization sequence. Reused worker memory explains why later
 launches read nonzero stale values instead of the initial zeroes.
 
 `sub_0020E510` now gates only the Bink worker entry until both sync fields hold
-complete bridge-handle tokens. This restores the ordering supplied by the Xbox
-scheduler without changing decode cadence after startup. The identical hidden
-route changed from 39–52 invalid `NtReleaseMutant` calls per launch sequence to
-zero. A 170-second isolated route then opened all three expected movies; every
-open reached `first decoded frame ready`, with zero release errors, failed
-presents, or invalid simulation steps. The regular movie scheduling harness
-also passed all 3,811 assertions.
+complete bridge-handle tokens. This restores the missing startup ordering
+without changing decode cadence after initialization. A short hidden route and
+a 170-second route both produced zero invalid releases; all three movie opens
+reached `first decoded frame ready`, with no failed presents or invalid
+simulation steps. The regular movie scheduling harness also passed all 3,811
+assertions.
+
+A longer route that allowed `trailer2.bik` to end naturally exposed a separate
+teardown race. Each natural close produced a tight invalid-release burst (50 on
+the first close and 64 on the second). The immediate reopen after the first
+close decoded successfully, but the third open stalled before its first frame.
+The startup gate is therefore retained as a verified fix for the initial
+unpublished-handle race, while natural-close teardown remains under
+investigation and is not counted as clean yet.
+
+Failure-only tracing later caught the natural-close/reopen defect without
+materially perturbing scheduling. Immediately after call 4 reused the prior
+movie allocation, workers attempted to release stale tokens `48000009` and
+`4800000D`; both table entries had already been closed and resolved to null.
+The entry gate had accepted them because recycled worker memory still carried
+valid-looking `0x48` tags. `sub_0020E580` now clears its event (`+8`) and mutant
+(`+0x14`) slots before creating the native worker. The gate can therefore pass
+only after the creator publishes the replacement handles. On the identical
+route, call 3 then closed naturally and call 4 reopened the same movie address,
+reached its first decoded frame, and recorded zero invalid releases.
