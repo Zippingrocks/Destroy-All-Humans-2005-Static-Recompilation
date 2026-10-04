@@ -1746,10 +1746,15 @@ loc_000F696C: ;
                      * frames exposed limbs and attachments that retail had
                      * already rejected.  Keep the precision workaround to a
                      * single frame and only for effectively stationary
-                     * dynamic meshes.  Static scenery retains its established
-                     * one-frame rule. */
+                     * dynamic meshes. Static scenery uses the separate
+                     * bounded rule below. */
                     unsigned position_continuous = is_static_cluster || movement_squared <= 0.0625f;
-                    uint32_t retention_frames = 1u;
+                    /* Static landscape clusters sometimes receive two
+                     * consecutive host-only edge rejections during a slow
+                     * cinematic pan.  Keep that correction away from moving
+                     * actor parts, whose gravity/PK state changes must cull
+                     * immediately after the existing single-frame guard. */
+                    uint32_t retention_frames = is_static_cluster ? 2u : 1u;
                     if (!raw_visible && entry->used && entry->visible_frame &&
                         frame > entry->visible_frame && frame - entry->visible_frame <= retention_frames &&
                         entry->frame + 1u == frame && camera_cut_frame < entry->visible_frame &&

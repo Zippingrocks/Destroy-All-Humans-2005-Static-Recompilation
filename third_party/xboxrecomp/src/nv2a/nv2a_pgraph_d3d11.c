@@ -3535,7 +3535,17 @@ static int submit_postprocess(void)
                  * 80000000. This generated resource has contiguous backing. */
                 IDirect3DTexture8 *table=dah_mesh_texture_window(t,dev,1);
                 bind_result=table?dev->lpVtbl->SetTexture(dev,t,(IDirect3DBaseTexture8*)table):E_FAIL;
-            }else bind_result=d3d8_PgraphBindRenderTargetTexture(t,g_pg.tex[t].offset);
+            }else if(d3d8_PgraphTryBindRenderTargetTexture(t,g_pg.tex[t].offset)){
+                bind_result=S_OK;
+            }else{
+                /* Effect and HUD quads can share this screen-space vertex
+                 * shape while sampling an ordinary Xbox texture.  Treating
+                 * every such draw as render-target feedback discarded the
+                 * abducto ground marker and hologram/projector layers. */
+                IDirect3DTexture8 *texture=dah_mesh_texture(t,dev);
+                bind_result=texture ? dev->lpVtbl->SetTexture(dev,t,
+                    (IDirect3DBaseTexture8*)texture) : E_FAIL;
+            }
             if(FAILED(bind_result)){
                 if(dah_ui_animation_trace_enabled() &&
                    g_pg.active_submission>=dah_ui_animation_trace_start()){
@@ -3686,8 +3696,12 @@ static int submit_inline_screen_mov(void)
         }
     }
     if (g_pg.tex[0].enabled) {
-        if (FAILED(d3d8_PgraphBindRenderTargetTexture(0,g_pg.tex[0].offset)))
-            return 0;
+        if (!d3d8_PgraphTryBindRenderTargetTexture(0,g_pg.tex[0].offset)) {
+            IDirect3DTexture8 *texture=dah_mesh_texture(0,dev);
+            if (!texture || FAILED(dev->lpVtbl->SetTexture(dev,0,
+                    (IDirect3DBaseTexture8*)texture)))
+                return 0;
+        }
         dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
         dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
         dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MINFILTER,D3DTEXF_LINEAR);

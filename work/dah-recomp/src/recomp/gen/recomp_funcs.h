@@ -9008,6 +9008,7 @@ void sub_00193120(void);
 void sub_00193170(void);
 void sub_001931B0(void);
 void sub_001932A0(void);
+void sub_001932F0(void);
 void sub_00193330(void);
 void sub_00193460(void);
 void sub_001934F0(void);
