@@ -12,6 +12,7 @@
 #include "dah_renderdoc.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
+#define WM_DAH_RENDERER_READY (WM_APP + 0x52u)
 
 typedef void (*recomp_func_t)(void);
 extern recomp_func_t recomp_lookup(uint32_t xbox_va);
@@ -187,6 +188,25 @@ static LRESULT CALLBACK diagnostic_overlay_proc(HWND hwnd, UINT message,
 static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT message,
                                          WPARAM wparam, LPARAM lparam)
 {
+    if (message == WM_DAH_RENDERER_READY) {
+        RECT client = {0};
+        /* Attach DXGI while the HWND is hidden, then expose the completed
+         * presentation target.  Showing the GDI-backed client first can leave
+         * DWM composing its initial surface until a manual move/resize forces
+         * a redirection-surface refresh, which appears as a black bottom bar. */
+        ShowWindow(hwnd, SW_SHOW);
+        SetForegroundWindow(hwnd);
+        BringWindowToTop(hwnd);
+        UpdateWindow(hwnd);
+        GetClientRect(hwnd, &client);
+        fprintf(stderr,
+                "[DAH-WINDOW] renderer attached before show client=%ldx%ld visible=%u\n",
+                (long)(client.right - client.left),
+                (long)(client.bottom - client.top),
+                (unsigned)IsWindowVisible(hwnd));
+        fflush(stderr);
+        return 0;
+    }
     if (message == WM_KEYDOWN && wparam == VK_OEM_3) {
         if (!(lparam & (1L << 30))) dah_console_toggle(!dah_console_is_open());
         return 0;
@@ -288,12 +308,9 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
     if (!dah_console_create(instance))
         fprintf(stderr, "[DAH-CONSOLE] failed to create console error=%lu\n", GetLastError());
 
-    if (!hidden_window) {
-        ShowWindow(g_game_window, SW_SHOW);
-        SetForegroundWindow(g_game_window);
-        BringWindowToTop(g_game_window);
-        UpdateWindow(g_game_window);
-    }
+    /* A normal player window is intentionally kept hidden until the D3D11
+     * swap chain and NV2A renderer are attached.  init_host_renderer posts
+     * WM_DAH_RENDERER_READY back to this owning UI thread. */
     /* An opaque owned popup covers the DXGI target and can itself make
      * Present report occlusion. Use the swapchain diagnostic clear normally;
      * retain this popup only for explicit window-composition diagnostics. */
@@ -379,6 +396,8 @@ static int init_host_renderer(HINSTANCE instance)
 
     pgraph_d3d11_init();
     fprintf(stderr, "[DAH] Host D3D11 renderer ready (640x480)\n");
+    if (!dah_internal_run() && !dah_test_window_hidden())
+        PostMessageA(g_game_window, WM_DAH_RENDERER_READY, 0, 0);
     return 1;
 }
 
