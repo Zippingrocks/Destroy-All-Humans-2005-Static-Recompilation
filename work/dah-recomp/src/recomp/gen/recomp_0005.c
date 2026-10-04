@@ -3244,7 +3244,12 @@ loc_0007A8FC: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(eax), 0x4137EF40 (32-bit) */
 
 loc_0007A905: ;
-    if (_flags /* je: equal / zero */) goto loc_0007A937;
+    /* Both incoming retail paths end in CMP immediately before converging on
+     * this JE.  Preserve that compare explicitly: the old fallback flag was
+     * never assigned, so the branch could not recognize pedestrian_floating
+     * (0x53C19FD8) and continued issuing control work against an actor already
+     * held by PK. */
+    if (CMP_EQ(_fa, _fb)) goto loc_0007A937; /* je: equal / zero */
 
 loc_0007A907: ;
     ebx = MEM32(edi + 0x1C);

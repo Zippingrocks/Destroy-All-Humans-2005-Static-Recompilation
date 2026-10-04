@@ -165,8 +165,12 @@ class Actor:
     health_divisor_bits: int | None
     health_current_bits: int | None
     ai_state: int
+    ai_vtable: int
+    ai_descriptor: int
     ai_state_id: int
     ai_state_name: str | None
+    ai_phase48: int | None
+    ai_words: tuple[int, ...]
     life_state: str | None
     physics_body: int
     physics_vtable: int
@@ -183,6 +187,8 @@ class Actor:
     motion_samples: int = 0
     state_events: int = 0
     ai_state_entered: float = 0.0
+    ai_state_min_height: float | None = None
+    ai_state_max_height: float | None = None
     physics_state_entered: float = 0.0
     ragdoll_stuck_reported: bool = False
     last_moved: float = 0.0
@@ -246,6 +252,8 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
     health_divisor = u32(raw, 0x368) if vtable == 0x00226338 else None
     health_current = u32(raw, 0x370) if vtable == 0x00226338 else None
     ai_state = u32(raw, 0x34C) if kind == "pedestrian" else 0
+    ai_raw = reader.read(ai_state, 0x4C) if pointer(ai_state) else None
+    ai_vtable = u32(ai_raw, 0) if ai_raw else 0
     ai_descriptor = reader.u32(ai_state + 8) if pointer(ai_state) else 0
     ai_state_id = reader.u32(ai_descriptor) if pointer(ai_descriptor) else 0
     ai_name_pointer = reader.u32(ai_descriptor + 0x0C) if pointer(ai_descriptor) else 0
@@ -286,7 +294,12 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         object_flags=object_flags, position=position, quaternion=quaternion,
         state_words=tuple(u32(raw, offset) for offset in STATE_OFFSETS if offset + 4 <= size),
         health_divisor_bits=health_divisor, health_current_bits=health_current,
-        ai_state=ai_state, ai_state_id=ai_state_id, ai_state_name=ai_state_name,
+        ai_state=ai_state, ai_vtable=ai_vtable,
+        ai_descriptor=ai_descriptor, ai_state_id=ai_state_id,
+        ai_state_name=ai_state_name,
+        ai_phase48=ai_raw[0x48] if ai_raw else None,
+        ai_words=(tuple(u32(ai_raw, offset) for offset in range(0, 0x4C, 4))
+                  if ai_raw else ()),
         life_state=life_state, physics_body=physics_body,
         physics_vtable=physics_vtable,
         physics_velocity=physics_velocity, physics_inner=physics_inner,
@@ -299,6 +312,10 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         motion_samples=old.motion_samples if old else 0,
         state_events=old.state_events if old else 0,
         ai_state_entered=old.ai_state_entered if old else now,
+        ai_state_min_height=old.ai_state_min_height if old else (
+            position[2] if position else None),
+        ai_state_max_height=old.ai_state_max_height if old else (
+            position[2] if position else None),
         physics_state_entered=old.physics_state_entered if old else now,
         ragdoll_stuck_reported=old.ragdoll_stuck_reported if old else False,
         last_moved=old.last_moved if old else now,
@@ -313,6 +330,10 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
     if position:
         actor.max_height = (position[2] if actor.max_height is None else
                             max(actor.max_height, position[2]))
+        actor.ai_state_min_height = (position[2] if actor.ai_state_min_height is None else
+                                     min(actor.ai_state_min_height, position[2]))
+        actor.ai_state_max_height = (position[2] if actor.ai_state_max_height is None else
+                                     max(actor.ai_state_max_height, position[2]))
     if physics_velocity:
         actor.max_speed = max(actor.max_speed, math.sqrt(sum(value * value for value in
                                                               physics_velocity)))
@@ -326,8 +347,12 @@ def ident(actor: Actor) -> dict:
             "resourceName": actor.resource_name,
             "render": f"{actor.render:08X}", "stateByte140": actor.gate140,
             "aiState": f"{actor.ai_state:08X}" if actor.ai_state else None,
+            "aiVtable": f"{actor.ai_vtable:08X}" if actor.ai_vtable else None,
+            "aiDescriptor": (f"{actor.ai_descriptor:08X}"
+                             if actor.ai_descriptor else None),
             "aiStateId": f"{actor.ai_state_id:08X}" if actor.ai_state_id else None,
             "aiStateName": actor.ai_state_name, "lifeState": actor.life_state,
+            "aiPhase48": actor.ai_phase48,
             "physicsBody": f"{actor.physics_body:08X}" if actor.physics_body else None,
             "physicsVtable": f"{actor.physics_vtable:08X}" if actor.physics_vtable else None,
             "physicsVelocity": rounded(actor.physics_velocity),
@@ -361,6 +386,8 @@ def actor_summary(actor: Actor, now: float) -> dict:
         **ident(actor),
         "lifetimeSeconds": round(now - actor.first_seen, 3),
         "stateSeconds": round(now - actor.ai_state_entered, 3),
+        "aiStateMinHeight": actor.ai_state_min_height,
+        "aiStateMaxHeight": actor.ai_state_max_height,
         "secondsSinceMovement": round(now - actor.last_moved, 3),
         "distanceTravelled": round(actor.distance_travelled, 3),
         "motionSamples": actor.motion_samples,
@@ -446,7 +473,7 @@ def main() -> int:
     try:
         with args.output.open("x", encoding="utf-8", buffering=1) as output:
             emit(output, "run-start", start_time, 0, pid=args.pid,
-                 observer="blanket-v2", sampleHz=args.hz,
+                 observer="blanket-v3", sampleHz=args.hz,
                  executable=str(image_path) if image_path else None,
                  executableSha256=file_sha256(image_path),
                  scanSeconds=args.scan_seconds,
@@ -555,6 +582,10 @@ def main() -> int:
                         if ai_changed:
                             current.ai_transitions += 1
                             current.ai_state_entered = now
+                            current.ai_state_min_height = (current.position[2]
+                                                           if current.position else None)
+                            current.ai_state_max_height = (current.position[2]
+                                                           if current.position else None)
                         if life_changed:
                             current.life_transitions += 1
                         if target_changed:
@@ -576,13 +607,33 @@ def main() -> int:
                              previousTarget53C=(f"{old.ai_target_53c:08X}"
                                                 if old.ai_target_53c else None),
                              previousTarget540=(f"{old.ai_target_540:08X}"
-                                                if old.ai_target_540 else None))
+                                                if old.ai_target_540 else None),
+                             previousAiPhase48=old.ai_phase48,
+                             previousAiWords=[f"{word:08X}" for word in old.ai_words],
+                             aiWords=[f"{word:08X}" for word in current.ai_words],
+                             previousStateMinHeight=old.ai_state_min_height,
+                             previousStateMaxHeight=old.ai_state_max_height)
                         count("ai-state")
                         if old.life_state == "dead" and current.life_state == "alive":
                             current.anomalies.append("dead-pedestrian-became-alive")
                             emit(output, "anomaly", now, tick, **ident(current),
                                  code="dead-pedestrian-became-alive",
                                  previousStateName=old.ai_state_name)
+                            count("anomaly")
+                        if (old.ai_state_name == "pedestrian_floating" and
+                                current.life_state == "dead"):
+                            height_span = (old.ai_state_max_height - old.ai_state_min_height
+                                           if old.ai_state_max_height is not None and
+                                           old.ai_state_min_height is not None else None)
+                            current.anomalies.append("floating-pedestrian-became-dead")
+                            emit(output, "anomaly", now, tick, **ident(current),
+                                 code="floating-pedestrian-became-dead",
+                                 floatingSeconds=round(previous_state_seconds, 3),
+                                 floatingHeightSpan=(round(height_span, 5)
+                                                     if height_span is not None else None),
+                                 previousAiPhase48=old.ai_phase48,
+                                 previousAiWords=[f"{word:08X}" for word in old.ai_words],
+                                 detail="Floating/PK state transitioned directly to death")
                             count("anomaly")
                         if (old.physics_vtable == 0x00237FA8 and
                                 current.physics_vtable == 0x002376E8):
