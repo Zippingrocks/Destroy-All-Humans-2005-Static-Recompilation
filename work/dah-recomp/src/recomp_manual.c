@@ -1743,7 +1743,10 @@ static void dah_trace_rockwell_player_camera(const XBOX_INPUT_STATE *state)
     if (enabled < 0) {
         const char *flag = getenv("DAH_ROCKWELL_PLAYER_TRACE");
         const char *start = getenv("DAH_ROCKWELL_TRACE_START");
-        enabled = flag ? strcmp(flag, "0") != 0 : !dah_input_is_internal();
+        /* This probe formats a large pose record on the guest thread.  Keep
+         * normal interactive play free of diagnostic I/O; parity runs opt in
+         * explicitly when they need the samples. */
+        enabled = flag && flag[0] && strcmp(flag, "0") != 0;
         if (start && *start) {
             unsigned long parsed = strtoul(start, NULL, 10);
             if (parsed <= 30000u) start_tick = (unsigned)parsed;
@@ -1870,9 +1873,10 @@ static void dah_trace_rockwell_player_camera(const XBOX_INPUT_STATE *state)
  * controller Y input, without needing a disassembler. Never changes guest
  * state; just periodically hex-dumps a window of camera memory so two
  * snapshots (e.g. stick-up vs stick-down) can be diffed by hand afterward.
- * It defaults on for an ordinary interactive build while this controller bug
- * is under investigation, remains off for internal/headless tests, and can be
- * explicitly overridden with DAH_CAMERA_MEMDIFF_TRACE=0 or =1. */
+ * This is intentionally opt-in.  A snapshot performs 128 formatted writes,
+ * and the runtime log is unbuffered so crash evidence is never lost.  Running
+ * the probe during ordinary play therefore creates visible frame-time spikes.
+ * Set DAH_CAMERA_MEMDIFF_TRACE=1 only for a bounded diagnostic run. */
 static void dah_camera_memdiff_poll(const XBOX_INPUT_STATE *state)
 {
     static int enabled = -1;
@@ -1880,9 +1884,7 @@ static void dah_camera_memdiff_poll(const XBOX_INPUT_STATE *state)
     uint32_t camera;
     if (enabled < 0) {
         const char *v = getenv("DAH_CAMERA_MEMDIFF_TRACE");
-        /* Internal mode deliberately replaces the physical pad with
-         * neutral/scripted input, so its default is quiet. */
-        enabled = v ? (strcmp(v, "0") != 0) : !dah_input_is_internal();
+        enabled = v && v[0] && strcmp(v, "0") != 0;
     }
     if (!enabled) return;
     if (++ticks % 30u) return;
