@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import math
 import struct
@@ -49,6 +50,10 @@ kernel32.ReadProcessMemory.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
                                        ctypes.POINTER(ctypes.c_size_t)]
 kernel32.ReadProcessMemory.restype = ctypes.c_bool
 kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+kernel32.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32,
+                                                ctypes.c_wchar_p,
+                                                ctypes.POINTER(ctypes.c_uint32)]
+kernel32.QueryFullProcessImageNameW.restype = ctypes.c_bool
 
 
 class Reader:
@@ -78,6 +83,14 @@ class Reader:
         data = self.read(address, 4)
         return struct.unpack_from("<I", data)[0] if data else 0
 
+    def image_path(self) -> Path | None:
+        capacity = ctypes.c_uint32(32768)
+        buffer = ctypes.create_unicode_buffer(capacity.value)
+        if not kernel32.QueryFullProcessImageNameW(self.handle, 0, buffer,
+                                                   ctypes.byref(capacity)):
+            return None
+        return Path(buffer.value)
+
 
 def u32(data: bytes, offset: int) -> int:
     return struct.unpack_from("<I", data, offset)[0]
@@ -88,7 +101,12 @@ def f32(data: bytes, offset: int) -> float:
 
 
 def pointer(value: int) -> bool:
-    return GUEST_MIN <= value < GUEST_MAX and value % 4 == 0
+    # Native recomp pointers use the low 64 MiB guest view. Retail Xbox heap
+    # pointers in xemu commonly use its 0x80000000 direct-map alias. Accepting
+    # both keeps the shared decoder semantic; Reader.read still bounds native
+    # process reads to the low view.
+    return ((GUEST_MIN <= value < GUEST_MAX) or
+            (0x80010000 <= value < 0x84000000)) and value % 4 == 0
 
 
 def matching_profile(data: bytes, offset: int):
@@ -151,6 +169,14 @@ class Actor:
     max_height: float | None = None
     motion_samples: int = 0
     state_events: int = 0
+    ai_state_entered: float = 0.0
+    last_moved: float = 0.0
+    distance_travelled: float = 0.0
+    ai_transitions: int = 0
+    life_transitions: int = 0
+    target_transitions: int = 0
+    physics_transitions: int = 0
+    render_transitions: int = 0
     anomalies: list[str] = field(default_factory=list)
 
 
@@ -233,6 +259,14 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         max_height=old.max_height if old else None,
         motion_samples=old.motion_samples if old else 0,
         state_events=old.state_events if old else 0,
+        ai_state_entered=old.ai_state_entered if old else now,
+        last_moved=old.last_moved if old else now,
+        distance_travelled=old.distance_travelled if old else 0.0,
+        ai_transitions=old.ai_transitions if old else 0,
+        life_transitions=old.life_transitions if old else 0,
+        target_transitions=old.target_transitions if old else 0,
+        physics_transitions=old.physics_transitions if old else 0,
+        render_transitions=old.render_transitions if old else 0,
         anomalies=list(old.anomalies) if old else [])
     if position:
         actor.max_height = (position[2] if actor.max_height is None else
@@ -265,6 +299,57 @@ def emit(output, kind: str, now: float, tick: int, **fields) -> None:
                             separators=(",", ":")) + "\n")
 
 
+def actor_summary(actor: Actor, now: float) -> dict:
+    return {
+        **ident(actor),
+        "lifetimeSeconds": round(now - actor.first_seen, 3),
+        "stateSeconds": round(now - actor.ai_state_entered, 3),
+        "secondsSinceMovement": round(now - actor.last_moved, 3),
+        "distanceTravelled": round(actor.distance_travelled, 3),
+        "motionSamples": actor.motion_samples,
+        "stateEvents": actor.state_events,
+        "aiTransitions": actor.ai_transitions,
+        "lifeTransitions": actor.life_transitions,
+        "targetTransitions": actor.target_transitions,
+        "physicsTransitions": actor.physics_transitions,
+        "renderTransitions": actor.render_transitions,
+        "lastPosition": rounded(actor.position),
+        "maxHeight": actor.max_height,
+        "anomalies": actor.anomalies,
+    }
+
+
+def census(tracked: dict[int, Actor]) -> dict:
+    by_class: dict[str, int] = {}
+    by_resource: dict[str, int] = {}
+    by_ai_state: dict[str, int] = {}
+    by_life: dict[str, int] = {}
+    for actor in tracked.values():
+        by_class[actor.kind] = by_class.get(actor.kind, 0) + 1
+        resource = actor.resource_name or f"{actor.resource:08X}"
+        by_resource[resource] = by_resource.get(resource, 0) + 1
+        if actor.ai_state_name:
+            by_ai_state[actor.ai_state_name] = by_ai_state.get(actor.ai_state_name, 0) + 1
+        if actor.life_state:
+            by_life[actor.life_state] = by_life.get(actor.life_state, 0) + 1
+    return {
+        "byClass": dict(sorted(by_class.items())),
+        "byResource": dict(sorted(by_resource.items())),
+        "byAiState": dict(sorted(by_ai_state.items())),
+        "byLifeState": dict(sorted(by_life.items())),
+    }
+
+
+def file_sha256(path: Path | None) -> str | None:
+    if not path or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pid", type=int, required=True)
@@ -288,6 +373,12 @@ def main() -> int:
     next_sample = time.perf_counter()
     next_scan = next_sample
     next_heartbeat = next_sample
+    last_heartbeat_time = start_time
+    last_heartbeat_tick = 0
+    stalled_heartbeats = 0
+    observed_life_state = False
+    observed_ai_state_name = False
+    image_path = reader.image_path()
 
     def count(kind: str) -> None:
         counts[kind] = counts.get(kind, 0) + 1
@@ -295,7 +386,9 @@ def main() -> int:
     try:
         with args.output.open("x", encoding="utf-8", buffering=1) as output:
             emit(output, "run-start", start_time, 0, pid=args.pid,
-                 observer="blanket-v1", sampleHz=args.hz,
+                 observer="blanket-v2", sampleHz=args.hz,
+                 executable=str(image_path) if image_path else None,
+                 executableSha256=file_sha256(image_path),
                  scanSeconds=args.scan_seconds,
                  scanRange=[f"{args.scan_start:08X}", f"{args.scan_end:08X}"],
                  coverage=["actor-lifecycle", "actor-state", "actor-transform",
@@ -314,6 +407,8 @@ def main() -> int:
                             actor = read_actor(reader, address, profile, now)
                             if actor:
                                 tracked[address] = actor
+                                observed_life_state |= actor.life_state is not None
+                                observed_ai_state_name |= actor.ai_state_name is not None
                                 emit(output, "actor-spawn", now, tick, **ident(actor),
                                      scene=f"{actor.scene:08X}",
                                      position=rounded(actor.position))
@@ -326,11 +421,8 @@ def main() -> int:
                         actor.missing_scans += 1
                         if actor.missing_scans < 2:
                             continue
-                        lifetime = now - actor.first_seen
                         emit(output, "actor-despawn", now, tick, **ident(actor),
-                             lifetimeSeconds=round(lifetime, 3),
-                             lastPosition=rounded(actor.position),
-                             maxHeight=actor.max_height,
+                             history=actor_summary(actor, now),
                              classification="semantics-unresolved")
                         count("actor-despawn")
                         if actor.kind == "pedestrian" and actor.life_state == "alive":
@@ -348,6 +440,8 @@ def main() -> int:
                     current = read_actor(reader, address, profile, now, old) if profile else None
                     if not current:
                         continue
+                    observed_life_state |= current.life_state is not None
+                    observed_ai_state_name |= current.ai_state_name is not None
                     if current.serial != old.serial:
                         emit(output, "anomaly", now, tick, **ident(current),
                              code="actor-address-reused", previousSerial=old.serial)
@@ -361,6 +455,8 @@ def main() -> int:
                                             "after": f"{after:08X}"})
                     if changes or current.gate140 != old.gate140 or current.render != old.render:
                         current.state_events += 1
+                        if current.render != old.render:
+                            current.render_transitions += 1
                         emit(output, "actor-state", now, tick, **ident(current),
                              previousStateByte140=old.gate140,
                              previousRender=f"{old.render:08X}", changes=changes)
@@ -372,7 +468,25 @@ def main() -> int:
                             current.physics_vtable != old.physics_vtable or
                             current.ai_target_53c != old.ai_target_53c or
                             current.ai_target_540 != old.ai_target_540):
+                        ai_changed = (current.ai_state != old.ai_state or
+                                      current.ai_state_id != old.ai_state_id or
+                                      current.ai_state_name != old.ai_state_name)
+                        life_changed = current.life_state != old.life_state
+                        target_changed = (current.ai_target_53c != old.ai_target_53c or
+                                          current.ai_target_540 != old.ai_target_540)
+                        physics_changed = current.physics_vtable != old.physics_vtable
+                        previous_state_seconds = now - old.ai_state_entered
+                        if ai_changed:
+                            current.ai_transitions += 1
+                            current.ai_state_entered = now
+                        if life_changed:
+                            current.life_transitions += 1
+                        if target_changed:
+                            current.target_transitions += 1
+                        if physics_changed:
+                            current.physics_transitions += 1
                         emit(output, "ai-state", now, tick, **ident(current),
+                             previousStateSeconds=round(previous_state_seconds, 3),
                              previousState=f"{old.ai_state:08X}" if old.ai_state else None,
                              previousStateId=(f"{old.ai_state_id:08X}"
                                               if old.ai_state_id else None),
@@ -385,9 +499,18 @@ def main() -> int:
                              previousTarget540=(f"{old.ai_target_540:08X}"
                                                 if old.ai_target_540 else None))
                         count("ai-state")
+                        if old.life_state == "dead" and current.life_state == "alive":
+                            current.anomalies.append("dead-pedestrian-became-alive")
+                            emit(output, "anomaly", now, tick, **ident(current),
+                                 code="dead-pedestrian-became-alive",
+                                 previousStateName=old.ai_state_name)
+                            count("anomaly")
                     if current.position and old.position:
                         distance = math.dist(current.position, old.position)
                         current.motion_samples += 1
+                        current.distance_travelled += distance
+                        if distance > 0.02:
+                            current.last_moved = now
                         if distance > 250.0:
                             emit(output, "anomaly", now, tick, **ident(current),
                                  code="large-transform-jump", distance=round(distance, 3),
@@ -400,8 +523,20 @@ def main() -> int:
                     tracked[address] = current
 
                 if perf_now >= next_heartbeat:
+                    heartbeat_seconds = max(now - last_heartbeat_time, 1e-9)
+                    tick_delta = ((tick - last_heartbeat_tick) & 0xFFFFFFFF
+                                  if last_heartbeat_tick else 0)
+                    tick_rate = tick_delta / heartbeat_seconds if last_heartbeat_tick else None
+                    stalled_heartbeats = (stalled_heartbeats + 1
+                                          if last_heartbeat_tick and tick_delta == 0 else 0)
                     emit(output, "heartbeat", now, tick, actors=len(tracked),
-                         counts=counts)
+                         counts=counts, census=census(tracked),
+                         tickDelta=tick_delta,
+                         observedTickRate=(round(tick_rate, 3)
+                                           if tick_rate is not None else None),
+                         stalledHeartbeats=stalled_heartbeats)
+                    last_heartbeat_time = now
+                    last_heartbeat_tick = tick
                     next_heartbeat = perf_now + 1.0
                 next_sample += 1.0 / max(1.0, args.hz)
                 delay = next_sample - time.perf_counter()
@@ -411,6 +546,10 @@ def main() -> int:
                     next_sample = time.perf_counter()
 
             end_time = time.time()
+            for actor in tracked.values():
+                emit(output, "actor-summary", end_time, 0,
+                     **actor_summary(actor, end_time))
+                count("actor-summary")
             emit(output, "run-end", end_time, 0,
                  durationSeconds=round(end_time - start_time, 3),
                  actorsRemaining=len(tracked), counts=counts,
@@ -421,9 +560,9 @@ def main() -> int:
                      "despawns": counts.get("actor-despawn", 0) > 0,
                      "anomalies": counts.get("anomaly", 0) > 0,
                      "damageCause": False,
-                     "aliveDeadMeaning": False,
+                     "aliveDeadMeaning": observed_life_state,
                      "effectOwnership": False,
-                     "aiTaskNames": False,
+                     "aiTaskNames": observed_ai_state_name,
                  })
     finally:
         reader.close()

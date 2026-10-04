@@ -15,12 +15,40 @@ not been proven to mean alive/dead. The final `run-end` event marks semantic are
 that remain unobserved. This prevents a quiet log from being mistaken for
 successful coverage.
 
+Version 2 also records the executable path and SHA-256, an every-second census
+by class/resource/named AI state/life state, observed world-tick rate, and a
+history summary for every actor. Histories include total movement, time in the
+current AI state, time since movement, AI/life/target/physics/render transition
+counts, last position, and maximum height. A dead-to-alive transition and a
+living pedestrian that disappears without an observed death are explicit
+anomalies. This makes quiet, stuck, streamed, killed, and allocator-reused
+objects distinguishable in the run report.
+
 Example:
 
 ```powershell
 python tools/parity/live_blanket_observer.py --pid 1234 `
   --output tools/parity/live-blanket-run.jsonl --seconds 600
 ```
+
+Decode an existing atomic xemu RAM checkpoint into the same census fields:
+
+```powershell
+python tools/parity/xemu_blanket_snapshot.py checkpoint.ram.bin `
+  --out checkpoint-blanket.jsonl --atomic
+```
+
+Compare only after the two captures have been aligned to the same level,
+checkpoint, mission state, input edge, and world tick:
+
+```powershell
+python tools/parity/compare_blanket_census.py checkpoint-blanket.jsonl `
+  native-run.jsonl --alignment verified --out census-comparison.json
+```
+
+Without `--alignment verified`, the comparison labels all differences as
+diagnostic only. This prevents two different mission phases from being reported
+as game bugs merely because their actor populations differ.
 
 The next instrumentation layers should add stable event IDs at the retail
 boundaries for damage application and attribution, AI task transitions, PK
@@ -63,6 +91,25 @@ exercised**, **recomp captured**, **both captured**, or **matched**:
    effects, and effect termination reason.
 10. **Audio and persistence:** cue start/stop/owner, stream starvation, save
     creation/load result, checkpoint state, unlocks, inventory, and upgrades.
+
+The next additions are ordered by how much ambiguity they remove:
+
+- instrument the central AI transition function with old/new descriptor IDs,
+  state names, actor serial, caller address, and reason;
+- instrument damage and death application with attacker, victim, weapon/power,
+  hit part, amount, impulse, and the chosen death-state descriptor;
+- track PK constraints from acquire through force, collision, release,
+  ragdoll, recovery, and any resulting death;
+- track effect emitters with template, owner, position, birth/death tick, live
+  particle count, and termination reason;
+- track streaming and renderer decisions for each scenery serial, including
+  requested/ready/visible/LOD/cull state and the camera used for the decision;
+- track animation clip/state/time and skeletal part visibility for people,
+  cows, weapons, and vehicles;
+- track mission, cinematic, camera, HUD, subtitle, and audio transitions on the
+  same world-tick timeline;
+- compute per-frame render fingerprints and only capture full images around the
+  first divergent tick, limiting overhead while retaining pixel evidence.
 
 An anomaly pass should flag actors that vanish without a recognized unload or
 death, health changes without a damage event, damage without a source, AI tasks
