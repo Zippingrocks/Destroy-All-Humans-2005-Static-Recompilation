@@ -29,8 +29,11 @@ Example:
 
 ```powershell
 python tools/parity/live_blanket_observer.py --pid 1234 `
-  --output tools/parity/live-blanket-run.jsonl --seconds 600
+  --output tools/parity/live-blanket-run.jsonl
 ```
+
+The default follows that process until it exits and then emits actor summaries
+and a `run-end` event. Use `--seconds N` only for a deliberately bounded probe.
 
 Decode an existing atomic xemu RAM checkpoint into the same census fields:
 

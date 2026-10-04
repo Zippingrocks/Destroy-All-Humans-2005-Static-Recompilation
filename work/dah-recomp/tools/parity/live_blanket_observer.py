@@ -54,6 +54,9 @@ kernel32.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32
                                                 ctypes.c_wchar_p,
                                                 ctypes.POINTER(ctypes.c_uint32)]
 kernel32.QueryFullProcessImageNameW.restype = ctypes.c_bool
+kernel32.GetExitCodeProcess.argtypes = [ctypes.c_void_p,
+                                        ctypes.POINTER(ctypes.c_uint32)]
+kernel32.GetExitCodeProcess.restype = ctypes.c_bool
 
 
 class Reader:
@@ -90,6 +93,12 @@ class Reader:
                                                    ctypes.byref(capacity)):
             return None
         return Path(buffer.value)
+
+    def is_running(self) -> bool:
+        exit_code = ctypes.c_uint32()
+        return (bool(kernel32.GetExitCodeProcess(self.handle,
+                                                 ctypes.byref(exit_code))) and
+                exit_code.value == 259)  # STILL_ACTIVE
 
 
 def u32(data: bytes, offset: int) -> int:
@@ -390,7 +399,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pid", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--seconds", type=float, default=600.0)
+    parser.add_argument("--seconds", type=float, default=0.0,
+                        help="capture duration; zero follows the process until exit")
     parser.add_argument("--hz", type=float, default=10.0)
     parser.add_argument("--scan-seconds", type=float, default=2.0)
     parser.add_argument("--scan-start", type=lambda value: int(value, 0), default=0x02800000)
@@ -405,7 +415,8 @@ def main() -> int:
     tracked: dict[int, Actor] = {}
     counts: dict[str, int] = {}
     start_time = time.time()
-    deadline = time.perf_counter() + args.seconds
+    deadline = (time.perf_counter() + args.seconds
+                if args.seconds > 0 else float("inf"))
     next_sample = time.perf_counter()
     next_scan = next_sample
     next_heartbeat = next_sample
@@ -430,7 +441,7 @@ def main() -> int:
                  coverage=["actor-lifecycle", "actor-state", "actor-transform",
                            "visibility-flags", "unexpected-despawn",
                            "teleport", "nonfinite-transform"])
-            while time.perf_counter() < deadline:
+            while time.perf_counter() < deadline and reader.is_running():
                 perf_now = time.perf_counter()
                 now = time.time()
                 world = reader.u32(0x00286768)
@@ -588,6 +599,8 @@ def main() -> int:
                 count("actor-summary")
             emit(output, "run-end", end_time, 0,
                  durationSeconds=round(end_time - start_time, 3),
+                 reason=("process-exited" if not reader.is_running() else
+                         "duration-complete"),
                  actorsRemaining=len(tracked), counts=counts,
                  coverage={
                      "actorLifecycle": counts.get("actor-spawn", 0) > 0,
