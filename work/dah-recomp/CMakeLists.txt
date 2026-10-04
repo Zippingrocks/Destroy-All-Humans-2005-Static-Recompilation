@@ -19,6 +19,7 @@ file(GLOB RECOMP_SOURCES CONFIGURE_DEPENDS "src/recomp/gen/*.c")
 add_executable(DestroyAllHumans WIN32
     src/main.c
     src/dah_crashlog.c
+    src/dah_event_trace.c
     src/dah_frame.c
     src/dah_renderdoc.c
     src/recomp_manual.c

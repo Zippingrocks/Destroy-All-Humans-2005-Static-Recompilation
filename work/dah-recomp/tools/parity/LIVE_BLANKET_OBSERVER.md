@@ -57,6 +57,15 @@ resource streaming, render visibility, audio cues, mission/objective state,
 and cutscene/HUD gates. Those events should feed the same JSONL timeline from a
 buffered writer so diagnostic output never blocks the game thread.
 
+`DAH_EVENT_TRACE=<new-jsonl-path>` enables the first exact boundary layer in a
+new build. The retail AI state-manager commit at `0001E870` pushes fixed-size
+old/new state records into a 16,384-entry memory ring. A background writer
+drains it every 50 ms; the game thread performs no file I/O and emits an
+explicit `trace-overflow` record if the ring ever fills. Each event includes
+world tick, manager, owning actor, old/new state pointers, IDs and names, plus
+the retail caller. The variable is read only at startup and is unset for normal
+play. It cannot be enabled retroactively in an already-running process.
+
 ## The blanket
 
 Every parity run should cover these layers and mark each one as **not

@@ -8,6 +8,7 @@
 #include <xbox/xboxrecomp.h>
 #include "dah_frame.h"
 #include "dah_crashlog.h"
+#include "dah_event_trace.h"
 #include "dah_renderdoc.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
@@ -708,6 +709,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     /* crashlog is a separate persistent crash-only archive.  Keep the
      * existing recomp crash handler and detailed runtime log intact. */
     dah_crashlog_initialize(dah_log_path);
+    dah_event_trace_initialize();
     AddVectoredExceptionHandler(0, log_unhandled_exception);
     /* Stack-sampling suspends the game thread by design.  Keep it available
      * for crash investigations, but do not let the diagnostic distort normal
@@ -801,6 +803,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     printf("Launching translated entry point 0x%08X...\n", DAH_ENTRY_POINT);
     dah_start_model_watch();
     entry();
+    dah_event_trace_shutdown();
     printf("The translated game returned to the host.\n");
     xbox_kernel_shutdown();
     xbox_MemoryLayoutShutdown();
