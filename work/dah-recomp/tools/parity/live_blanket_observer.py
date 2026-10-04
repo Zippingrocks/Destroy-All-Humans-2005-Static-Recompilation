@@ -241,8 +241,10 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         name_pointer = reader.u32(resource + 0x0C) if pointer(resource) else 0
         RESOURCE_NAMES[resource] = cstring(reader, name_pointer)
     resource_name = RESOURCE_NAMES[resource]
-    health_divisor = u32(raw, 0x368) if size >= 0x374 else None
-    health_current = u32(raw, 0x370) if size >= 0x374 else None
+    # 000600B0 proves +368/+370 only for the player actor class 00226338.
+    # Pedestrian storage at the same offsets is unrelated pointer/integer data.
+    health_divisor = u32(raw, 0x368) if vtable == 0x00226338 else None
+    health_current = u32(raw, 0x370) if vtable == 0x00226338 else None
     ai_state = u32(raw, 0x34C) if kind == "pedestrian" else 0
     ai_descriptor = reader.u32(ai_state + 8) if pointer(ai_state) else 0
     ai_state_id = reader.u32(ai_descriptor) if pointer(ai_descriptor) else 0

@@ -25,6 +25,13 @@ living pedestrian that disappears without an observed death are explicit
 anomalies. This makes quiet, stuck, streamed, killed, and allocator-reused
 objects distinguishable in the run report.
 
+The watcher also reports proven player-health changes from class `00226338`,
+pedestrian physics-body transitions, successful corpse/ragdoll-to-active-body
+recovery, and a living pedestrian that remains on the corpse/ragdoll body for
+four seconds. Pedestrian health is intentionally not guessed from the player's
+field offsets; damage attribution remains uncovered until its retail boundary
+is instrumented.
+
 Example:
 
 ```powershell
