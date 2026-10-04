@@ -68,3 +68,5 @@ work/dah-recomp/build-parity-xemu/
 work/dah-recomp/regen-one/
 /dah_pb_indexed_*.bin
 /dah_resource_*.bin
+work/dah-recomp/tools/parity/live-*.json
+work/dah-recomp/tools/parity/live-*.jsonl
