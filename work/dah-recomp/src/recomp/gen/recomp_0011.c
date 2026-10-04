@@ -1738,8 +1738,18 @@ loc_000F696C: ;
                 if (!entry->used || entry->object == esi) {
                     float x = MEMF(esi + 0x80), y = MEMF(esi + 0x84), z = MEMF(esi + 0x88);
                     float dx = x - entry->position[0], dy = y - entry->position[1], dz = z - entry->position[2];
-                    unsigned position_continuous = is_static_cluster || dx*dx + dy*dy + dz*dz <= 625.0f;
-                    uint32_t retention_frames = is_static_cluster ? 1u : 3u;
+                    float movement_squared = dx*dx + dy*dy + dz*dz;
+                    /* Dynamic type-7 objects include independently culled
+                     * actor parts.  A gravity/PK transition can intentionally
+                     * hide those parts while the body changes animation or
+                     * enters ragdoll.  Extending their visibility for three
+                     * frames exposed limbs and attachments that retail had
+                     * already rejected.  Keep the precision workaround to a
+                     * single frame and only for effectively stationary
+                     * dynamic meshes.  Static scenery retains its established
+                     * one-frame rule. */
+                    unsigned position_continuous = is_static_cluster || movement_squared <= 0.0625f;
+                    uint32_t retention_frames = 1u;
                     if (!raw_visible && entry->used && entry->visible_frame &&
                         frame > entry->visible_frame && frame - entry->visible_frame <= retention_frames &&
                         entry->frame + 1u == frame && camera_cut_frame < entry->visible_frame &&

@@ -465,3 +465,19 @@ indirect-call, rejected-state, sampler-creation or vertex-failure marker.
 This validates the shared actor/vehicle mesh-stability path, but the later
 police and military arrival cinematics still require a completed retail
 mission route for same-object xemu image comparison.
+
+## Gravity-beam dynamic-mesh guard
+
+Interactive Farm testing exposed a bad side effect of the three-frame dynamic
+hold: a cop entering the saucer gravity/PK transition could keep independently
+culled actor parts visible after the game had rejected them, producing broken
+limbs and attachments during the ragdoll change.  This was outside the vehicle
+run's acceptance coverage and invalidates the broad dynamic retention rule.
+
+Dynamic type-7 meshes now receive at most the same single-frame correction as
+static scenery, and only while their submitted position changes by no more
+than 0.25 world units between consecutive renderer frames.  Moving physics
+actors therefore follow the game's raw visibility result immediately.  The
+proven static-cluster tree correction remains unchanged.  The player binary
+compiled successfully to the staged `build-ninja/dah_recomp_working.exe`;
+promotion waits for the currently running player executable to close.
