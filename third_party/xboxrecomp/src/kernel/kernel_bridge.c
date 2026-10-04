@@ -283,6 +283,7 @@ static int g_kernel_call_count = 0;
  * thread and returns, and the thread runs the actual game.
  */
 static volatile LONG g_thread_call_count = 0;
+static volatile LONG g_active_guest_thread_count = 1;
 
 /* Thread entry shim. Sets up the new thread's own simulated stack, pushes the
  * two Xbox start-context arguments plus the dummy return address the callee's
@@ -332,6 +333,7 @@ static DWORD WINAPI bridge_thread_main(LPVOID param)
 
     bridge_run_thread_inline(fn, ctx1, ctx2);
     bridge_release_thread_stack();
+    InterlockedDecrement(&g_active_guest_thread_count);
 
     fprintf(stderr, "  [KERNEL] worker thread returned (eax=0x%08X)\n", g_eax);
     fflush(stderr);
@@ -347,12 +349,19 @@ static HANDLE bridge_spawn_thread(recomp_func_t fn, uint32_t ctx1,
     if (!s) return NULL;
     s->fn = fn; s->ctx1 = ctx1; s->ctx2 = ctx2; s->stack_top = stack_top;
 
+    /* Publish the count before the new thread can run to completion. */
+    InterlockedIncrement(&g_active_guest_thread_count);
     th = CreateThread(NULL, 0, bridge_thread_main, s, 0, NULL);
-    if (!th) free(s);
+    if (!th) {
+        InterlockedDecrement(&g_active_guest_thread_count);
+        free(s);
+    }
     /* Record the game thread so a host-tick-driven title's watchdog can sample
      * it via xbox_thread_debug_handle. Harmless for default-model titles: they
      * spawn workers too, but never read it back. See kernel_thread.c. */
-    else xbox_set_game_thread(th);
+    else {
+        xbox_set_game_thread(th);
+    }
     return th;
 }
 
@@ -1148,6 +1157,7 @@ static void bridge_PsTerminateSystemThread(void)
      */
     if (g_is_spawned_thread) {
         bridge_release_thread_stack();
+        InterlockedDecrement(&g_active_guest_thread_count);
         ExitThread(exit_status);
     }
 }
@@ -1402,6 +1412,28 @@ static void bridge_write_iostatus(uint32_t ios_va, NTSTATUS status, uint32_t inf
 #define BRIDGE_HANDLE_MASK 0x00FFFFFFu
 #define BRIDGE_HANDLE_MAX  16384
 static HANDLE s_handle_table[BRIDGE_HANDLE_MAX];
+
+/* PsQueryStatistics reports process-wide guest object counts. The bridge owns
+ * every host handle exposed to guest memory, so its token table is the closest
+ * equivalent of the Xbox process handle table. */
+static void bridge_PsQueryStatistics(void)
+{
+    uint32_t statistics_va = STACK_ARG(0);
+    uint32_t handle_count = 0;
+    int i;
+
+    if (!statistics_va || BRIDGE_MEM32(statistics_va) != 12u) {
+        g_eax = (uint32_t)STATUS_INVALID_PARAMETER;
+        return;
+    }
+    for (i = 1; i < BRIDGE_HANDLE_MAX; ++i)
+        if (s_handle_table[i] != NULL) handle_count++;
+
+    BRIDGE_MEM32(statistics_va + 4u) =
+        (uint32_t)InterlockedCompareExchange(&g_active_guest_thread_count, 0, 0);
+    BRIDGE_MEM32(statistics_va + 8u) = handle_count;
+    g_eax = (uint32_t)STATUS_SUCCESS;
+}
 
 /* Optional diagnostics for the game's isolated U: save files. Associate only
  * U: paths with bridge handle tokens, so a write can be tied to its create. */
@@ -2749,6 +2781,7 @@ static int stdcall_args_for_ordinal(ULONG ordinal)
     case 252: return  4;  /* PhyGetLinkState (1) */
     case 253: return  8;  /* PhyInitialize (2) */
     case 255: return 40;  /* PsCreateSystemThreadEx (10) */
+    case 256: return  4;  /* PsQueryStatistics (1) */
     case 258: return  4;  /* PsTerminateSystemThread (1) */
     case 260: return 12;  /* RtlAnsiStringToUnicodeString (3) */
     case 268: return 12;  /* RtlCompareMemory (3) */
@@ -2845,6 +2878,7 @@ static bridge_func_t bridge_for_ordinal(ULONG ordinal)
     case   2: return bridge_AvSendTVEncoderOption;
     /* Threading */
     case 255: return bridge_PsCreateSystemThreadEx;
+    case 256: return bridge_PsQueryStatistics;
     case 258: return bridge_PsTerminateSystemThread;
     case 327: return bridge_XeLoadSection;
     case 328: return bridge_XeUnloadSection;
@@ -3375,4 +3409,3 @@ void xbox_kernel_bridge_init(void)
             KERNEL_VA_BASE, KERNEL_VA_BASE + (resolved - 1) * 4);
 
 }
-

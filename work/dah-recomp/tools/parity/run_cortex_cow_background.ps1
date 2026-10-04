@@ -1,6 +1,7 @@
 param(
     [ValidateRange(30, 600)][int]$Seconds = 330,
-    [ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run = 'current'
+    [ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run = 'current',
+    [ValidateRange(1, 1000)][int]$StateInterval = 1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,7 +44,7 @@ $settings = @{
     DAH_SAVE_DIR = $saveDir
     DAH_LOG_PATH = $logPath
     DAH_PARITY_STATE_TRACE = $statePath
-    DAH_PARITY_STATE_INTERVAL = '1'
+    DAH_PARITY_STATE_INTERVAL = [string]$StateInterval
     DAH_ACTIVE_ICALL_TRACE = '1'
     DAH_ACTIVE_SCRIPT_CALL_TRACE = '1'
 }

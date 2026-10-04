@@ -13,6 +13,33 @@
 
 #include "kernel.h"
 #include "xbox_memory_layout.h"   /* XBOX_WORKER_STACK_* + worker-stack decls */
+#include <tlhelp32.h>
+
+NTSTATUS __stdcall xbox_PsQueryStatistics(PXBOX_PS_STATISTICS statistics)
+{
+    HANDLE snapshot;
+    THREADENTRY32 entry;
+    DWORD process_id = GetCurrentProcessId();
+    DWORD thread_count = 0, handle_count = 0;
+
+    if (!statistics || statistics->Length != sizeof(*statistics))
+        return STATUS_INVALID_PARAMETER;
+
+    snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snapshot != INVALID_HANDLE_VALUE) {
+        entry.dwSize = sizeof(entry);
+        if (Thread32First(snapshot, &entry)) {
+            do {
+                if (entry.th32OwnerProcessID == process_id) thread_count++;
+            } while (Thread32Next(snapshot, &entry));
+        }
+        CloseHandle(snapshot);
+    }
+    GetProcessHandleCount(GetCurrentProcess(), &handle_count);
+    statistics->ThreadCount = thread_count;
+    statistics->HandleCount = handle_count;
+    return STATUS_SUCCESS;
+}
 
 /* ============================================================================
  * Thread Start Wrapper

@@ -259,6 +259,7 @@ ULONG_PTR xbox_resolve_ordinal(ULONG ordinal)
 
     /* ---- Process / thread ---- */
     case 255: return (ULONG_PTR)xbox_PsCreateSystemThreadEx;
+    case 256: return (ULONG_PTR)xbox_PsQueryStatistics;
     case 258: return (ULONG_PTR)xbox_PsTerminateSystemThread;
     case 259: return (ULONG_PTR)&xbox_PsThreadObjectType;
 

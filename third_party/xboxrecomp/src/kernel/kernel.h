@@ -694,6 +694,15 @@ NTSTATUS __stdcall xbox_PsCreateSystemThreadEx(
     BOOLEAN CreateSuspended, BOOLEAN DebugStack,
     PXBOX_SYSTEM_ROUTINE StartRoutine);
 
+/* Xbox PS_STATISTICS is a fixed 12-byte structure. */
+typedef struct _XBOX_PS_STATISTICS {
+    ULONG Length;
+    ULONG ThreadCount;
+    ULONG HandleCount;
+} XBOX_PS_STATISTICS, *PXBOX_PS_STATISTICS;
+
+NTSTATUS __stdcall xbox_PsQueryStatistics(PXBOX_PS_STATISTICS ProcessStatistics);
+
 NTSTATUS __stdcall xbox_PsTerminateSystemThread(NTSTATUS ExitStatus);
 
 NTSTATUS __stdcall xbox_KeDelayExecutionThread(KPROCESSOR_MODE WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval);
@@ -976,6 +985,10 @@ NTSTATUS __stdcall xbox_ExSaveNonVolatileSetting(ULONG ValueIndex, ULONG Type, P
 #define XC_MISC                   0x11
 #define XC_DVD_REGION             0x12
 #define XC_MAX_OS                 0xFF
+#define XC_FACTORY_AV_REGION      0x0103
+#define XC_FACTORY_GAME_REGION    0x0104
+
+#define XC_GAME_REGION_NA         0x00000001
 
 /* Older spellings kept so existing call sites still build. */
 #define XC_PARENTAL_CONTROL       XC_P_CONTROL_GAMES

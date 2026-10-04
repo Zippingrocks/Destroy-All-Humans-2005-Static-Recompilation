@@ -141,11 +141,21 @@ NTSTATUS __stdcall xbox_ExQueryNonVolatileSetting(
         }
         break;
 
-    case 0x0103: /* XC_FACTORY_AV_REGION */
+    case XC_FACTORY_AV_REGION:
         /* XGetVideoStandard extracts byte 1. NTSC-M is 0x00000100;
          * returning zero makes the retail renderer reject every video mode. */
         if (ValueLength >= sizeof(ULONG))
             *(PULONG)Value = 0x00000100;
+        if (Type) *Type = 4;
+        if (ResultLength) *ResultLength = sizeof(ULONG);
+        break;
+
+    case XC_FACTORY_GAME_REGION:
+        /* Retail North America. DAH polls this while enumerating save slots;
+         * returning a named factory value avoids an unhandled-setting path and
+         * matches the region used by the title image. */
+        if (ValueLength >= sizeof(ULONG))
+            *(PULONG)Value = XC_GAME_REGION_NA;
         if (Type) *Type = 4;
         if (ResultLength) *ResultLength = sizeof(ULONG);
         break;

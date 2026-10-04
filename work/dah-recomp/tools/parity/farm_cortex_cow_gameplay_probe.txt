@@ -1,8 +1,19 @@
-@frame
 # Fresh-profile retail route into Farm. Front-end inputs stay on the shared
 # retail frame clock; gameplay inputs switch to the verified active-Crypto
 # anchor so movie and loading drift cannot move the fence/scan sequence into a
 # different tutorial phase.
+# Startup movies advance on input-poll time and can hold the retail frame clock.
+# These normal controller taps match the phase-aware skip route and prevent a
+# movie cadence change from leaving the later frame-bound menu inputs in the
+# shell attract state.
+300 4 10 0 0 0 0 0 0
+420 4 0 255 0 0 0 0 0
+540 4 10 0 0 0 0 0 0
+660 4 0 255 0 0 0 0 0
+780 4 10 0 0 0 0 0 0
+900 4 0 255 0 0 0 0 0
+
+@frame
 1200 6 10 0 0 0 0 0 0
 1400 6 0 255 0 0 0 0 0
 1700 6 0 255 0 0 0 0 0

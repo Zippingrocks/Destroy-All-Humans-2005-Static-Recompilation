@@ -57,16 +57,40 @@ their next Bink frame is pending while open/preload remains blocking.
 
 ## Baseline kernel follow-ups
 
-- Kernel ordinal 256 remains unresolved at startup.
-- `ExQueryNonVolatileSetting` index `0x104` is unhandled.
-- Invalid mutant releases occur in bursts during movie lifecycle boundaries.
-- The save-selection screen repeatedly reopens metadata and payload files for
-  all three slots while idle, accompanied by a high-frequency stream of
-  unhandled `0x104` nonvolatile-setting queries. Determine whether retail polls
-  this state continuously or whether a missing result prevents the menu from
-  settling.
+- Kernel ordinal 256 (`PsQueryStatistics`) was resolved on 2026-10-03. The
+  bridge validates the retail 12-byte structure and reports active guest
+  threads plus live guest handle tokens, removing the startup unresolved-export
+  diagnostic without replacing it with a success-only stub.
 
-These did not crash or stall the shell during this observation period.
+## Known-bug sweep after the worker fix
+
+The hidden `knownbugs-20261003b` phase-aware skip route completed through the
+front end and into `blocks\\sites\\farm`. Its final state retained Crypto, the
+weapon manager, HUD and world, with zero unresolved calls, fatal/exception
+markers, failed presents or invalid simulation steps. The core input tests pass
+2/2 and the movie scheduler passes 138 scenarios / 3811 assertions in every
+environment variant.
+
+The older cow-scan route's fixed front-end frames could remain in the shell
+after movie cadence changed. It now includes the same input-poll-time startup
+taps as the successful phase-aware route before switching to frame-bound menu
+inputs; gameplay scan inputs remain anchored to active Crypto.
+
+Validation `knownbugs-20261003d` reached Farm, activated Crypto, and delivered
+both gameplay-anchored scan holds. Its movement replay stopped at
+`(943.500, 524.394, 9.971)` without acquiring the cow, so it did not exercise
+the scan callbacks and is not counted as a new cortex pass. The last completed
+functional proof remains `cortex-cow-current6`, which exercised the full
+`20 -> 250 -> 251 -> 254 -> 20` chain twice with no unresolved targets. This is
+tracked as route targeting drift rather than a claimed gameplay regression.
+- `ExQueryNonVolatileSetting` index `0x104` is now handled as
+  `XC_FACTORY_GAME_REGION` and returns the North America retail region used by
+  this title. This removes the unknown-setting result from save-slot polling.
+- The worker-handle initialization fix removed the invalid mutant-release bursts
+  from fresh movie runs.
+- Save selection continues to poll metadata for all three slots while idle.
+  Fresh runs show no error or failed mutation, so this remains observed retail
+  behavior rather than a confirmed defect.
 
 ## Repeated-playback worker startup race
 
