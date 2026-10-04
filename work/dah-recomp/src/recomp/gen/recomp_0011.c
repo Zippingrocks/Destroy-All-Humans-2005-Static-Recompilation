@@ -7307,6 +7307,71 @@ static int dah_tutorial_trace_enabled = -1;
 static uint32_t dah_tutorial_trace_object;
 static unsigned dah_tutorial_trace_samples;
 
+/* Read-only Archives diagnostics.  The museum menu is built by Lua and its
+ * child names are the most reliable way to distinguish videos, concept art,
+ * and bonus extras without guessing at save/unlock fields. */
+static int dah_museum_trace_enabled = -1;
+static uint32_t dah_museum_trace_object;
+static unsigned dah_museum_trace_active;
+static unsigned dah_museum_trace_renders;
+static unsigned dah_museum_trace_samples;
+
+static int dah_ui_name_museum(uint32_t object)
+{
+    return object &&
+        ((MEM32(object + 0x0Cu) == 0x75687474u &&
+          MEM32(object + 0x10u) == 0x73754D62u &&
+          MEM32(object + 0x14u) == 0x006D7565u) ||
+         (MEM32(object + 0x0Cu) == 0x6573756Du &&
+          (MEM32(object + 0x10u) & 0xFFFFu) == 0x6D75u));
+}
+
+static void dah_museum_trace_tree(uint32_t object, unsigned depth)
+{
+    uint32_t sentinel, node;
+    unsigned child_count = 0u;
+    char name[41];
+    unsigned i;
+    if (!object || depth > 6u) return;
+    for (i = 0u; i < 40u; ++i) {
+        unsigned char c = MEM8(object + 0x0Cu + i);
+        if (!c) break;
+        name[i] = c >= 32u && c < 127u ? (char)c : '?';
+    }
+    name[i] = 0;
+    fprintf(stderr,
+        "[DAH-MUSEUM-NODE] depth=%u object=%08X vt=%08X active=%u "
+        "name=%s flags=%08X p60=%08X p64=%08X p68=%08X p6C=%08X "
+        "p70=%08X p74=%08X p78=%08X p7C=%08X p80=%08X p84=%08X "
+        "p88=%08X p8C=%08X p90=%08X p94=%08X p98=%08X p9C=%08X "
+        "pA0=%08X pA4=%08X pA8=%08X pAC=%08X pB0=%08X pB4=%08X "
+        "pB8=%08X pBC=%08X pC0=%08X pC4=%08X pC8=%08X pCC=%08X "
+        "pD0=%08X pD4=%08X\n",
+        depth, object, MEM32(object), MEM8(object + 4u), name,
+        MEM32(object + 0x5Cu), MEM32(object + 0x60u),
+        MEM32(object + 0x64u), MEM32(object + 0x68u),
+        MEM32(object + 0x6Cu), MEM32(object + 0x70u),
+        MEM32(object + 0x74u), MEM32(object + 0x78u),
+        MEM32(object + 0x7Cu), MEM32(object + 0x80u),
+        MEM32(object + 0x84u), MEM32(object + 0x88u),
+        MEM32(object + 0x8Cu), MEM32(object + 0x90u),
+        MEM32(object + 0x94u), MEM32(object + 0x98u),
+        MEM32(object + 0x9Cu), MEM32(object + 0xA0u),
+        MEM32(object + 0xA4u), MEM32(object + 0xA8u),
+        MEM32(object + 0xACu), MEM32(object + 0xB0u),
+        MEM32(object + 0xB4u), MEM32(object + 0xB8u),
+        MEM32(object + 0xBCu), MEM32(object + 0xC0u),
+        MEM32(object + 0xC4u), MEM32(object + 0xC8u),
+        MEM32(object + 0xCCu), MEM32(object + 0xD0u),
+        MEM32(object + 0xD4u));
+    sentinel = object + 0x44u;
+    node = MEM32(sentinel);
+    while (node && node != sentinel && child_count++ < 64u) {
+        dah_museum_trace_tree(MEM32(node + 8u), depth + 1u);
+        node = MEM32(node);
+    }
+}
+
 static int dah_ui_name_tutorial(uint32_t object)
 {
     return object && MEM32(object + 0x0Cu) == 0x6F747574u &&
@@ -7439,6 +7504,44 @@ void sub_000F9300(void)
     }
     if (dah_tutorial_trace_enabled < 0)
         dah_tutorial_trace_enabled = getenv("DAH_TUTORIAL_TRACE") ? 1 : 0;
+    if (dah_museum_trace_enabled < 0)
+        dah_museum_trace_enabled = getenv("DAH_MUSEUM_TRACE") ? 1 : 0;
+    if (dah_museum_trace_enabled && MEM32(esp + 4u) == 9u &&
+        MEM32(0x258470u) && ecx == MEM32(MEM32(0x258470u))) {
+        uint32_t sentinel = ecx + 0x44u;
+        uint32_t node = MEM32(sentinel);
+        uint32_t museum = 0u;
+        unsigned count = 0u;
+        while (node && node != sentinel && count++ < 64u) {
+            uint32_t object = MEM32(node + 8u);
+            if (dah_ui_name_museum(object)) {
+                museum = object;
+                if (MEM8(object + 4u)) break;
+            }
+            node = MEM32(node);
+        }
+        if (museum && MEM8(museum + 4u)) {
+            if (museum != dah_museum_trace_object || !dah_museum_trace_active) {
+                dah_museum_trace_object = museum;
+                dah_museum_trace_active = 1u;
+                dah_museum_trace_renders = 0u;
+                dah_museum_trace_samples = 0u;
+            }
+            ++dah_museum_trace_renders;
+            if (dah_museum_trace_samples < 16u &&
+                (dah_museum_trace_renders == 1u ||
+                 dah_museum_trace_renders % 60u == 0u)) {
+                ++dah_museum_trace_samples;
+                fprintf(stderr,
+                    "[DAH-MUSEUM-SNAPSHOT] root=%08X museum=%08X render=%u sample=%u\n",
+                    ecx, museum, dah_museum_trace_renders,
+                    dah_museum_trace_samples);
+            dah_museum_trace_tree(museum, 0u);
+            }
+        } else if (!museum || !MEM8(museum + 4u)) {
+            dah_museum_trace_active = 0u;
+        }
+    }
     if (dah_tutorial_trace_enabled && MEM32(esp + 4u) == 9u &&
         MEM32(0x258470u) && ecx == MEM32(MEM32(0x258470u))) {
         uint32_t sentinel = ecx + 0x44u;
