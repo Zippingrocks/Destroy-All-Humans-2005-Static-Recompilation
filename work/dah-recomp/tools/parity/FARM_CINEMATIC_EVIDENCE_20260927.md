@@ -491,3 +491,9 @@ All four functions are now byte-derived from `work/disasm-seeded/asm/text.asm`, 
 Validation: `cmake --build build-ninja --target DestroyAllHumans` completed and linked successfully. The running old executable cannot validate the new dispatches in-place; the staged binary is queued for promotion after that user-run process exits normally.
 
 The same live interval also exposed `00046C70` from event returns `0004C96E` and `0004C987` (eight observed calls). This is the 93-byte retail event handler for the affected actor/vehicle path; it has likewise been translator-lifted from the exact `00046C70..00046CCD` byte range and registered for indirect dispatch.
+
+## Stable host-window border and rifle attachment follow-up
+
+The user-visible 640x480 capture showed the rendered backbuffer filling the client exactly, while the white/black artifact occupied the Windows resize border. The host now requests a fixed black `DWMWA_BORDER_COLOR` through a dynamically loaded `DwmSetWindowAttribute`, leaving the title bar and client presentation unchanged and remaining harmless on Windows versions that do not support the attribute.
+
+The malformed soldier M1/rifle report occurred in the old process that still skipped the military actor event handlers. The newly promoted build includes the exact `00046C70` event callback as well as `0002DFC0`; these restore the attachment/model refresh path before any further culling workaround is considered. This is intentionally scoped because the prior broad dynamic-mesh retention caused incorrect actor attachments during gravity-beam transitions.

@@ -60,6 +60,24 @@ static void dah_report_startup_error(const char *message, UINT flags)
         MessageBoxA(NULL, message, "Destroy All Humans! Recomp", flags);
 }
 
+/* Windows 11 otherwise paints the resize border from transient active-window
+ * state.  The game presents a fixed 640x480 client surface, so keep the
+ * nonclient edge a stable black without changing the title bar or client. */
+static void dah_set_stable_window_border(HWND hwnd)
+{
+    typedef HRESULT (WINAPI *DwmSetWindowAttributeFn)(HWND, DWORD, LPCVOID, DWORD);
+    HMODULE dwm = LoadLibraryA("dwmapi.dll");
+    if (dwm) {
+        DwmSetWindowAttributeFn set_attribute =
+            (DwmSetWindowAttributeFn)GetProcAddress(dwm, "DwmSetWindowAttribute");
+        if (set_attribute) {
+            const DWORD dwmwa_border_color = 34u;
+            const COLORREF black = RGB(0, 0, 0);
+            set_attribute(hwnd, dwmwa_border_color, &black, sizeof(black));
+        }
+        FreeLibrary(dwm);
+    }
+}
 static void position_diagnostic_overlay(void)
 {
     RECT rect;
@@ -263,6 +281,8 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
         SetEvent(g_window_ready_event);
         return 0;
     }
+    dah_set_stable_window_border(g_game_window);
+
 
     if (!dah_console_create(instance))
         fprintf(stderr, "[DAH-CONSOLE] failed to create console error=%lu\n", GetLastError());
