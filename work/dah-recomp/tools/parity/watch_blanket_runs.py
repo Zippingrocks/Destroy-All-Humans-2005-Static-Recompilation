@@ -87,6 +87,8 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=float, default=0.5)
     parser.add_argument("--hz", type=float, default=5.0)
     parser.add_argument("--scan-seconds", type=float, default=5.0)
+    parser.add_argument("--ignore-pid", type=int, action="append", default=[],
+                        help="process already covered by another observer")
     args = parser.parse_args()
     target = args.executable.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -102,7 +104,7 @@ def main() -> int:
             current_pids = process_ids(target.name)
             completed.intersection_update(current_pids)
             for pid in current_pids:
-                if pid in children or pid in completed:
+                if pid in args.ignore_pid or pid in children or pid in completed:
                     continue
                 candidate = image_path(pid)
                 if not candidate or candidate.resolve() != target:
