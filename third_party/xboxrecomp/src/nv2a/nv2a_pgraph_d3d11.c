@@ -3541,7 +3541,8 @@ static int submit_postprocess(void)
                 /* Effect and HUD quads can share this screen-space vertex
                  * shape while sampling an ordinary Xbox texture.  Treating
                  * every such draw as render-target feedback discarded the
-                 * abducto ground marker and hologram/projector layers. */
+                 * abducto ground marker, transition overlays, and
+                 * hologram/projector layers. */
                 IDirect3DTexture8 *texture=dah_mesh_texture(t,dev);
                 bind_result=texture ? dev->lpVtbl->SetTexture(dev,t,
                     (IDirect3DBaseTexture8*)texture) : E_FAIL;

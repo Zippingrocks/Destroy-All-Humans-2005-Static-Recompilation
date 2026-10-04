@@ -148,7 +148,13 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
                          g_aim_deadzone, g_aim_curve,
                          &pState->Gamepad.sThumbRX,
                          &pState->Gamepad.sThumbRY);
-    if (previous_packet != xi_state.dwPacketNumber) {
+    {
+        static int input_trace_enabled = -1;
+        if (input_trace_enabled < 0) {
+            const char *value = getenv("DAH_INPUT_TRACE");
+            input_trace_enabled = value && value[0] && strcmp(value, "0") != 0;
+        }
+        if (input_trace_enabled && previous_packet != xi_state.dwPacketNumber) {
         fprintf(stderr,
                 "[FURON-HOST-INPUT] port=%u packet=%u "
                 "raw_sticks=%d,%d,%d,%d conditioned_sticks=%d,%d,%d,%d "
@@ -158,6 +164,7 @@ DWORD xbox_InputGetState(DWORD dwPort, XBOX_INPUT_STATE *pState)
                 (int)xi_state.Gamepad.sThumbRX, (int)xi_state.Gamepad.sThumbRY,
                 (int)pState->Gamepad.sThumbLX, (int)pState->Gamepad.sThumbLY,
                 (int)pState->Gamepad.sThumbRX, (int)pState->Gamepad.sThumbRY);
+        }
     }
 
     return ERROR_SUCCESS;

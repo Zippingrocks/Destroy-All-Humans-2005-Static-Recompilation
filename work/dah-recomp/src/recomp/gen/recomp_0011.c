@@ -22763,8 +22763,7 @@ loc_000FF899: ;
         static unsigned dah_stick_trace_count;
         if (dah_stick_trace_enabled < 0) {
             const char *v = getenv("DAH_STICK_CONDITION_TRACE");
-            dah_stick_trace_enabled = v ? (strcmp(v, "0") != 0) :
-                (getenv("DAH_INTERNAL_RUN") == NULL);
+            dah_stick_trace_enabled = v && v[0] && strcmp(v, "0") != 0;
         }
         if (dah_stick_trace_enabled && dah_stick_trace_count < 2000000u) {
             int16_t raw1 = (int16_t)SMEM16(esp + 0x26);

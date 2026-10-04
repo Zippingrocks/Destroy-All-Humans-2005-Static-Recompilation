@@ -1950,8 +1950,15 @@ void dah_xinput_get_state_bridge(void)
         {
             static XBOX_INPUT_STATE last_logged;
             static int have_last_logged;
-            int changed = !have_last_logged || memcmp(&last_logged, &state, sizeof(state)) != 0;
-            if (changed || (g_dah_input_state_calls % 300u) == 0u) {
+            static int input_trace_enabled = -1;
+            int changed;
+            if (input_trace_enabled < 0) {
+                const char *value = getenv("DAH_INPUT_TRACE");
+                input_trace_enabled = value && value[0] && strcmp(value, "0") != 0;
+            }
+            changed = !have_last_logged || memcmp(&last_logged, &state, sizeof(state)) != 0;
+            if (input_trace_enabled &&
+                (changed || (g_dah_input_state_calls % 300u) == 0u)) {
                 fprintf(stderr,
                     "[FURON-INPUT] poll=%u changed=%d packet=%u buttons=%04X "
                     "analog=A:%u,B:%u,X:%u,Y:%u,BLACK:%u,WHITE:%u,LT:%u,RT:%u "
