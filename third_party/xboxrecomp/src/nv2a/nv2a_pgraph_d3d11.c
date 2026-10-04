@@ -2911,8 +2911,10 @@ static int submit_indexed_3d(void)
              * Pox projector and saucer particles use ordinary linear ARGB
              * textures at offsets that may also have served as old targets.
              * Only classify a texture as an RT when its live SRV can be bound. */
-            pox_render_targets[stage]=d3d8_PgraphTryBindRenderTargetTexture(
-                stage,g_pg.tex[stage].offset)!=FALSE;
+            pox_render_targets[stage]=d3d8_PgraphTryBindRenderTargetTextureSized(
+                stage,g_pg.tex[stage].offset,
+                g_pg.tex[stage].image_rect >> 16u,
+                g_pg.tex[stage].image_rect & 0xFFFFu)!=FALSE;
             if(!pox_render_targets[stage])pox_textures[stage]=dah_mesh_texture(stage,dev);
         }
         tex_obj=pox_textures[0];
@@ -3151,7 +3153,8 @@ static int submit_indexed_movie(void)
      * is the current output), this is ordinary guest texture data and must
      * take the upload path instead of being rejected at draw time. */
     int render_texture = format == D3DFMT_LIN_A8R8G8B8 && dev &&
-                         d3d8_PgraphTryBindRenderTargetTexture(0, texture_offset);
+                         d3d8_PgraphTryBindRenderTargetTextureSized(
+                             0, texture_offset, width, height);
     uint32_t bytes_per_pixel = format == D3DFMT_LIN_A4R4G4B4 ? 2u : 4u;
     uint32_t min_filter = (g_pg.tex[0].filter >> 16u) & 0xFFu;
     uint32_t mag_filter = (g_pg.tex[0].filter >> 24u) & 0xFu;
