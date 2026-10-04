@@ -4,6 +4,8 @@ This is the canonical reverse-engineering map for the **main menu and mothership
 
 The machine-readable registry is [`main_menu_symbols.json`](main_menu_symbols.json). Run `python tools/parity/validate_main_menu_symbols.py` from `work/dah-recomp` to verify that every mapped address still has a function body, that names and addresses are unique, and that every entry carries evidence and a confidence level. Run `python tools/parity/build_main_menu_call_frontier.py` to regenerate [`main_menu_call_frontier.json`](main_menu_call_frontier.json), the review queue of direct native callees that still need classification.
 
+Menu behavior is tracked separately in [`main_menu_coverage.json`](main_menu_coverage.json). Its 25 bounded routes keep static understanding, recomp runtime coverage, and xemu parity as separate facts. Run `python tools/parity/validate_main_menu_coverage.py` to validate and summarize that ledger.
+
 ## Boundary
 
 Included:
