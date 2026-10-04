@@ -24,6 +24,14 @@
 
     <section class="controls" aria-label="Coverage filters">
       <label>
+        <span>Organization</span>
+        <select id="layoutMode">
+          <option value="region">Code regions</option>
+          <option value="status">Implementation status</option>
+          <option value="flat">Function size only</option>
+        </select>
+      </label>
+      <label>
         <span>Status</span>
         <select id="statusFilter">
           <option value="all">All functions</option>
@@ -53,13 +61,13 @@
       <aside class="details" id="details">
         <p class="eyebrow">Selected function</p>
         <h2>Hover or select a tile</h2>
-        <p>Large tiles are large original functions. Use the filter box to search by address, status, size, or confidence.</p>
+        <p>The default view groups nearby Xbox addresses into labeled 64 KiB code regions. Large tiles are large original functions.</p>
       </aside>
     </section>
 
     <section class="method">
       <h2>What the colors mean</h2>
-      <p><strong>Recovered</strong> means a dedicated callback translation exists. <strong>Observed seed</strong> means runtime evidence caused the address to be retained for dispatch. <strong>Auto translated</strong> means the static translator emitted and dispatches the function. <strong>Stubbed</strong> means a known target still has placeholder behavior. A parity-note marker means the address appears in captured comparison evidence; it does not by itself claim pixel accuracy.</p>
+      <p><strong>Code regions</strong> preserve the original executable's address neighborhoods. <strong>Implementation status</strong> gathers functions by the kind of recompilation evidence we have. <strong>Function size only</strong> removes grouping for a raw size comparison. Recovered means a dedicated callback translation exists; observed seed means runtime evidence retained the address for dispatch; auto translated means the static translator emitted and dispatches the function; stubbed means a known target still has placeholder behavior. A white corner marker links the address to parity notes.</p>
     </section>
   </main>
 

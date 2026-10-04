@@ -14,8 +14,9 @@
   const details = document.querySelector("#details");
   const search = document.querySelector("#search");
   const statusFilter = document.querySelector("#statusFilter");
+  const layoutMode = document.querySelector("#layoutMode");
   const empty = document.querySelector("#empty");
-  let rects = [], selected = null;
+  let rects = [], groupRects = [], selected = null;
 
   function formatBytes(n) {
     return n >= 1048576 ? (n/1048576).toFixed(2)+" MB" : n >= 1024 ? (n/1024).toFixed(2)+" kB" : n+" B";
@@ -48,25 +49,61 @@
     });
   }
 
-  // Squarified treemap. Values are area-normalized; output order remains tied
-  // to the filtered function objects for fast canvas hit testing.
+  // Balanced binary treemap. Every split consumes its full rectangle, avoiding
+  // the thin stripe tail produced by the earlier row-based layout.
   function squarify(items, x, y, w, h) {
-    const total = items.reduce((s,i)=>s+i.size,0); if(!total) return [];
-    const scale = w*h/total;
-    const pending = items.slice().sort((a,b)=>b.size-a.size).map(i=>({item:i,area:i.size*scale}));
-    const out=[]; let row=[];
-    function worst(test, side) {
-      const sum=test.reduce((s,a)=>s+a.area,0), max=Math.max(...test.map(a=>a.area)), min=Math.min(...test.map(a=>a.area));
-      return Math.max(side*side*max/(sum*sum), sum*sum/(side*side*min));
+    const pending=items.slice().filter(i=>i.size>0).sort((a,b)=>b.size-a.size), out=[];
+    function place(list,px,py,pw,ph) {
+      if(!list.length||pw<=0||ph<=0) return;
+      if(list.length===1){out.push({...list[0],x:px,y:py,w:pw,h:ph});return;}
+      const total=list.reduce((sum,item)=>sum+item.size,0), half=total/2;
+      let running=0, cut=1, best=Infinity;
+      for(let i=1;i<list.length;i++){
+        running+=list[i-1].size;
+        const distance=Math.abs(half-running);
+        if(distance<=best){best=distance;cut=i;}else break;
+      }
+      const left=list.slice(0,cut), right=list.slice(cut);
+      const leftSize=left.reduce((sum,item)=>sum+item.size,0), ratio=leftSize/total;
+      if(pw>=ph){const split=pw*ratio;place(left,px,py,split,ph);place(right,px+split,py,pw-split,ph);}
+      else {const split=ph*ratio;place(left,px,py,pw,split);place(right,px,py+split,pw,ph-split);}
     }
-    function layoutRow() {
-      const area=row.reduce((s,a)=>s+a.area,0);
-      if(w>=h){ const rh=area/w; let rx=x; row.forEach(a=>{const rw=a.area/rh; out.push({...a.item,x:rx,y,w:rw,h:rh});rx+=rw;}); y+=rh;h-=rh; }
-      else { const rw=area/h; let ry=y; row.forEach(a=>{const rh=a.area/rw;out.push({...a.item,x,y:ry,w:rw,h:rh});ry+=rh;}); x+=rw;w-=rw; }
-      row=[];
+    place(pending,x,y,w,h);return out;
+  }
+
+  function regionLabel(address) {
+    const start=Math.floor(address/0x10000)*0x10000, end=start+0xffff;
+    return `0x${start.toString(16).padStart(8,"0").toUpperCase()}–0x${end.toString(16).padStart(8,"0").toUpperCase()}`;
+  }
+  function organize(items,w,h) {
+    if(layoutMode.value==="flat") {
+      groupRects=[];
+      return squarify(items,0,0,w,h).map(r=>({...r,group:"All functions"}));
     }
-    while(pending.length){ const next=pending[0], side=Math.min(w,h); if(!row.length||worst(row.concat(next),side)<=worst(row,side)) row.push(pending.shift()); else layoutRow(); }
-    if(row.length) layoutRow(); return out;
+    const groups=new Map();
+    for(const fn of items) {
+      const key=layoutMode.value==="status"?fn.status:Math.floor(fn.address/0x10000);
+      if(!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push(fn);
+    }
+    const summaries=[...groups].map(([key,members])=>({
+      key,
+      label:layoutMode.value==="status"?labels[key]:regionLabel(members[0].address),
+      size:members.reduce((sum,fn)=>sum+fn.size,0),
+      members
+    }));
+    if(layoutMode.value==="region") summaries.sort((a,b)=>a.key-b.key);
+    else summaries.sort((a,b)=>b.size-a.size);
+    groupRects=squarify(summaries,0,0,w,h);
+    const result=[];
+    for(const group of groupRects) {
+      const margin=3, header=group.w>100&&group.h>40?22:0;
+      const gx=group.x+margin, gy=group.y+margin+header;
+      const gw=Math.max(0,group.w-margin*2), gh=Math.max(0,group.h-margin*2-header);
+      if(gw<1||gh<1) continue;
+      for(const tile of squarify(group.members,gx,gy,gw,gh)) result.push({...tile,group:group.label});
+    }
+    return result;
   }
 
   function filtered() {
@@ -79,8 +116,13 @@
   }
   function draw() {
     const box=canvas.getBoundingClientRect(), items=filtered();
-    rects=squarify(items,0,0,box.width,box.height); empty.hidden=!!items.length;
+    rects=organize(items,box.width,box.height); empty.hidden=!!items.length;
     ctx.clearRect(0,0,box.width,box.height);ctx.fillStyle="#0b111a";ctx.fillRect(0,0,box.width,box.height);
+    for(const group of groupRects){
+      ctx.fillStyle="rgba(22,32,45,.72)";ctx.fillRect(group.x+1,group.y+1,Math.max(0,group.w-2),Math.max(0,group.h-2));
+      ctx.strokeStyle="#354257";ctx.lineWidth=1;ctx.strokeRect(group.x+1.5,group.y+1.5,Math.max(0,group.w-3),Math.max(0,group.h-3));
+      if(group.w>100&&group.h>40){ctx.fillStyle="#aebcd0";ctx.font="600 10px ui-monospace,Consolas,monospace";ctx.fillText(group.label,group.x+7,group.y+16,group.w-14);}
+    }
     for(const r of rects){
       const pad=.7, active=selected&&selected.address===r.address;
       ctx.fillStyle=colors[r.status];ctx.globalAlpha=r.status==="translated"?.72:.9;
@@ -91,10 +133,10 @@
     }
   }
   function at(e){const b=canvas.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;return rects.find(r=>x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h);}
-  function showDetails(fn){selected=fn;details.innerHTML=`<p class="eyebrow">Selected function</p><h2>${fn.name}</h2><p><span class="badge" style="border-left:3px solid ${colors[fn.status]}">${labels[fn.status]}</span>${fn.evidence?'<span class="badge">Parity evidence linked</span>':''}</p><div class="detail-grid"><div><strong>0x${fn.address.toString(16).padStart(8,"0").toUpperCase()}</strong><span>Xbox address</span></div><div><strong>${formatBytes(fn.size)}</strong><span>Original size</span></div><div><strong>${fn.instructions||"—"}</strong><span>Instructions</span></div><div><strong>${Math.round(fn.confidence*100)}%</strong><span>Discovery confidence</span></div><div><strong>${fn.calls}</strong><span>Direct calls</span></div><div><strong>${fn.callers}</strong><span>Known callers</span></div></div>${fn.source?`<p>Recovered in <code>${fn.source}</code>.</p>`:""}`;draw();}
+  function showDetails(fn){selected=fn;details.innerHTML=`<p class="eyebrow">Selected function</p><h2>${fn.name}</h2><p><span class="badge" style="border-left:3px solid ${colors[fn.status]}">${labels[fn.status]}</span>${fn.evidence?'<span class="badge">Parity evidence linked</span>':''}</p><div class="detail-grid"><div><strong>0x${fn.address.toString(16).padStart(8,"0").toUpperCase()}</strong><span>Xbox address</span></div><div><strong>${formatBytes(fn.size)}</strong><span>Original size</span></div><div><strong>${fn.instructions||"—"}</strong><span>Instructions</span></div><div><strong>${Math.round(fn.confidence*100)}%</strong><span>Discovery confidence</span></div><div><strong>${fn.calls}</strong><span>Direct calls</span></div><div><strong>${fn.callers}</strong><span>Known callers</span></div></div><p>Group: <code>${fn.group}</code>.</p>${fn.source?`<p>Recovered in <code>${fn.source}</code>.</p>`:""}`;draw();}
   canvas.addEventListener("mousemove",e=>{const fn=at(e);if(!fn){tooltip.hidden=true;return;}tooltip.hidden=false;tooltip.innerHTML=`<strong>${fn.name}</strong>0x${fn.address.toString(16).padStart(8,"0").toUpperCase()} · ${formatBytes(fn.size)} · ${labels[fn.status]}${fn.evidence?" · evidence":""}`;const b=wrap.getBoundingClientRect();tooltip.style.left=Math.min(e.clientX-b.left+14,b.width-330)+"px";tooltip.style.top=Math.max(8,e.clientY-b.top-58)+"px";});
   canvas.addEventListener("mouseleave",()=>tooltip.hidden=true);
   canvas.addEventListener("click",e=>{const fn=at(e);if(fn)showDetails(fn);});
-  [search,statusFilter].forEach(el=>el.addEventListener("input",()=>{selected=null;draw();}));
+  [search,statusFilter,layoutMode].forEach(el=>el.addEventListener("input",()=>{selected=null;draw();}));
   new ResizeObserver(resize).observe(wrap); resize();
 })();
