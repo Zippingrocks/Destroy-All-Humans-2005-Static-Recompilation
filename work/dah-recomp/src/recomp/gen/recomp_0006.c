@@ -31006,7 +31006,10 @@ loc_0009B66B: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0xE99A8D3Bu (32-bit) */
 
 loc_0009B670: ;
-    if (_flags /* je: equal / zero */) goto loc_0009B6CA;
+    /* Both predecessor blocks end in a CMP against an excluded target type.
+     * Preserve the retail JE at this control-flow merge; the generated
+     * fallback flag is never populated and made these exclusions inert. */
+    if (CMP_EQ(_fa, _fb)) goto loc_0009B6CA; /* je: equal / zero */
 
 loc_0009B672: ;
     edi = MEM32(esi + 0x10);
