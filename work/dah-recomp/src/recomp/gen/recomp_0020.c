@@ -38806,6 +38806,16 @@ void sub_0020E510(void)
 loc_0020E510: ;
     PUSH32(esp, esi);
     esi = MEM32(esp + 8);
+    /* PsCreateSystemThreadEx makes this native worker runnable immediately,
+     * while the retail caller publishes the worker's event (+8) and mutant
+     * (+0x14) in the next few instructions. Xbox scheduling lets that compact
+     * initialization finish before the new worker runs. Waiting for both
+     * bridge-handle tokens recreates that ordering and prevents the worker
+     * from repeatedly releasing 0 or recycled object data. */
+    while ((MEM32(esi + 8) & 0xFF000000u) != 0x48000000u ||
+           (MEM32(esi + 0x14) & 0xFF000000u) != 0x48000000u) {
+        Sleep(0);
+    }
     eax = MEM32(esi + 4);
     ecx = MEM32(esi + 8);
     PUSH32(esp, eax);

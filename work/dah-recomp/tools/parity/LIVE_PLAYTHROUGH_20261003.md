@@ -67,3 +67,29 @@ their next Bink frame is pending while open/preload remains blocking.
   settling.
 
 These did not crash or stall the shell during this observation period.
+
+## Repeated-playback worker startup race
+
+A later live run reproduced a distinct failure on the third consecutive
+`trailer2.bik` launch. The open returned handle `02A457C0`, but no first frame
+became ready and the host presented zero-draw black frames at 60 Hz for more
+than one minute. PID 53196 was terminated only after that condition remained
+unchanged across twelve five-second samples.
+
+Bounded kernel instrumentation identified the invalid mutant arguments before
+handle translation: Bink worker threads passed `00000000`, `00000003`, and
+`0006000D`, while every successfully created bridge handle began with `48`.
+`sub_0020E580` creates the worker and only then publishes its mutant and event
+at worker-object offsets `+0x14` and `+8`. A native Windows thread can run
+immediately and read those fields before the creating guest thread finishes
+that compact initialization sequence. Reused worker memory explains why later
+launches read nonzero stale values instead of the initial zeroes.
+
+`sub_0020E510` now gates only the Bink worker entry until both sync fields hold
+complete bridge-handle tokens. This restores the ordering supplied by the Xbox
+scheduler without changing decode cadence after startup. The identical hidden
+route changed from 39–52 invalid `NtReleaseMutant` calls per launch sequence to
+zero. A 170-second isolated route then opened all three expected movies; every
+open reached `first decoded frame ready`, with zero release errors, failed
+presents, or invalid simulation steps. The regular movie scheduling harness
+also passed all 3,811 assertions.
