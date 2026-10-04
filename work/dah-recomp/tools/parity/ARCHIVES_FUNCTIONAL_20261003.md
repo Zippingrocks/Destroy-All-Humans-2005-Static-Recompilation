@@ -24,6 +24,23 @@ movie files are present in the packaged `movies` directory. Hidden/occluded
 runs prove menu state, file selection, decoding, playback lifecycle, and return
 behavior; final pixel comparison still requires a non-occluded capture.
 
+## Complete packaged-movie audit
+
+`audit_archives_bink.py` walks every packaged `.bik` and validates its Bink
+signature, declared file size, dimensions, frame rate, audio-track table,
+frame-index bounds and ordering, largest-frame bound, and final payload
+boundary. `archives_movie_asset_audit_20261003.json` records a clean result for
+all 23 movies (23 passed, 0 failed). This includes the long bonus movies and
+`plan9.bik`, whose valid zero padding between its frame table and first frame is
+preserved.
+
+The available save exposes only some entries, so three representative entries
+were exercised in-engine without progressing gameplay: THQ Logo from Videos,
+Furonigami from its bonus gallery, and Making Of from Propaganda. They all use
+the same Archives launcher and native Bink decode/render/close path. Locked
+entries have complete container and frame-table coverage but have not been
+claimed as visually watched end-to-end.
+
 ## Captured transition checks
 
 Pre-Present captures of the Videos path show three intentional black preroll
@@ -51,10 +68,11 @@ opening `introani.bik`. The decoder and full-screen draw were healthy in the
 cooperative diagnostic run; the failure was the production update spinning in
 `BinkWait` on the game thread instead of returning to the host frame pump.
 
-`introani.bik` now yields only when a regular update finds its next frame not
-ready. Its initial preload remains blocking, decoded frames still flip and call
-`BinkNextFrame` through the retail path, and its close lifecycle is unchanged.
-The THQ and Pandemic startup movies retain their measured blocking scheduler.
+Every movie launched by the Archives browser now yields only when a regular
+update finds its next frame not ready. Initial preload remains blocking,
+decoded frames still flip and call `BinkNextFrame` through the retail path, and
+the close lifecycle is unchanged. The THQ and Pandemic startup movies retain
+their measured blocking scheduler.
 `test_movie_nonblock.mjs` covers both schedules and completes 3,811 assertions
 for the cooperative path, including pending-frame preservation, native-rate
 decode/advance cadence, texture selection, preload, and final-frame close.
