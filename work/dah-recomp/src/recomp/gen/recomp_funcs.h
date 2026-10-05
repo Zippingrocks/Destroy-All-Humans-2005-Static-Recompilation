@@ -3535,6 +3535,7 @@ void sub_000A36C0(void);
 void sub_000A36D0(void);
 void sub_000A3700(void);
 void sub_000A3710(void);
+void sub_000A3720(void);
 void sub_000A3800(void);
 void sub_000A3860(void);
 void sub_000A3900(void);

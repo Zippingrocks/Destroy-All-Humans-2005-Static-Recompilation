@@ -524,3 +524,28 @@ declaration, program, texture, combiner, depth/blend state and source words
 when `DAH_FARM_MATERIAL_TRACE=1`.  It is dormant in normal player runs.  This
 will distinguish a missing weapon update from a dropped world-space projection
 on the next instrumented Farm/saucer replay without adding guessed geometry.
+
+## 2026-10-04 low-overhead live observer and Rockwell event callback
+
+The blanket observer itself was initially distorting the run it measured. Its
+two-second heap census unpacked every 16-byte slot in Python and occupied a full
+CPU core. During that capture, the native event trace recorded recurring logic
+stalls from hundreds of milliseconds through 6.5 seconds. The census now
+searches each candidate vtable marker through Python's native byte search and
+still validates all six retail constructor invariants before accepting an
+actor. A synthetic signature check found all ten profiles and rejected an
+incomplete aligned decoy. The live Rockwell census remained 116 actors. In the
+first clean follow-up window, all 600 frames were below 50 ms and the worst
+logic frame was 24.4 ms.
+
+With observer interference removed, the live log exposed repeated unresolved
+dispatch to `000A3720` from Rockwell returns `000A3A44`, `000A3D18`, and
+`000A4BD8`. `000A3720..000A3750` is now restored as the exact 48-byte,
+17-instruction retail callback. It conditionally dispatches object event
+`D718C982` through vtable slot `+0x140`, then performs the retail tail call to
+the already recompiled `00099A10`. The reproducible boundary checker is
+`tools/lift_rockwell_event_callback.py`; the callback is registered in generated
+and manual dispatch and retained in `icall_seeds.json`. The internal Release
+build and both configured input tests pass. Runtime validation waits for the
+current user-driven process to finish; the foreground executable was not
+replaced in place.
