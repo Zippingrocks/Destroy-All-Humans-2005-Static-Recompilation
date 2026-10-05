@@ -2474,6 +2474,7 @@ extern void sub_00136100(void);
 extern void sub_000299D0(void);
 extern void sub_0009A970(void);
 extern void sub_0009F790(void);
+extern void sub_0009FCE0(void);
 extern void sub_000ABDE0(void);
 extern void sub_000AB9C0(void);
 extern void sub_0011FA30(void);
@@ -4912,6 +4913,7 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x000299D0u: return sub_000299D0;
     case 0x0009A970u: return sub_0009A970;
     case 0x0009F790u: return sub_0009F790;
+    case 0x0009FCE0u: return sub_0009FCE0;
     case 0x000ABDE0u: return sub_000ABDE0;
     case 0x000AB9C0u: return sub_000AB9C0;
     case 0x0011FA30u: return sub_0011FA30;

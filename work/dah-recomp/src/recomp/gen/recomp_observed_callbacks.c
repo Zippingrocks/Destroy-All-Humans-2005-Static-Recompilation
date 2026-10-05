@@ -203,6 +203,7 @@ void sub_00136100(void);
 void sub_000299D0(void);
 void sub_0009A970(void);
 void sub_0009F790(void);
+void sub_0009FCE0(void);
 void sub_000ABDE0(void);
 void sub_000AB9C0(void);
 void sub_00080510(void);
@@ -16383,6 +16384,85 @@ loc_0009F84B: ;
     POP32(esp, esi);
     esp += 12; return; /* ret 8 */
 
+}
+
+
+/**
+ * sub_0009FCE0
+ * Original: 0x0009FCE0 - 0x0009FD4F (111 bytes, 38 insns)
+ * CC: cdecl, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ *
+ * Saucer event callback registered for state 0x400.  This is a mid-function
+ * event-table entry point that the normal function inventory did not emit.
+ */
+void sub_0009FCE0(void)
+{
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_flags; (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+
+loc_0009FCE0: ;
+    eax = MEM32(esp + 4);
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x37EC8C25u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(_fa); _fbs = (int32_t)(_fb); /* cmp eax, 0x37EC8C25 */
+    if (CMP_EQ(_fa, _fb)) goto loc_0009FD15;
+
+loc_0009FCEB: ;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x6273E4D4u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(_fa); _fbs = (int32_t)(_fb); /* cmp eax, 0x6273E4D4 */
+    if (CMP_EQ(_fa, _fb)) goto loc_0009FD00;
+
+loc_0009FCF2: ;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x9E7EDF34u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(_fa); _fbs = (int32_t)(_fb); /* cmp eax, 0x9E7EDF34 */
+    if (CMP_NE(_fa, _fb)) goto loc_0009FD4C;
+
+loc_0009FCF9: ;
+    MEM8(ecx + 0x3C) = 1;
+    esp += 12; return; /* ret 8 */
+
+loc_0009FD00: ;
+    MEM32(esp + 8) = 0;
+    MEM32(esp + 4) = 2;
+    sub_0009F300(); return; /* tail jmp 0x0009F300 */
+
+loc_0009FD15: ;
+    eax = MEM32(ecx + 8);
+    edx = MEM32(ecx + 0x18);
+    ecx = MEM32(eax + 0x28);
+    eax = MEM32(ecx + 8);
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
+    _fas = (int32_t)(_fa); _fbs = (int32_t)(_fb); /* test eax, eax */
+    PUSH32(esp, esi);
+    if (TEST_Z(_fa, _fb)) goto loc_0009FD39;
+
+loc_0009FD26: ;
+    esi = edx;
+    esi = esi * 0x70u;
+    eax = eax + esi;
+    _fa = (uint32_t)(MEM32(eax)) & 0xFFFFFFFFu; _fb = 0;
+    _fas = (int32_t)(_fa); _fbs = 0; /* cmp dword ptr [eax], 0 */
+    if (CMP_EQ(_fa, _fb)) goto loc_0009FD39;
+
+loc_0009FD32: ;
+    esi = MEM32(eax + 4);
+    _fa = (uint32_t)(esi) & 0xFFFFFFFFu; _fb = (uint32_t)(esi) & 0xFFFFFFFFu;
+    _fas = (int32_t)(_fa); _fbs = (int32_t)(_fb); /* test esi, esi */
+    if (TEST_NZ(_fa, _fb)) goto loc_0009FD4B;
+
+loc_0009FD39: ;
+    POP32(esp, esi);
+    MEM32(esp + 8) = edx;
+    MEM32(esp + 4) = 0x3F800000u;
+    sub_001083B0(); return; /* tail jmp 0x001083B0 */
+
+loc_0009FD4B: ;
+    POP32(esp, esi);
+
+loc_0009FD4C: ;
+    esp += 12; return; /* ret 8 */
 }
 
 
