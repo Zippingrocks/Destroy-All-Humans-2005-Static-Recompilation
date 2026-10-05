@@ -139,6 +139,7 @@ HRESULT d3d8_CreateIndexBufferImpl(UINT Length, DWORD Usage, D3DFORMAT Format, I
 HRESULT d3d8_CreateTextureImpl(UINT Width, UINT Height, UINT Levels, DWORD Usage, D3DFORMAT Format, IDirect3DTexture8 **ppTex);
 HRESULT d3d8_CreateCubeTextureImpl(UINT Edge, UINT Levels, D3DFORMAT Format, IDirect3DTexture8 **ppTex);
 HRESULT d3d8_UploadCubeTextureImpl(IDirect3DTexture8 *tex, const uint8_t *src, size_t face_stride);
+HRESULT d3d8_UploadTextureMipChainImpl(IDirect3DTexture8 *tex, const uint8_t *src, size_t source_bytes);
 
 /* Host-side diagnostic/movie presentation.  This stays behind an explicit
  * caller opt-in so the retail pushbuffer path remains untouched. */

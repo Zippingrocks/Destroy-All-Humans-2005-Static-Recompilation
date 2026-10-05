@@ -1,6 +1,8 @@
 param(
     [ValidateRange(60, 600)][int]$Seconds = 420,
-    [ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run = 'current'
+    [ValidatePattern('^[A-Za-z0-9-]+$')][string]$Run = 'current',
+    [switch]$EffectTrace,
+    [ValidateRange(0,10000000)][uint32]$EffectTraceStart = 8000
 )
 
 $ErrorActionPreference = 'Stop'
@@ -50,6 +52,14 @@ $settings = @{
     DAH_FOCUS_TRACE = '1'
 }
 foreach ($name in $settings.Keys) { $start.EnvironmentVariables[$name] = $settings[$name] }
+if ($EffectTrace) {
+    # Capture the bounded indexed-projector and inline-card diagnostics. These
+    # are opt-in because a normal player run should not pay the logging cost.
+    $start.EnvironmentVariables['DAH_UI_ANIMATION_TRACE'] = '1'
+    $start.EnvironmentVariables['DAH_UI_ANIMATION_TRACE_START'] = [string]$EffectTraceStart
+    $start.EnvironmentVariables['DAH_FARM_MATERIAL_TRACE'] = '1'
+    $start.EnvironmentVariables['DAH_FARM_MATERIAL_TRACE_START'] = [string]$EffectTraceStart
+}
 
 $process = [Diagnostics.Process]::Start($start)
 Write-Output "SAUCER_SPAWN_START pid=$($process.Id) run=$Run seconds=$Seconds"

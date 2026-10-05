@@ -73,6 +73,10 @@ if ($EnterMenu) {
 
 $dahLaunchTime = [DateTime]::UtcNow
 $dahRun = [Diagnostics.Process]::Start($dahStartInfo)
+# Hidden parity replays must not steal a foreground frame from the user's live
+# game or unrelated desktop work. They remain deterministic through the guest
+# frame/input schedule; BelowNormal only yields host CPU under contention.
+try { $dahRun.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal } catch {}
 $dahExitFailure = $null
 Write-Output "INTERNAL_START pid=$($dahRun.Id) seconds=$Seconds fps=$(if ($UseRetailFps) { 'retail' } else { $Fps }) path=$dahExecutable"
 try {

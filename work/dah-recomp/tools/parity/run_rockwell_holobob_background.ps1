@@ -8,7 +8,8 @@ param(
     [ValidateRange(0,128)][uint32]$CaptureCount = 80,
     [ValidateNotNullOrEmpty()][string]$InputScript = 'rockwell_holobob_close_probe.txt',
     [switch]$MaterialTrace,
-    [ValidateRange(0,10000000)][uint32]$MaterialTraceStart = 8950
+    [ValidateRange(0,10000000)][uint32]$MaterialTraceStart = 8950,
+    [switch]$SceneFlipTrace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,13 +40,17 @@ $env:DAH_CONSOLE_AUTO_EQUIP_DELAY = '40'
 foreach ($setting in @(
     'DAH_PLAYER_MOVEMENT_COMPAT', 'DAH_FARM_PRESENTATION_HOLD',
     'DAH_RENDERDOC_FRAME', 'DAH_RENDERDOC_PATH', 'DAH_HUD_DRAW_TRACE_START',
-    'DAH_FARM_MATERIAL_TRACE', 'DAH_FARM_MATERIAL_TRACE_START'
+    'DAH_FARM_MATERIAL_TRACE', 'DAH_FARM_MATERIAL_TRACE_START',
+    'DAH_SCENE_FLIP_TRACE'
 )) {
     Remove-Item "Env:$setting" -ErrorAction SilentlyContinue
 }
 if ($MaterialTrace) {
     $env:DAH_FARM_MATERIAL_TRACE = '1'
     $env:DAH_FARM_MATERIAL_TRACE_START = [string]$MaterialTraceStart
+}
+if ($SceneFlipTrace) {
+    $env:DAH_SCENE_FLIP_TRACE = '1'
 }
 
 & (Join-Path $project 'tools\run_internal.ps1') -Seconds $Seconds `

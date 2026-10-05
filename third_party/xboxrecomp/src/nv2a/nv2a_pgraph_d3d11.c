@@ -989,7 +989,7 @@ static void dah_complete_static_texcoord(uint32_t count, float value[4])
     if (count < 4u) value[3] = 1.0f;
 }
 
-/* ── Pack float RGBA [0..1] to D3D ARGB uint32 ── */
+/* ── Pack float RGBA [0..1] to the legacy D3D ARGB convention ── */
 static uint32_t pack_argb(const float d[4])
 {
 #define CLAMP01(x) ((x) < 0.0f ? 0.0f : (x) > 1.0f ? 1.0f : (x))
@@ -999,6 +999,21 @@ static uint32_t pack_argb(const float d[4])
     uint32_t b = (uint32_t)(CLAMP01(d[2]) * 255.0f + 0.5f);
 #undef CLAMP01
     return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+/* Rockwell's 38-instruction reflective-material program writes ordinary RGBA
+ * vertex colour.  Its D3D11 R8G8B8A8 input therefore needs R in the low byte.
+ * Other recovered DAH shaders retain the legacy packing above; changing them
+ * globally turns xemu's cool night lighting into a warm brown scene. */
+static uint32_t pack_rgba8(const float d[4])
+{
+#define CLAMP01(x) ((x) < 0.0f ? 0.0f : (x) > 1.0f ? 1.0f : (x))
+    uint32_t a = (uint32_t)(CLAMP01(d[3]) * 255.0f + 0.5f);
+    uint32_t r = (uint32_t)(CLAMP01(d[0]) * 255.0f + 0.5f);
+    uint32_t g = (uint32_t)(CLAMP01(d[1]) * 255.0f + 0.5f);
+    uint32_t b = (uint32_t)(CLAMP01(d[2]) * 255.0f + 0.5f);
+#undef CLAMP01
+    return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 /* ── Indexed 3D draw path: handles the DAH main-menu 17-instruction VSH ──
@@ -1087,6 +1102,8 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
         const uint8_t *source;
         D3DLOCKED_RECT lr = {0};
         uint32_t format = (g_pg.tex[stage].format >> 8u) & 255u;
+        unsigned levels = (g_pg.tex[stage].format >> 16u) & 15u;
+        int mip_chain = 0;
         int compressed_alpha = format == 14u || format == 15u;
         int swizzled_abgr = format == 0x3au;
         int swizzled_argb = format == 6u || swizzled_abgr;
@@ -1098,11 +1115,11 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
         if ((g_pg.tex[stage].format & 4u) != 0u) {
             uint32_t cube_format=g_pg.tex[stage].format;
             uint32_t cube_shape=cube_format & ~4u;
-            unsigned levels=(cube_format>>16u)&15u;
+            unsigned cube_levels=(cube_format>>16u)&15u;
             size_t face_bytes=0,face_stride,total;
-            if(stage!=1u||format!=12u||!levels||levels>13u||
+            if(stage!=1u||format!=12u||!cube_levels||cube_levels>13u||
                !dah_bc1_shape(cube_shape,&w,&h,&bytes)||w!=h)return NULL;
-            for(unsigned level=0,size=w;level<levels;level++,size=size>1u?size/2u:1u){
+            for(unsigned level=0,size=w;level<cube_levels;level++,size=size>1u?size/2u:1u){
                 size_t blocks=(size+3u)/4u;
                 face_bytes+=blocks*blocks*8u;
             }
@@ -1128,7 +1145,7 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
             if(cache->texture&&!dah_snapshot_comparable&&cache->content_valid&&cache->hash==hash&&cache->width==w&&cache->height==h&&cache->format==12u){dah_mesh_texture_mark_success(cache,source,total);return cache->texture;}
             if(!cache->texture||cache->width!=w||cache->height!=h||cache->format!=12u){
                 IDirect3DTexture8 *created=NULL;
-                hr=d3d8_CreateCubeTextureImpl(w,levels,D3DFMT_DXT1,&created);
+                hr=d3d8_CreateCubeTextureImpl(w,cube_levels,D3DFMT_DXT1,&created);
                 if(FAILED(hr)||!created)return NULL;
                 if(cache->texture)cache->texture->lpVtbl->Release(cache->texture);
                 cache->texture=created;cache->width=w;cache->height=h;cache->format=12u;cache->last_successful_submission=0u;cache->last_source=NULL;cache->last_source_bytes=0u;cache->content_valid=0u;dah_mesh_texture_snapshot_drop(cache);
@@ -1160,6 +1177,24 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
                 !dah_bc1_shape(shape_format, &w, &h, &bytes)) return NULL;
             if (compressed_alpha) bytes *= 2u;
             if (swizzled_argb) bytes=(size_t)w*h*4u;
+            if ((format == 12u || compressed_alpha) && levels > 1u) {
+                size_t total = 0u;
+                uint32_t mw = w, mh = h;
+                const size_t block_bytes = format == 12u ? 8u : 16u;
+                if (levels > 13u) return NULL;
+                for (unsigned level = 0; level < levels; ++level) {
+                    size_t row_bytes = (size_t)((mw + 3u) / 4u) * block_bytes;
+                    size_t rows = (mh + 3u) / 4u;
+                    if (row_bytes > SIZE_MAX / rows ||
+                        total > SIZE_MAX - row_bytes * rows) return NULL;
+                    total += row_bytes * rows;
+                    if (mw > 1u) mw >>= 1u;
+                    if (mh > 1u) mh >>= 1u;
+                }
+                bytes = total;
+                host_format = (D3DFORMAT)format;
+                mip_chain = 1;
+            }
         }
         /* D3D11 BC2/BC3 uploads use block rows. Small BC1 assets retain the
          * existing CPU decode; do not invent padding for small alpha assets. */
@@ -1202,7 +1237,8 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
         if (!cache->texture || cache->width != w ||
             cache->height != h || cache->format != (uint32_t)host_format) {
             IDirect3DTexture8 *created = NULL;
-            hr = dev->lpVtbl->CreateTexture(dev, w, h, 1u, 0,
+            hr = dev->lpVtbl->CreateTexture(dev, w, h,
+                                            mip_chain ? levels : 1u, 0,
                                             host_format, 0, &created);
             if (FAILED(hr) || !created) { return NULL; }
             if (cache->texture)
@@ -1216,6 +1252,18 @@ static IDirect3DTexture8 *dah_mesh_texture_window(unsigned stage,IDirect3DDevice
         /* Resources can change in place; do not cache content by address. */
         tex_obj = cache->texture;
         double dah_upload_start = dah_fine_texture_active ? dah_profile_ms() : 0.0;
+        if (mip_chain) {
+            hr = d3d8_UploadTextureMipChainImpl(tex_obj, source, bytes);
+            if (FAILED(hr)) { cache->content_valid=0u;dah_mesh_texture_snapshot_drop(cache);return NULL; }
+            if (dah_fine_texture_active) {
+                dah_fine_texture_upload_ms += dah_profile_ms() - dah_upload_start;
+                ++dah_fine_texture_uploads;
+            }
+            cache->hash=hash;cache->content_valid=1u;
+            dah_mesh_texture_snapshot_update(cache,source,bytes);
+            dah_mesh_texture_mark_success(cache,source,bytes);
+            return tex_obj;
+        }
         hr = tex_obj->lpVtbl->LockRect(tex_obj, 0u, &lr, NULL, 0);
         if (FAILED(hr)) { cache->content_valid=0u;dah_mesh_texture_snapshot_drop(cache);return NULL; }
         int decoded = 0;
@@ -2657,7 +2705,8 @@ static int submit_indexed_3d(void)
         if (out[i].z > 1.0f) out[i].z = 1.0f;
         /* Preserve the original W sign for homogeneous clipping. */
         out[i].rhw = dah_menu_rcc(result.screen[3]);
-        out[i].color = pack_argb(result.diffuse);
+        out[i].color = program_kind==27u ?
+            pack_rgba8(result.diffuse) : pack_argb(result.diffuse);
         if(program_kind==17u){
             uint32_t width=g_pg.tex[0].image_rect>>16u;
             uint32_t height=g_pg.tex[0].image_rect&0xFFFFu;
@@ -2696,6 +2745,106 @@ static int submit_indexed_3d(void)
                 out[i].x, out[i].y, out[i].z, out[i].rhw,
                 result.screen[3],
                 out[i].color, out[i].u, out[i].v);
+    }
+
+    /* Rockwell's car glass/body reflection draw is accepted, so a missing
+     * mesh trace cannot explain its purple cast.  Preserve a small exact
+     * snapshot of the generated cube coordinates and retail material state;
+     * this distinguishes bad vertex translation from cubemap/combiner errors
+     * without changing the draw. */
+    if ((program_kind == 26u || program_kind == 27u) &&
+        dah_farm_material_trace_enabled()) {
+        static struct {
+            uint32_t submission,target;
+            float bounds[4];
+            int valid;
+        } vehicle_base;
+        static unsigned reflection_reports;
+        float bounds[4]={FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX};
+        for(uint32_t i=0;i<g_pg.index_count;++i){
+            if(out[i].x<bounds[0])bounds[0]=out[i].x;
+            if(out[i].y<bounds[1])bounds[1]=out[i].y;
+            if(out[i].x>bounds[2])bounds[2]=out[i].x;
+            if(out[i].y>bounds[3])bounds[3]=out[i].y;
+        }
+        if(program_kind==26u){
+            vehicle_base.submission=g_pg.active_submission;
+            vehicle_base.target=g_pg.surface_color_offset;
+            memcpy(vehicle_base.bounds,bounds,sizeof bounds);
+            vehicle_base.valid=1;
+        }else if (reflection_reports++ < 8u) {
+            float cube_min[3]={FLT_MAX,FLT_MAX,FLT_MAX};
+            float cube_max[3]={-FLT_MAX,-FLT_MAX,-FLT_MAX};
+            unsigned rgba_min[4]={255u,255u,255u,255u};
+            unsigned rgba_max[4]={0u,0u,0u,0u};
+            for (uint32_t i=0;i<g_pg.index_count;++i) {
+                const float cube[3]={out[i].u1,out[i].v1,out[i].w1};
+                const unsigned rgba[4]={
+                    out[i].color&255u,(out[i].color>>8u)&255u,
+                    (out[i].color>>16u)&255u,out[i].color>>24u};
+                for (unsigned j=0;j<3u;++j) {
+                    if(cube[j]<cube_min[j])cube_min[j]=cube[j];
+                    if(cube[j]>cube_max[j])cube_max[j]=cube[j];
+                }
+                for (unsigned j=0;j<4u;++j) {
+                    if(rgba[j]<rgba_min[j])rgba_min[j]=rgba[j];
+                    if(rgba[j]>rgba_max[j])rgba_max[j]=rgba[j];
+                }
+            }
+            fprintf(stderr,
+                "[DAH-ROCKWELL-REFLECTION] sub=%u draw=%u n=%u target=%08X "
+                "xy=%g,%g..%g,%g base=%g,%g..%g,%g base_same=%u "
+                "cube=%g,%g,%g..%g,%g,%g q=%g rgba=%u,%u,%u,%u..%u,%u,%u,%u "
+                "tex0=%u:%08X:%08X:%08X "
+                "tex1=%u:%08X:%08X:%08X:%08X:%08X stage=%08X "
+                "combiner=%08X final=%08X,%08X\n",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,g_pg.index_count,
+                g_pg.surface_color_offset,bounds[0],bounds[1],bounds[2],bounds[3],
+                vehicle_base.bounds[0],vehicle_base.bounds[1],vehicle_base.bounds[2],
+                vehicle_base.bounds[3],vehicle_base.valid&&
+                vehicle_base.submission==g_pg.active_submission&&
+                vehicle_base.target==g_pg.surface_color_offset,
+                cube_min[0],cube_min[1],cube_min[2],
+                cube_max[0],cube_max[1],cube_max[2],c[187][3],
+                rgba_min[0],rgba_min[1],rgba_min[2],rgba_min[3],
+                rgba_max[0],rgba_max[1],rgba_max[2],rgba_max[3],
+                g_pg.tex[0].enabled,
+                g_pg.tex[0].offset,g_pg.tex[0].format,g_pg.tex[0].image_rect,
+                g_pg.tex[1].enabled,g_pg.tex[1].offset,g_pg.tex[1].format,
+                g_pg.tex[1].image_rect,g_pg.tex[1].address,g_pg.tex[1].filter,
+                g_pg.shader_stage_program,g_pg.combiner_control,g_pg.final_cw0,
+                g_pg.final_cw1);
+            fprintf(stderr,
+                "[DAH-ROCKWELL-CONSTANTS] sub=%u draw=%u "
+                "c19=%g,%g,%g,%g c20=%g,%g,%g,%g "
+                "c28=%g,%g,%g,%g c29=%g,%g,%g,%g c30=%g,%g,%g,%g "
+                "c187=%g,%g,%g,%g c189=%g,%g,%g,%g\n",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,
+                c[19][0],c[19][1],c[19][2],c[19][3],
+                c[20][0],c[20][1],c[20][2],c[20][3],
+                c[28][0],c[28][1],c[28][2],c[28][3],
+                c[29][0],c[29][1],c[29][2],c[29][3],
+                c[30][0],c[30][1],c[30][2],c[30][3],
+                c[187][0],c[187][1],c[187][2],c[187][3],
+                c[189][0],c[189][1],c[189][2],c[189][3]);
+            for (uint32_t i=0;i<g_pg.index_count&&i<4u;++i)
+                fprintf(stderr,
+                    "[DAH-ROCKWELL-VERTEX] sub=%u draw=%u i=%u "
+                    "xy=%g,%g color=%08X uv0=%g,%g uv1=%g,%g,%g\n",
+                    g_pg.active_submission,g_pg.indexed_diagnostic_id,i,
+                    out[i].x,out[i].y,out[i].color,out[i].u,out[i].v,
+                    out[i].u1,out[i].v1,out[i].w1);
+            unsigned stages=g_pg.combiner_control&15u;if(stages>8u)stages=8u;
+            for(unsigned stage=0;stage<stages;++stage)
+                fprintf(stderr,
+                    "[DAH-ROCKWELL-COMBINER] sub=%u draw=%u stage=%u "
+                    "color=%08X,%08X alpha=%08X,%08X factor=%08X,%08X\n",
+                    g_pg.active_submission,g_pg.indexed_diagnostic_id,stage,
+                    g_pg.color_icw[stage],g_pg.color_ocw[stage],
+                    g_pg.alpha_icw[stage],g_pg.alpha_ocw[stage],
+                    g_pg.factor0[stage],g_pg.factor1[stage]);
+            fflush(stderr);
+        }
     }
 
     /* The Farm projector mask is a five-index strip using the exact static
@@ -3223,14 +3372,17 @@ static int submit_inline_3d(void)
     return ok;
 }
 
-static int movie_shader_matches(void)
+static int screen_space_mov_shader_matches(void)
 {
-    /* Original four MOV instructions captured in retail Bink and UI draws.
+    /* Original four MOV instructions captured in retail Bink, UI, and world
+     * effect draws.
      * NV2A word1 has opcode/input, word3 output index/mask:
      *   MOV oPos,v0; MOV oT0,v1; MOV oD0,v2; MOV oFog,c187.x (END).
      * The final shader position is screen space on NV2A. This exact program
      * gate prevents treating an arbitrary float4 input as a screen position.
-     * The retail combiner computes RGB=2*v2.rgb*T0.rgb, A=v2.a*T0.a.
+     * Pixel-combiner state is deliberately not part of the vertex-program
+     * identity. Retail particles, projected markers, Bink, and animated UI
+     * all use this program with different valid NV2A combiner programs.
      */
     static const uint32_t program[16] = {
         0, 0x0020001B, 0x0836106C, 0x2070F800,
@@ -3244,11 +3396,7 @@ static int movie_shader_matches(void)
     for (unsigned i = 0; i < 16u; ++i)
         if (!g_pg.transform_valid[first + i] || g_pg.transform_program[first + i] != program[i])
             return 0;
-    return g_pg.color_icw[0] == 0xC4C80000u && g_pg.color_ocw[0] == 0x000100C0u &&
-           g_pg.alpha_icw[0] == 0xD4D81010u && g_pg.alpha_ocw[0] == 0x000000C0u &&
-           g_pg.combiner_control == 0x00011101u &&
-           g_pg.final_cw0 == 0x0000000Eu && g_pg.final_cw1 == 0x00001C80u &&
-           g_pg.shader_stage_program == 1u;
+    return 1;
 }
 
 static int submit_indexed_movie(void)
@@ -3296,7 +3444,7 @@ static int submit_indexed_movie(void)
                            format == D3DFMT_LIN_A4R4G4B4);
     if (!dev || g_pg.draw_mode != 6u || g_pg.index_count < 3u || g_pg.index_overflow || g_pg.inline_count)
         failure = "primitive-or-count";
-    else if (!movie_shader_matches()) failure = "shader-or-combiner";
+    else if (!screen_space_mov_shader_matches()) failure = "screen-space-mov-shader";
     else if ((g_pg.array_format[0] & 0xFFu) != 0x42u ||
              (g_pg.array_format[1] & 0xFFu) != 0x22u ||
              (g_pg.array_format[2] & 0xFFu) != 0x40u)
@@ -3307,6 +3455,7 @@ static int submit_indexed_movie(void)
     else if (!g_pg.tex[0].enabled ||
              (format != D3DFMT_LIN_X8R8G8B8 && format != D3DFMT_LIN_A8R8G8B8 &&
               format != D3DFMT_LIN_A4R4G4B4) ||
+             g_pg.shader_stage_program != 1u ||
              ((g_pg.tex[0].format >> 16u) & 15u) != 1u ||
              ((g_pg.tex[0].format >> 4u) & 15u) != 2u ||
              !width || !height || width > 4096u || height > 4096u || pitch < width * bytes_per_pixel)
@@ -3321,7 +3470,9 @@ static int submit_indexed_movie(void)
     for (unsigned slot = 3; !failure && slot < 16u; ++slot)
         if ((g_pg.array_format[slot] >> 4u) & 15u) failure = "extra-array";
     for (unsigned stage = 1; !failure && stage < 4u; ++stage)
-        if (g_pg.tex[stage].enabled) failure = "extra-texture";
+        if (g_pg.tex[stage].enabled &&
+            ((g_pg.shader_stage_program >> (5u * stage)) & 31u) != 0u)
+            failure = "extra-texture";
     if (failure) goto reject;
 
     /* Retail Bink X8 frames come from the contiguous locked-video window.
@@ -3491,12 +3642,10 @@ texture_ready: ;
     dev->lpVtbl->SetRenderState(dev, D3DRS_ALPHAREF, g_pg.alpha_ref);
     if (!render_texture)
         dev->lpVtbl->SetTexture(dev, 0, (IDirect3DBaseTexture8 *)g_pg.linear_movie_texture);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_COLORARG2, D3DTA_TEXTURE);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
-    dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ALPHAARG2, D3DTA_TEXTURE);
+    /* Preserve the guest's complete NV2A combiner. This path was originally
+     * introduced for Bink and hard-coded Bink's 2x diffuse*texture equation,
+     * which silently discarded screen-space world effects that share the
+     * exact MOV vertex program but use alpha/factor combiners of their own. */
     dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
     dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
     dev->lpVtbl->SetTextureStageState(dev, 0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
@@ -3506,6 +3655,13 @@ texture_ready: ;
         dev->lpVtbl->SetTexture(dev, stage, NULL);
         dev->lpVtbl->SetTextureStageState(dev, stage, D3DTSS_COLOROP, D3DTOP_DISABLE);
     }
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+        g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
+        g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
+    d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
+    d3d8_combiners_set_vertex_fog_constant(dah_transform_fog(
+        g_pg.transform_constant_valid[187u*4u] ?
+        u2f(g_pg.transform_constants[187u*4u]) : 1.0f));
     /* A live render-target SRV was already bound by the provenance probe.
      * Ordinary guest textures were uploaded and bound immediately above. */
     dev->lpVtbl->BeginScene(dev);
@@ -3514,6 +3670,20 @@ texture_ready: ;
     if (FAILED(result)) { failure = "host-draw"; goto reject; }
     ++g_pg.stats.draw_calls;
     g_pg.stats.vertices_submitted += g_pg.index_count;
+    if (!full_screen_bink && dah_farm_material_trace_enabled()) {
+        static unsigned effect_reports;
+        if (effect_reports++ < 32u)
+            fprintf(stderr,
+                "[DAH-SCREEN-EFFECT] submit=%u draw=%u vertices=%u texture=%08X "
+                "format=%02X combiner=%08X rgb=%08X/%08X alpha=%08X/%08X "
+                "blend=%u,%X,%X depth=%u,%X,%u hr=%08lX\n",
+                g_pg.active_submission,g_pg.indexed_diagnostic_id,g_pg.index_count,
+                texture_offset,format,g_pg.combiner_control,g_pg.color_icw[0],
+                g_pg.color_ocw[0],g_pg.alpha_icw[0],g_pg.alpha_ocw[0],
+                g_pg.blend_enable,g_pg.blend_sfactor,g_pg.blend_dfactor,
+                g_pg.depth_test,g_pg.depth_func,g_pg.depth_write,
+                (unsigned long)result);
+    }
     if (full_screen_bink) {
         static unsigned bink_reports;
         d3d8_MarkFullScreenMovieFrameReady();
@@ -3779,8 +3949,15 @@ static int submit_inline_screen_mov(void)
     for (unsigned i = 3u; i < 16u; ++i)
         if ((g_pg.array_format[i] >> 4u) & 15u)
             return 0;
+    /* Texture enables survive across guest draws.  They do not make a stage
+     * active when SET_SHADER_STAGE_PROGRAM selects NONE for that stage.  The
+     * Farm compositor deliberately reaches this packet with a stale stage-1
+     * texture enable and an all-NONE texture program.  Rejecting it here sent
+     * the exact 28-dword packet through the legacy five-dword fallback, which
+     * fabricated a fifth vertex from packed colour/position words. */
     for (unsigned i = 1u; i < 4u; ++i)
-        if (g_pg.tex[i].enabled)
+        if (g_pg.tex[i].enabled &&
+            ((g_pg.shader_stage_program >> (5u * i)) & 31u) != 0u)
             return 0;
     float texture_width = 1.0f, texture_height = 1.0f;
     if (g_pg.tex[0].enabled) {

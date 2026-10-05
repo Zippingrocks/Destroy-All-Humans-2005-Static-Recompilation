@@ -32,6 +32,16 @@ HRESULT d3d8_PgraphBindRenderTargetTexture(DWORD a, UINT b)
 { CHECK(postprocess_active && a == 0 && b == 0x20000); ++postprocess_scene_binds; return S_OK; }
 BOOL d3d8_PgraphTryBindRenderTargetTexture(DWORD a, UINT b)
 { (void)a; (void)b; CHECK(0); return FALSE; }
+BOOL d3d8_PgraphTryBindRenderTargetTextureSized(DWORD a, UINT b, UINT c, UINT d)
+{
+    CHECK(postprocess_active && a == 0 && b == 0x20000 && c == 640 && d == 480);
+    ++postprocess_scene_binds;
+    return TRUE;
+}
+void d3d8_SetRasterDepthBias(int a, float b, float c)
+{ (void)a; (void)b; (void)c; CHECK(0); }
+void dah_renderdoc_begin_effect(const char *label)
+{ (void)label; CHECK(0); }
 void d3d8_combiners_set_vertex_fog(int a) { (void)a; CHECK(0); }
 void d3d8_combiners_set_vertex_fog_constant(float factor) { (void)factor; }
 void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask)
@@ -53,6 +63,8 @@ HRESULT d3d8_CreateCubeTextureImpl(UINT size, UINT levels, D3DFORMAT format, IDi
 { (void)size; (void)levels; (void)format; (void)out; CHECK(0); return E_FAIL; }
 HRESULT d3d8_UploadCubeTextureImpl(IDirect3DTexture8 *texture, const uint8_t *source, size_t stride)
 { (void)texture; (void)source; (void)stride; CHECK(0); return E_FAIL; }
+HRESULT d3d8_UploadTextureMipChainImpl(IDirect3DTexture8 *texture, const uint8_t *source, size_t bytes)
+{ (void)texture; (void)source; (void)bytes; CHECK(0); return E_FAIL; }
 static ULONG __stdcall release(IDirect3DTexture8 *self)
 { Texture *t = (Texture *)self; free(t->data); free(t); return 0; }
 static HRESULT __stdcall create(IDirect3DDevice8 *self, UINT width, UINT height, UINT levels,
@@ -158,6 +170,32 @@ static void setup_postprocess(void)
     }
     memcpy(contiguous_ram+0x30000,vertices,sizeof(vertices));
 }
+static void test_screen_space_mov_shader_identity(void)
+{
+    const uint32_t program[] = {
+        0,0x0020001b,0x0836106c,0x2070f800,
+        0,0x0020021b,0x0836106c,0x2070f848,
+        0,0x0020041b,0x0836106c,0x2070f818,
+        0,0x00376000,0x0c36106c,0x2070f829
+    };
+    memset(&g_pg, 0, sizeof(g_pg));
+    g_pg.transform_mode = 2u;
+    memcpy(g_pg.transform_program, program, sizeof(program));
+    memset(g_pg.transform_valid, 1, 16u);
+    /* Bink and world-effect cards intentionally have different combiners. */
+    g_pg.combiner_control = 0x00011101u;
+    g_pg.shader_stage_program = 1u;
+    CHECK(screen_space_mov_shader_matches());
+    g_pg.combiner_control = 0x00021121u;
+    g_pg.shader_stage_program = 0x00000401u;
+    g_pg.color_icw[0] = 0x12345678u;
+    CHECK(screen_space_mov_shader_matches());
+    g_pg.transform_program[5] ^= 1u;
+    CHECK(!screen_space_mov_shader_matches());
+    g_pg.transform_program[5] ^= 1u;
+    g_pg.transform_mode = 0u;
+    CHECK(!screen_space_mov_shader_matches());
+}
 static unsigned test_backing_and_postprocess(int negative)
 {
     const uint32_t address=0x18000;
@@ -204,6 +242,20 @@ int main(int argc, char **argv)
     ram = VirtualAlloc(NULL, (SIZE_T)XBOX_CONTIG_BASE+g_xbox_total_ram, MEM_RESERVE, PAGE_NOACCESS);
     CHECK(ram);
     {
+        const float red[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+        const float blue[4] = { 0.0f, 0.0f, 1.0f, 0.5f };
+        CHECK(pack_argb(red) == 0xFFFF0000u);
+        CHECK(pack_argb(blue) == 0x800000FFu);
+        uint32_t packed_red = pack_rgba8(red);
+        uint32_t packed_blue = pack_rgba8(blue);
+        const uint8_t *red_bytes = (const uint8_t *)&packed_red;
+        const uint8_t *blue_bytes = (const uint8_t *)&packed_blue;
+        CHECK(red_bytes[0] == 255u && red_bytes[1] == 0u &&
+              red_bytes[2] == 0u && red_bytes[3] == 255u);
+        CHECK(blue_bytes[0] == 0u && blue_bytes[1] == 0u &&
+              blue_bytes[2] == 255u && blue_bytes[3] == 128u);
+    }
+    {
         float texcoord[4] = { 0.25f, -0.5f, 0.0f, 0.0f };
         dah_complete_static_texcoord(2, texcoord);
         CHECK(texcoord[0] == 0.25f && texcoord[1] == -0.5f &&
@@ -218,6 +270,7 @@ int main(int argc, char **argv)
     device_vtable.SetRenderState=set_render_state; device_vtable.SetTextureStageState=set_stage_state;
     device_vtable.SetTexture=set_texture; device_vtable.SetVertexShader=set_vertex_shader;
     device_vtable.BeginScene=begin_scene; device_vtable.DrawPrimitiveUP=draw;
+    test_screen_space_mov_shader_identity();
     for (unsigned i = 0; i < 8192; ++i) ram[0x10000+i] = (uint8_t)(i*29 + (i/4)*7 + 11);
     /* Retail 1x256 table, then wider rectangular texture, then existing ARGB. */
     const uint32_t formats[] = {0x08013A29u, 0x03013A29u, 0x03010629u};

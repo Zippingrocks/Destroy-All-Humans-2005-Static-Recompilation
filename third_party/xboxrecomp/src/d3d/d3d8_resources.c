@@ -709,6 +709,45 @@ HRESULT d3d8_CreateTextureImpl(UINT Width, UINT Height, UINT Levels, DWORD Usage
     return S_OK;
 }
 
+/* Upload the tightly packed Xbox 2D DXT mip chain. Each physical mip occupies
+ * at least one 4x4 compression block, matching NV2A/xemu texture addressing. */
+HRESULT d3d8_UploadTextureMipChainImpl(IDirect3DTexture8 *iface,
+                                       const uint8_t *src,
+                                       size_t source_bytes)
+{
+    D3D8Texture *tex;
+    ID3D11DeviceContext *ctx;
+    size_t offset = 0;
+    UINT block_bytes;
+    if (!iface || !src) return E_INVALIDARG;
+    tex = tex_from_iface(iface);
+    if (tex->is_cube || !tex->d3d11_texture || !tex->levels ||
+        (tex->d3d8_format != D3DFMT_DXT1 &&
+         tex->d3d8_format != D3DFMT_DXT3 &&
+         tex->d3d8_format != D3DFMT_DXT5)) return E_INVALIDARG;
+    ctx = d3d8_GetD3D11Context();
+    if (!ctx) return E_FAIL;
+    block_bytes = tex->d3d8_format == D3DFMT_DXT1 ? 8u : 16u;
+    for (UINT level = 0; level < tex->levels; ++level) {
+        UINT width = tex->width >> level;
+        UINT height = tex->height >> level;
+        UINT row_pitch, rows;
+        size_t level_bytes;
+        if (!width) width = 1u;
+        if (!height) height = 1u;
+        row_pitch = ((width + 3u) / 4u) * block_bytes;
+        rows = (height + 3u) / 4u;
+        level_bytes = (size_t)row_pitch * rows;
+        if (offset > source_bytes || level_bytes > source_bytes - offset)
+            return E_INVALIDARG;
+        ID3D11DeviceContext_UpdateSubresource(ctx,
+            (ID3D11Resource *)tex->d3d11_texture, level, NULL,
+            src + offset, row_pitch, row_pitch * rows);
+        offset += level_bytes;
+    }
+    return offset == source_bytes ? S_OK : E_INVALIDARG;
+}
+
 /* Host resource for an original Xbox DXT1 cube map. The source is six
  * positive/negative X, Y and Z faces, each with all mip levels and 128-byte
  * face alignment as observed in xemu's retail texture upload path. */
