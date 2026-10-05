@@ -8,13 +8,17 @@ $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $build = Join-Path $repo 'build-ninja'
 $exe = Join-Path $build 'dah_recomp_working.exe'
 $inputScript = Join-Path $PSScriptRoot 'farm_zapomatic_fire_probe.txt'
-$saveDir = Join-Path $build "saves-zapomatic-$Run"
-$logPath = Join-Path $build "zapomatic-$Run.log"
-$statePath = Join-Path $build "zapomatic-$Run-state.jsonl"
+$diagnosticRoot = Join-Path $env:LOCALAPPDATA 'Temp\dah-zapomatic-runs'
+$saveDir = Join-Path $diagnosticRoot "saves-zapomatic-$Run"
+$logPath = Join-Path $diagnosticRoot "zapomatic-$Run.log"
+$statePath = Join-Path $diagnosticRoot "zapomatic-$Run-state.jsonl"
+$captureTrigger = Join-Path $diagnosticRoot "zapomatic-$Run.trigger"
 
 if (!(Test-Path -LiteralPath $exe)) { throw "Missing build: $exe" }
 if (Test-Path -LiteralPath $saveDir) { throw "Run already exists: $saveDir" }
+New-Item -ItemType Directory -Path $diagnosticRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $saveDir | Out-Null
+Set-Content -LiteralPath $captureTrigger -Value 'armed'
 
 $start = [Diagnostics.ProcessStartInfo]::new()
 $start.FileName = $exe
@@ -35,18 +39,20 @@ $settings = @{
     DAH_INPUT_SCRIPT = $inputScript
     DAH_SAVE_DIR = $saveDir
     DAH_LOG_PATH = $logPath
-    DAH_CONSOLE_AUTO_EQUIP_WEAPON = 'zapomatic'
-    DAH_CONSOLE_AUTO_EQUIP_DELAY = '40'
+    # Farm's tutorial repeatedly selects Cortex Scan/PK. Re-equip Zap between
+    # those retail switches so at least one controller firing window exercises
+    # Zap without patching guest state or calling the weapon implementation.
+    DAH_CONSOLE_AUTO_WEAPON_SEQUENCE = 'zapomatic,zapomatic,zapomatic,zapomatic,zapomatic,zapomatic'
+    DAH_CONSOLE_AUTO_WEAPON_INTERVAL = '1200'
     DAH_PARITY_STATE_TRACE = $statePath
     # Weapon detail makes each JSON record large.  Keep the trace tightly
     # around the firing window so diagnostics do not change route timing.
-    DAH_PARITY_STATE_INTERVAL = '2'
-    DAH_PARITY_STATE_START = '7200'
-    DAH_PARITY_STATE_END = '8000'
+    DAH_PARITY_STATE_INTERVAL = '5'
+    DAH_PARITY_STATE_START = '9000'
+    DAH_PARITY_STATE_END = '16000'
     DAH_PARITY_WEAPON_DETAIL = '1'
-    DAH_FRAME_CAPTURE = '96'
-    DAH_FRAME_CAPTURE_START = '7200'
-    DAH_FRAME_CAPTURE_INTERVAL = '5'
+    DAH_FRAME_CAPTURE = '0'
+    DAH_FRAME_CAPTURE_TRIGGER = $captureTrigger
     DAH_PB_CAPTURE = '0'
     DAH_KPCR_WATCH = '0'
     DAH_ACTIVE_ICALL_TRACE = '1'

@@ -1858,6 +1858,55 @@ static void dah_trace_color_mask_draw(unsigned kind,const OutputVertex *out,HRES
 }
 
 static double dah_profile_ms(void);
+
+/* NV097_INLINE_ARRAY does not use the byte stride encoded for DMA-backed
+ * arrays. NV2A packs each enabled attribute tightly, aligned to that
+ * attribute's scalar size. Keep this layout while the regular DAH vertex
+ * program path transforms inline vertices. */
+static int dah_inline_3d_active;
+static uint32_t dah_inline_3d_stride;
+static uint32_t dah_inline_3d_offset[16];
+
+static uint32_t dah_inline_scalar_size(uint32_t type)
+{
+    switch (type) {
+    case 0u: case 4u: return 1u;
+    case 1u: case 5u: return 2u;
+    case 2u: case 6u: return 4u;
+    default: return 0u;
+    }
+}
+
+static int dah_inline_vertex_layout(uint32_t *vertex_size,
+                                    uint32_t offsets[16])
+{
+    uint32_t offset = 0u;
+    int any = 0;
+    for (unsigned slot = 0; slot < 16u; ++slot) {
+        uint32_t format = g_pg.array_format[slot];
+        uint32_t count = (format >> 4u) & 15u;
+        uint32_t type = format & 15u;
+        uint32_t scalar;
+        uint32_t bytes;
+        offsets[slot] = 0u;
+        if (!count) continue;
+        if (count > 4u) return 0;
+        scalar = dah_inline_scalar_size(type);
+        if (!scalar) return 0;
+        offset = (offset + scalar - 1u) & ~(scalar - 1u);
+        offsets[slot] = offset;
+        bytes = type == 6u ? 4u : scalar * count;
+        if (offset > UINT32_MAX - bytes) return 0;
+        offset += bytes;
+        offset = (offset + scalar - 1u) & ~(scalar - 1u);
+        any = 1;
+    }
+    if (!any || !offset || ((uint64_t)g_pg.inline_count * 4u) % offset)
+        return 0;
+    *vertex_size = offset;
+    return 1;
+}
+
 static int submit_indexed_3d(void)
 {
     IDirect3DDevice8 *dev;
@@ -2074,9 +2123,9 @@ static int submit_indexed_3d(void)
     /* Retail Farm deformation uses both TRIANGLES and TRIANGLE_STRIP. The
      * expanded vertex buffer is already in guest index order, so either
      * topology can be submitted directly without rebuilding indices. */
-    if (!dev || (g_pg.draw_mode != 5u && g_pg.draw_mode != 6u) ||
+    if (!dev || (g_pg.draw_mode != 5u && g_pg.draw_mode != 6u && g_pg.draw_mode != 7u) ||
         (g_pg.draw_mode == 5u && (g_pg.index_count % 3u) != 0u) || g_pg.index_count < 3u ||
-        g_pg.index_overflow || g_pg.inline_count) {
+        g_pg.index_overflow || (g_pg.inline_count && !dah_inline_3d_active)) {
         dah_farm_material_trace("draw-state", program_kind, NULL, 0u, UINT32_MAX, 0);
         return 0;
     }
@@ -2232,7 +2281,8 @@ static int submit_indexed_3d(void)
     for (unsigned s = 0; s < attribute_count; ++s) {
         slot_type[s]   = g_pg.array_format[attribute_slots[s]] & 0xFu;
         slot_count[s]  = (g_pg.array_format[attribute_slots[s]] >> 4u) & 0xFu;
-        slot_stride[s] = g_pg.array_format[attribute_slots[s]] >> 8u;
+        slot_stride[s] = dah_inline_3d_active ? dah_inline_3d_stride :
+            g_pg.array_format[attribute_slots[s]] >> 8u;
     }
     if (program_kind < 10u) {
     /* Slot 0: position – need ≥3 float components. */
@@ -2267,7 +2317,7 @@ static int submit_indexed_3d(void)
         if(program_kind==30u&&(slot_type[1]!=1u||slot_count[1]!=3u||slot_type[2]!=2u||slot_count[2]!=2u)){
             dah_farm_material_trace("slot-saucer-reflect",program_kind,NULL,0u,UINT32_MAX,0);return 0;
         }
-        if(program_kind==14u){
+        if(program_kind==14u && !dah_inline_3d_active){
             static const uint32_t unlit_formats[3]={0x1832u,0x1822u,0x1840u};
             static const uint32_t unlit_offsets[3]={0u,12u,20u};
             uint32_t base=g_pg.array_offset[0];
@@ -2277,7 +2327,7 @@ static int submit_indexed_3d(void)
                 dah_farm_material_trace("unlit-layout",program_kind,NULL,0u,s,0);return 0;
             }
         }
-        if(program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u||program_kind==25u){
+        if(!dah_inline_3d_active && (program_kind==13u||program_kind==15u||program_kind==16u||program_kind==19u||program_kind==20u||program_kind==25u)){
             static const uint32_t skin_formats[5]={0x2832u,0x2832u,0x2840u,0x2840u,0x2822u};
             static const uint32_t skin_offsets[5]={0u,12u,24u,28u,32u};
             uint32_t base=g_pg.array_offset[0];
@@ -2310,8 +2360,24 @@ static int submit_indexed_3d(void)
      * back to low window. Log once per log_count budget for diagnostics. */
     {
         for (unsigned s = 0; s < attribute_count; ++s) {
-            uint32_t bpc = slot_type[s] == 1u ? 2u :
+            uint32_t bpc = slot_type[s] == 1u || slot_type[s] == 5u ? 2u :
                            (slot_type[s] == 0u || slot_type[s] == 4u) ? 1u : 4u;
+            if (dah_inline_3d_active) {
+                uint32_t slot = attribute_slots[s];
+                uint32_t inline_offset = dah_inline_3d_offset[slot];
+                uint64_t inline_bytes = (uint64_t)g_pg.inline_count * 4u;
+                uint64_t end = (uint64_t)inline_offset +
+                    (uint64_t)last * slot_stride[s] +
+                    (slot_type[s] == 6u ? 4u :
+                     (uint64_t)slot_count[s] * bpc);
+                if (end > inline_bytes) {
+                    dah_farm_material_trace("inline-array-range", program_kind,
+                        NULL, 0u, slot, 0);
+                    return 0;
+                }
+                arr[s] = (const uint8_t *)g_pg.inline_data + inline_offset;
+                continue;
+            }
             uint64_t begin  = (uint64_t)g_pg.array_offset[attribute_slots[s]]
                             + (uint64_t)first * slot_stride[s];
             uint64_t length = (uint64_t)(last - first) * slot_stride[s]
@@ -3058,7 +3124,8 @@ static int submit_indexed_3d(void)
     double draw_start=dah_draw_timing ? dah_profile_ms() : 0.0;
     dah_pixel_trace_begin(program_kind,out);
     hr = dev->lpVtbl->DrawPrimitiveUP(dev,
-                                       g_pg.draw_mode == 5u ? D3DPT_TRIANGLELIST : D3DPT_TRIANGLESTRIP,
+                                       g_pg.draw_mode == 5u ? D3DPT_TRIANGLELIST :
+                                       g_pg.draw_mode == 7u ? D3DPT_TRIANGLEFAN : D3DPT_TRIANGLESTRIP,
                                        g_pg.draw_mode == 5u ? g_pg.index_count / 3u : g_pg.index_count - 2u,
                                        out, sizeof(*out));
     dah_pixel_trace_end(hr);
@@ -3100,6 +3167,60 @@ static int submit_indexed_3d(void)
                 g_pg.indexed_diagnostic_id, g_pg.index_count,
                 tex_obj ? "compressed" : "none", (unsigned long)hr);
     return 1;
+}
+
+static int submit_inline_3d(void)
+{
+    uint32_t saved_index_count = g_pg.index_count;
+    uint32_t saved_draw_mode = g_pg.draw_mode;
+    int saved_prim_type = g_pg.d3d_prim_type;
+    uint32_t vertex_size;
+    uint32_t vertex_count;
+    int ok;
+
+    if (!dah_inline_vertex_layout(&vertex_size, dah_inline_3d_offset))
+        return 0;
+    vertex_count = (uint32_t)(((uint64_t)g_pg.inline_count * 4u) / vertex_size);
+    if (vertex_count < 3u || vertex_count > MAX_INLINE_VERTS)
+        return 0;
+
+    dah_inline_3d_stride = vertex_size;
+    dah_inline_3d_active = 1;
+    if (g_pg.draw_mode == 8u) {
+        uint32_t quad_count;
+        if ((vertex_count & 3u) != 0u || vertex_count > (MAX_INLINE_VERTS / 6u) * 4u) {
+            dah_inline_3d_active = 0;
+            return 0;
+        }
+        quad_count = vertex_count / 4u;
+        g_pg.index_count = quad_count * 6u;
+        for (uint32_t q = 0; q < quad_count; ++q) {
+            uint32_t src = q * 4u;
+            uint32_t dst = q * 6u;
+            g_pg.indices[dst + 0u] = src + 0u;
+            g_pg.indices[dst + 1u] = src + 1u;
+            g_pg.indices[dst + 2u] = src + 2u;
+            g_pg.indices[dst + 3u] = src + 0u;
+            g_pg.indices[dst + 4u] = src + 2u;
+            g_pg.indices[dst + 5u] = src + 3u;
+        }
+        g_pg.draw_mode = 5u;
+        g_pg.d3d_prim_type = D3DPT_TRIANGLELIST;
+    } else {
+        if (g_pg.draw_mode != 5u && g_pg.draw_mode != 6u && g_pg.draw_mode != 7u) {
+            dah_inline_3d_active = 0;
+            return 0;
+        }
+        g_pg.index_count = vertex_count;
+        for (uint32_t i = 0; i < vertex_count; ++i)
+            g_pg.indices[i] = i;
+    }
+    ok = submit_indexed_3d();
+    g_pg.index_count = saved_index_count;
+    g_pg.draw_mode = saved_draw_mode;
+    g_pg.d3d_prim_type = saved_prim_type;
+    dah_inline_3d_active = 0;
+    return ok;
 }
 
 static int movie_shader_matches(void)
@@ -3873,6 +3994,7 @@ static void submit_draw_inner(void)
      * vertex and black tiles around projected effects. */
     if (submit_inline_screen_mov()) return;
     dah_farm_inline_material_trace();
+    if (submit_inline_3d()) return;
 
     uint32_t num_verts = g_pg.inline_count / g_pg.vert_stride;
     if (num_verts < 3)

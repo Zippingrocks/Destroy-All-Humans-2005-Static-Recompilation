@@ -1,6 +1,14 @@
 # intro.bik blocks the retail frame clock while controller polling continues.
 # A single call-clock A pulse skips it without touching any later menu state.
 3600 6 0 255 0 0 0 0 0
+# Opening movies and cinematics accept A at different points depending on
+# decode/load time. These sparse call-clock taps behave like an impatient
+# player and let the control-ownership probe begin during this bounded run.
+8000 6 0 255 0 0 0 0 0
+8500 6 0 255 0 0 0 0 0
+9000 6 0 255 0 0 0 0 0
+9500 6 0 255 0 0 0 0 0
+10000 6 0 255 0 0 0 0 0
 
 @frame
 # Fresh-profile retail route into Turnipseed Farm.
@@ -15,6 +23,13 @@
 4300 6 0 255 0 0 0 0 0
 4700 6 0 255 0 0 0 0 0
 
+# Independent fallback for the visual probe: once automatic equip has found
+# Crypto, hold the retail fireWeapons trigger across the remainder of the
+# opening transition. The game itself still decides when weapon input is
+# legal. This prevents a failed movement anchor from becoming a false report
+# that the Zap-O-Matic produced no effects.
+9800 6000 0 0 0 0 0 0 0 0 0 0 0 0 255
+
 @gameplay
 # Reuse the verified cow route and complete the Cortex Scan tutorial first.
 # The retail tutorial suppresses weapon fire until both scans finish. Then
@@ -27,10 +42,10 @@
 980 180 0 255 0 0 0 0 0 0 0 0 0 255 0
 1200 20 0 0 0 0 0 0 0 0 0 0 0 255 0
 1220 180 0 255 0 0 0 0 0 0 0 0 0 255 0
-# site_globalsettings.lua maps fireWeapons to XBOX_LEFT_TRIGGER. Right
-# trigger is fireAbilities and must not be used to validate Zap-O-Matic.
-1500 20 0 0 0 0 0 0 0 0 0 0 0 255 0
-1540 20 0 0 0 0 0 0 0 0 0 0 0 255 0
-1580 20 0 0 0 0 0 0 0 0 0 0 0 255 0
-1640 180 0 0 0 0 0 0 0 0 0 0 0 255 0
-1860 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+# Retail uses left trigger as the psychic-ability modifier (the Cortex Scan
+# prompts above are LT+A) and right trigger for the equipped weapon.
+1500 20 0 0 0 0 0 0 0 0 0 0 0 0 255
+1540 20 0 0 0 0 0 0 0 0 0 0 0 0 255
+1580 20 0 0 0 0 0 0 0 0 0 0 0 0 255
+1640 180 0 0 0 0 0 0 0 0 0 0 0 0 255
+1860 20 0 0 0 0 0 0 0 0 0 0 0 0 255
