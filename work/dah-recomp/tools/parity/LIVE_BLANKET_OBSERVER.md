@@ -158,6 +158,20 @@ The next additions are ordered by how much ambiguity they remove:
 - compute per-frame render fingerprints and only capture full images around the
   first divergent tick, limiting overhead while retaining pixel evidence.
 
+`live_ui_transition_observer.py` complements the actor observer for HUD and
+cinematic timing. It discovers the retail tree at `[[0x258470]]`, then samples
+all relevant active bytes from one contiguous guest-memory block. At 30 Hz it
+records one-frame changes to `main`, objective/notification, tutorial, message,
+fade, and cinematic branches together with the verified cinematic object list:
+
+```powershell
+python tools/parity/live_ui_transition_observer.py --pid 1234 `
+  --output tools/parity/blanket-runs/ui-live.jsonl --hz 30
+```
+
+The observer opens the process for read access only and emits rows only when a
+root or active state changes. It sends no input and does not alter UI state.
+
 An anomaly pass should flag actors that vanish without a recognized unload or
 death, health changes without a damage event, damage without a source, AI tasks
 that exceed their retail duration, ragdolls that never recover, effects without

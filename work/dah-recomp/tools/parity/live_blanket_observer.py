@@ -473,6 +473,8 @@ def main() -> int:
     next_heartbeat = next_sample
     last_heartbeat_time = start_time
     last_heartbeat_tick = 0
+    previous_tick = 0
+    world_transition_until = 0.0
     stalled_heartbeats = 0
     observed_life_state = False
     observed_ai_state_name = False
@@ -497,6 +499,16 @@ def main() -> int:
                 now = time.time()
                 world = reader.u32(0x00286768)
                 tick = reader.u32(world + 8) if pointer(world) else 0
+                if previous_tick and tick < previous_tick and previous_tick - tick > 300:
+                    world_transition_until = now + 15.0
+                    emit(output, "world-transition", now, tick,
+                         previousTick=previous_tick,
+                         detail="World clock reset; actor removals are level unloads")
+                    count("world-transition")
+                    last_heartbeat_tick = tick
+                    last_heartbeat_time = now
+                    stalled_heartbeats = 0
+                previous_tick = tick
 
                 if perf_now >= next_scan:
                     found = scan_actors(reader, args.scan_start, args.scan_end)
@@ -521,9 +533,13 @@ def main() -> int:
                             continue
                         emit(output, "actor-despawn", now, tick, **ident(actor),
                              history=actor_summary(actor, now),
-                             classification="semantics-unresolved")
+                             classification=("world-transition"
+                                             if now < world_transition_until else
+                                             "semantics-unresolved"))
                         count("actor-despawn")
-                        if actor.kind == "pedestrian" and actor.life_state == "alive":
+                        if (now >= world_transition_until and
+                                actor.kind == "pedestrian" and
+                                actor.life_state == "alive"):
                             emit(output, "anomaly", now, tick, **ident(actor),
                                  code="living-pedestrian-vanished",
                                  detail="No dying/dead AI state was observed before removal")
