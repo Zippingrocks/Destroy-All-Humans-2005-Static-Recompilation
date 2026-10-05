@@ -1721,7 +1721,11 @@ loc_000F696C: ;
         unsigned model_type = MEM32(model + 0x10);
         unsigned is_static_cluster = (MEM32(esi + 0x2C) & 0x2000u) &&
             model_type == 7u && (MEM32(model + 0x18) & 0xFFu) == 0x88u;
-        unsigned is_world_mesh = model_type == 7u;
+        /* Only stationary world clusters receive host-rounding retention.
+         * Dynamic type-7 models include independently culled character
+         * parts. Keeping one of those parts after retail rejects it exposes
+         * the previous animation/bind pose during activation and transition
+         * frames. */
         if (camera_frame != frame) {
             float x = MEMF(camera + 0x80), y = MEMF(camera + 0x84), z = MEMF(camera + 0x88);
             float dx = x - camera_position[0], dy = y - camera_position[1], dz = z - camera_position[2];
@@ -1730,40 +1734,26 @@ loc_000F696C: ;
             camera_frame = frame;
             camera_position[0] = x; camera_position[1] = y; camera_position[2] = z;
         }
-        if (is_world_mesh) {
+        if (is_static_cluster) {
             uint32_t slot = (esi >> 4) & 8191u;
             unsigned probe;
             for (probe = 0; probe < 8192u; ++probe, slot = (slot + 1u) & 8191u) {
                 DahCullHistory *entry = &history[slot];
                 if (!entry->used || entry->object == esi) {
                     float x = MEMF(esi + 0x80), y = MEMF(esi + 0x84), z = MEMF(esi + 0x88);
-                    float dx = x - entry->position[0], dy = y - entry->position[1], dz = z - entry->position[2];
-                    float movement_squared = dx*dx + dy*dy + dz*dz;
-                    /* Dynamic type-7 objects include independently culled
-                     * actor parts.  A gravity/PK transition can intentionally
-                     * hide those parts while the body changes animation or
-                     * enters ragdoll.  Extending their visibility for three
-                     * frames exposed limbs and attachments that retail had
-                     * already rejected.  Keep the precision workaround to a
-                     * single frame and only for effectively stationary
-                     * dynamic meshes. Static scenery uses the separate
-                     * bounded rule below. */
-                    unsigned position_continuous = is_static_cluster || movement_squared <= 0.0625f;
-                    /* Static landscape clusters sometimes receive two
+                    /* Static landscape clusters sometimes receive up to three
                      * consecutive host-only edge rejections during a slow
-                     * cinematic pan.  Keep that correction away from moving
-                     * actor parts, whose gravity/PK state changes must cull
-                     * immediately after the existing single-frame guard. */
-                    uint32_t retention_frames = is_static_cluster ? 2u : 1u;
+                     * cinematic pan. Keep that correction away from moving
+                     * actor parts, whose gravity/PK and animation state
+                     * changes must cull immediately. */
+                    uint32_t retention_frames = 3u;
                     if (!raw_visible && entry->used && entry->visible_frame &&
                         frame > entry->visible_frame && frame - entry->visible_frame <= retention_frames &&
-                        entry->frame + 1u == frame && camera_cut_frame < entry->visible_frame &&
-                        position_continuous) {
+                        entry->frame + 1u == frame && camera_cut_frame < entry->visible_frame) {
                         SET_LO8(eax, 1);
                         if (getenv("DAH_SCENE_FLIP_TRACE"))
-                            fprintf(stderr,is_static_cluster ?
-                                    "[DAH-SCENE-STATIC-HOLD] frame=%u age=%u object=%08X model=%08X position=%g,%g,%g\n" :
-                                    "[DAH-SCENE-DYNAMIC-HOLD] frame=%u age=%u object=%08X model=%08X position=%g,%g,%g\n",
+                            fprintf(stderr,
+                                    "[DAH-SCENE-STATIC-HOLD] frame=%u age=%u object=%08X model=%08X position=%g,%g,%g\n",
                                     frame,frame-entry->visible_frame,esi,model,x,y,z);
                     }
                     entry->used = 1; entry->object = esi; entry->frame = frame;

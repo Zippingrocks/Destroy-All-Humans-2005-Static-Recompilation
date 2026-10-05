@@ -23,6 +23,7 @@ const velocityOut=option('--velocity-out');
 const velocitySourceOut=option('--velocity-source-out');
 const velocityStageOut=option('--velocity-stage-out');
 const movementWatchOut=option('--movement-watch-out');
+const placementTraceOut=option('--placement-trace-out');
 const velocityStart=Number(option('--velocity-start','7198'));
 const velocityEnd=Number(option('--velocity-end','7225'));
 const cinematicState=args.includes('--cinematic-state');
@@ -65,6 +66,8 @@ if(args.includes('--velocity-stage-out')&&!velocityStageOut)throw new Error('--v
 if(velocityStageOut&&(fs.existsSync(velocityStageOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(velocityStageOut).toLowerCase())))throw new Error('--velocity-stage-out must be new and different from other outputs');
 if(args.includes('--movement-watch-out')&&!movementWatchOut)throw new Error('--movement-watch-out requires a new JSONL path');
 if(movementWatchOut&&(fs.existsSync(movementWatchOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut,velocityStageOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(movementWatchOut).toLowerCase())))throw new Error('--movement-watch-out must be new and different from other outputs');
+if(args.includes('--placement-trace-out')&&!placementTraceOut)throw new Error('--placement-trace-out requires a new JSONL path');
+if(placementTraceOut&&(fs.existsSync(placementTraceOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut,velocityStageOut,movementWatchOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(placementTraceOut).toLowerCase())))throw new Error('--placement-trace-out must be new and different from other outputs');
 const events=[];let clockMode='poll';
 for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
  const line=raw.trim();if(!line||line.startsWith('#'))continue;
@@ -87,6 +90,7 @@ const velocityFd=velocityOut?fs.openSync(velocityOut,'wx'):null;
 const velocitySourceFd=velocitySourceOut?fs.openSync(velocitySourceOut,'wx'):null;
 const velocityStageFd=velocityStageOut?fs.openSync(velocityStageOut,'wx'):null;
 const movementWatchFd=movementWatchOut?fs.openSync(movementWatchOut,'wx'):null;
+const placementTraceFd=placementTraceOut?fs.openSync(placementTraceOut,'wx'):null;
 const socket=net.createConnection({host:'127.0.0.1',port});socket.setNoDelay(true);
 await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('error',reject);});
 const rsp=new RspClient(socket);
@@ -97,6 +101,7 @@ const physicsQuatSites=new Map([[0xd55d0,'constructor'],[0x129100,'input'],[0x12
 const velocitySite=0x12bb30;
 const velocitySourceSite=0x52070;
 const velocityStageSites=new Map([[0x5481f,'afterDirection'],[0x54836,'afterHeading'],[0x5487a,'afterAdjustment']]);
+const placementSite=0x63770;
 const armed=[];let running=false,anchor=0,packet=0,lastPad='',samples=0;
 let gameplayAnchor=null,gameplayReadySamples=0,lastGameplayProbeLoop=null;
 let stateSamples=0,lastStateLoop=null;
@@ -105,6 +110,7 @@ let velocityArmed=false,velocitySamples=0;
 let velocitySourceArmed=false,velocitySourceSamples=0;
 let velocityStageArmed=false,velocityStageSamples=0;
 let movementWatchAddress=0,movementWatchArmed=false,movementWatchSamples=0;
+let placementTraceArmed=false,placementTraceSamples=0;
 let nextCinematicCapture=0;
 const trace={schema:1,source:'xemu-logical-pad',script,port,startedAt:new Date().toISOString(),events:[],
  limitation:'Synthetic XPP API results; excludes hardware-controller fidelity and wall-clock timing due to debugger stops'};
@@ -124,6 +130,8 @@ if(velocitySourceOut)trace.velocitySourceObservation={path:velocitySourceOut,sta
 if(velocityStageOut)trace.velocityStageObservation={path:velocityStageOut,start:velocityStart,end:velocityEnd,
  addresses:{afterDirection:'0x0005481F',afterHeading:'0x00054836',afterAdjustment:'0x0005487A'},timingPerturbed:true};
 if(movementWatchOut)trace.movementWatchObservation={path:movementWatchOut,timingPerturbed:true};
+if(placementTraceOut)trace.placementTraceObservation={path:placementTraceOut,address:'0x00063770',
+ timingPerturbed:true,fields:['loop','relativeFrame','worldTick','caller','wrapper','context','argument']};
 async function read(address,length){const value=await rsp.packet(`m${address.toString(16)},${length.toString(16)}`);if(!/^[0-9a-f]+$/i.test(value)||value.length!==length*2)throw new Error('Guest read failed');return Buffer.from(value,'hex');}
 async function write(address,bytes){if(await rsp.packet(`M${address.toString(16)},${bytes.length.toString(16)}:${bytes.toString('hex')}`)!=='OK')throw new Error('Guest controller write failed');}
 function float32(bits){const value=Buffer.allocUnsafe(4);value.writeUInt32LE(bits>>>0);return value.readFloatLE();}
@@ -168,12 +176,30 @@ try{
   movementWatchArmed=true;trace.movementWatchObservation.address=`0x${movementWatchAddress.toString(16)}`;
  }
  for(const address of sites.keys()){if(await rsp.packet(`Z0,${address.toString(16)},1`)!=='OK')throw new Error('Breakpoint rejected');armed.push(address);}
+ if(placementTraceFd!==null){
+  if(await rsp.packet(`Z0,${placementSite.toString(16)},1`)!=='OK')throw new Error('Placement trace breakpoint rejected');
+  armed.push(placementSite);placementTraceArmed=true;
+ }
  const deadline=performance.now()+seconds*1000;
  rsp.resume();running=true;
  while(performance.now()<deadline){
   let stop;try{stop=await rsp.nextPacket(Math.max(1,deadline-performance.now()));}catch(error){if(error.message.includes('timed out'))break;throw error;}
   running=false;if(!/^[ST]/.test(stop))continue;
   const registers=Buffer.from(await rsp.packet('g'),'hex'),eip=registers.readUInt32LE(32),esp=registers.readUInt32LE(16);
+  if(eip===placementSite){
+   const loop=(await read(0x25b1dc,4)).readUInt32LE();
+   const world=(await read(0x286768,4)).readUInt32LE();
+   const worldTick=world?(await read(world+8,4)).readUInt32LE():0;
+   const stack=await read(esp,8);
+   fs.writeSync(placementTraceFd,JSON.stringify({schema:1,source:'xemu',phase:'placementDispatch',loop,
+    relativeFrame:loop-anchor,worldTick,caller:stack.readUInt32LE(0),wrapper:registers.readUInt32LE(4),
+    context:registers.readUInt32LE(8),argument:stack.readUInt32LE(4),observedAt:new Date().toISOString()})+'\n');
+   ++placementTraceSamples;
+   let reply=await rsp.packet(`z0,${placementSite.toString(16)},1`);if(reply!=='OK')throw new Error('Placement trace breakpoint removal failed');
+   rsp.step();const stepStop=await rsp.nextPacket(5000);if(!/^[ST]/.test(stepStop))throw new Error(`Unexpected placement trace step reply: ${stepStop}`);
+   if(placementTraceArmed){reply=await rsp.packet(`Z0,${placementSite.toString(16)},1`);if(reply!=='OK')throw new Error('Placement trace breakpoint reinsert failed');}
+   rsp.resume();running=true;continue;
+  }
   const physicsPhase=physicsQuatSites.get(eip);
   if(physicsPhase){
    const loop=(await read(0x25b1dc,4)).readUInt32LE(),relativeFrame=loop-anchor;
@@ -364,5 +390,6 @@ finally{
  if(velocitySourceFd!==null){fs.closeSync(velocitySourceFd);trace.velocitySourceObservation.samples=velocitySourceSamples;}
  if(velocityStageFd!==null){fs.closeSync(velocityStageFd);trace.velocityStageObservation.samples=velocityStageSamples;}
  if(movementWatchFd!==null){fs.closeSync(movementWatchFd);trace.movementWatchObservation.samples=movementWatchSamples;}
+ if(placementTraceFd!==null){fs.closeSync(placementTraceFd);trace.placementTraceObservation.samples=placementTraceSamples;}
  fs.writeFileSync(out,JSON.stringify(trace,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify(trace));
 }

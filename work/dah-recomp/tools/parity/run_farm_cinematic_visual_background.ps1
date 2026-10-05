@@ -37,7 +37,7 @@ $start.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
     Where-Object { $_ -like 'DAH_*' } |
     ForEach-Object { $start.EnvironmentVariables.Remove($_) }
 
-$captureEnd = $CaptureStart + (($CaptureCount - 1u) * $CaptureInterval)
+$captureEnd = [uint32]($CaptureStart + (($CaptureCount - 1) * $CaptureInterval))
 $settings = @{
     DAH_INTERNAL_RUN = '1'
     DAH_TEST_WINDOW_HIDDEN = '1'
@@ -61,6 +61,8 @@ $settings = @{
     DAH_UI_ANIMATION_TRACE_START = [string]$CaptureStart
     DAH_FARM_MATERIAL_TRACE = '1'
     DAH_FARM_MATERIAL_TRACE_START = [string]$CaptureStart
+    DAH_FARM_SKIN_DUMP = '1'
+    DAH_PED_DISPATCH_TRACE = '1'
     DAH_MODEL_TRACE = '1'
     DAH_EFFECT_TEXTURE_OFFSET = '0x02493800'
     DAH_EFFECT_TEXTURE_DUMP = "$prefix-effect-02493800.bc3"

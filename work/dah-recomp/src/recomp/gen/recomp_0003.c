@@ -50866,14 +50866,17 @@ void sub_00063770(void)
     static int dah_pd_enabled = -1;
     static unsigned dah_pd_count;
     unsigned dah_pd_id = 0;
+    uint32_t dah_pd_caller = MEM32(esp);
+    uint32_t dah_pd_world = MEM32(0x286768u);
+    uint32_t dah_pd_tick = dah_pd_world ? MEM32(dah_pd_world + 8u) : 0u;
     if (dah_pd_enabled < 0) {
         const char *v = getenv("DAH_PED_DISPATCH_TRACE");
         dah_pd_enabled = v && v[0] == '1' && v[1] == 0;
     }
-    if (dah_pd_enabled && dah_pd_count < 256u) {
+    if (dah_pd_enabled && dah_pd_count < 512u) {
         dah_pd_id = ++dah_pd_count;
-        fprintf(stderr, "[DAH-PED-DISPATCH] id=%u enter wrapper=%08X context=%08X arg=%08X\n",
-                dah_pd_id, ecx, edx, MEM32(esp + 4));
+        fprintf(stderr, "[DAH-PED-DISPATCH] id=%u tick=%u caller=%08X wrapper=%08X context=%08X arg=%08X\n",
+                dah_pd_id, dah_pd_tick, dah_pd_caller, ecx, edx, MEM32(esp + 4));
     }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;

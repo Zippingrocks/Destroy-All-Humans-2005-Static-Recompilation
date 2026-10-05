@@ -11,3 +11,6 @@
 4300 6 0 255 0 0 0 0 0
 # Retry after the invasion map's entrance transition has fully settled.
 4700 6 0 255 0 0 0 0 0
+# The map's camera/UI entrance remains active at 4700 on slower hidden runs.
+# This final pulse occurs after the Farm pin and INVADE legend are stable.
+5600 6 0 255 0 0 0 0 0
