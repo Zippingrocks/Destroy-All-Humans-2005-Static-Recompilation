@@ -3750,6 +3750,86 @@ static int submit_inline_screen_mov(void)
     return 1;
 }
 
+/* Opt-in capture for effect packets which do not use indexed arrays.  Farm's
+ * projected weapon markers and particle cards can arrive through
+ * NV097_INLINE_ARRAY; the legacy fallback assumes five dwords per vertex and
+ * otherwise leaves no evidence about the retail declaration or program.
+ * Record a bounded set of distinct packets so those paths can be translated
+ * from observed state instead of guessed from the missing pixels. */
+static void dah_farm_inline_material_trace(void)
+{
+    static int configured;
+    static int enabled;
+    static unsigned first_submission = 2750u;
+    static struct { uint32_t hash; unsigned reports; } seen[64];
+    static unsigned seen_count;
+    uint32_t hash = 2166136261u;
+    uint32_t base;
+
+    if (!configured) {
+        const char *first;
+        enabled = getenv("DAH_FARM_MATERIAL_TRACE") != NULL;
+        first = getenv("DAH_FARM_MATERIAL_TRACE_START");
+        if (first && *first) first_submission = (unsigned)strtoul(first, NULL, 0);
+        configured = 1;
+    }
+    if (!enabled || g_pg.active_submission < first_submission ||
+        (g_pg.transform_mode & 3u) != 2u || !g_pg.inline_count)
+        return;
+
+    base = g_pg.transform_start <= 135u ? g_pg.transform_start * 4u : 0u;
+    hash = (hash ^ g_pg.draw_mode) * 16777619u;
+    hash = (hash ^ g_pg.inline_count) * 16777619u;
+    hash = (hash ^ g_pg.transform_start) * 16777619u;
+    hash = (hash ^ g_pg.tex[0].format) * 16777619u;
+    hash = (hash ^ g_pg.tex[0].image_rect) * 16777619u;
+    for (unsigned i = 0; i < 16u; ++i)
+        hash = (hash ^ g_pg.array_format[i]) * 16777619u;
+    for (unsigned i = 0; i < 16u && base + i < 136u * 4u; ++i)
+        hash = (hash ^ (g_pg.transform_valid[base + i] ?
+                g_pg.transform_program[base + i] : 0xDEADBEEFu)) * 16777619u;
+
+    for (unsigned i = 0; i < seen_count; ++i) {
+        if (seen[i].hash != hash) continue;
+        if (seen[i].reports++ >= 1u) return;
+        goto report;
+    }
+    if (seen_count >= 64u) return;
+    seen[seen_count].hash = hash;
+    seen[seen_count++].reports = 1u;
+
+report:
+    fprintf(stderr,
+        "[DAH-FARM-INLINE] submit=%u hash=%08X mode=%u dwords=%u fallback_stride=%u "
+        "start=%u target=%08X depth=%u,%u,%04X blend=%u,%04X,%04X,%04X "
+        "tex0=%u,%08X,%08X,%08X stage=%08X combiner=%08X final=%08X,%08X arrays=",
+        g_pg.active_submission, hash, g_pg.draw_mode, g_pg.inline_count,
+        g_pg.vert_stride, g_pg.transform_start, g_pg.surface_color_offset,
+        g_pg.depth_test, g_pg.depth_write, g_pg.depth_func,
+        g_pg.blend_enable, g_pg.blend_sfactor, g_pg.blend_dfactor,
+        g_pg.blend_equation, g_pg.tex[0].enabled, g_pg.tex[0].offset,
+        g_pg.tex[0].format, g_pg.tex[0].image_rect,
+        g_pg.shader_stage_program, g_pg.combiner_control,
+        g_pg.final_cw0, g_pg.final_cw1);
+    for (unsigned i = 0; i < 16u; ++i)
+        if ((g_pg.array_format[i] >> 4u) & 15u)
+            fprintf(stderr, "%s%u:%08X", i ? "," : "", i,
+                    g_pg.array_format[i]);
+    fprintf(stderr, " program=");
+    for (unsigned i = 0; i < 64u && base + i < 136u * 4u; ++i) {
+        fprintf(stderr, "%s%08X", i ? "," : "",
+                g_pg.transform_valid[base + i] ?
+                g_pg.transform_program[base + i] : 0xDEADBEEFu);
+        if ((i & 3u) == 3u && g_pg.transform_valid[base + i] &&
+            (g_pg.transform_program[base + i] & 1u)) break;
+    }
+    fprintf(stderr, " raw=");
+    for (unsigned i = 0; i < g_pg.inline_count && i < 64u; ++i)
+        fprintf(stderr, "%s%08X", i ? "," : "", g_pg.inline_data[i]);
+    fputc('\n', stderr);
+    fflush(stderr);
+}
+
 static void submit_draw_inner(void)
 {
     if(!g_pg.active_pushbuffer) {
@@ -3792,6 +3872,7 @@ static void submit_draw_inner(void)
      * Letting the five-dword fallback consume it creates a fifth garbage
      * vertex and black tiles around projected effects. */
     if (submit_inline_screen_mov()) return;
+    dah_farm_inline_material_trace();
 
     uint32_t num_verts = g_pg.inline_count / g_pg.vert_stride;
     if (num_verts < 3)

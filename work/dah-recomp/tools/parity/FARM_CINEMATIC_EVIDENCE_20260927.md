@@ -514,3 +514,13 @@ reproducible boundary checker is
 both configured input tests pass.  Rifle shape and cutscene tire rotation must
 still be visually compared with xemu after the staged executable replaces the
 currently running player build.
+
+The same follow-up confirmed that the missing yellow abducto projection cannot
+be closed from the weapon API name alone.  Projected weapon/effect cards can
+arrive through `NV097_INLINE_ARRAY`, while the remaining generic fallback
+assumes a five-dword screen-space vertex.  An opt-in, bounded
+`[DAH-FARM-INLINE]` capture now records each distinct packet's retail vertex
+declaration, program, texture, combiner, depth/blend state and source words
+when `DAH_FARM_MATERIAL_TRACE=1`.  It is dormant in normal player runs.  This
+will distinguish a missing weapon update from a dropped world-space projection
+on the next instrumented Farm/saucer replay without adding guessed geometry.
