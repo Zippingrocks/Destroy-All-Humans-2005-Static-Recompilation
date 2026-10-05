@@ -346,6 +346,7 @@ void sub_0001CDA0(void);
 void sub_0001CFB0(void);
 void sub_0001CFE0(void);
 void sub_0001D010(void);
+void sub_0001D030(void);
 void sub_0001D180(void);
 void sub_0001D1A0(void);
 void sub_0001D1F0(void);

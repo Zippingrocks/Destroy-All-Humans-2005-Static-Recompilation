@@ -497,3 +497,20 @@ The same live interval also exposed `00046C70` from event returns `0004C96E` and
 The user-visible 640x480 capture showed the rendered backbuffer filling the client exactly, while the white/black artifact occupied the Windows resize border. The host now requests a fixed black `DWMWA_BORDER_COLOR` through a dynamically loaded `DwmSetWindowAttribute`, leaving the title bar and client presentation unchanged and remaining harmless on Windows versions that do not support the attribute.
 
 The malformed soldier M1/rifle report occurred in the old process that still skipped the military actor event handlers. The newly promoted build includes the exact `00046C70` event callback as well as `0002DFC0`; these restore the attachment/model refresh path before any further culling workaround is considered. This is intentionally scoped because the prior broad dynamic-mesh retention caused incorrect actor attachments during gravity-beam transitions.
+
+## 2026-10-04 vehicle and actor attachment callback
+
+A later user-driven Farm run continued to report malformed soldier rifles and
+uncertain wheel animation.  Its live indirect-call trace repeatedly reached
+missing retail target `0001D030` from the common actor/vehicle update return
+`0001E9E6`.  The function updates attached objects through vtable slots
+`+0x20` and `+0x2C`, using parent transform endpoints and a retail timer.
+
+`0001D030..0001D171` is now restored as an exact 321-byte, 111-instruction
+translator lift from the pinned retail XBE.  It is registered in generated
+and manual indirect dispatch and retained in `icall_seeds.json`.  The
+reproducible boundary checker is
+`tools/lift_vehicle_attachment_callback.py`.  The internal build succeeds and
+both configured input tests pass.  Rifle shape and cutscene tire rotation must
+still be visually compared with xemu after the staged executable replaces the
+currently running player build.
