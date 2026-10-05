@@ -141,12 +141,27 @@ def emit(stream, kind: str, reader: Reader, **fields) -> None:
     world = reader.u32(0x00286768)
     tick = reader.u32(world + 8) if pointer(world) else 0
     elapsed_bits = reader.u32(world + 0x0C) if pointer(world) else 0
+    renderer = reader.u32(0x00250E60)
+    movie = reader.u32(0x0028681C)
     row = {
         "type": kind,
         "time": round(time.time(), 6),
+        "loop": reader.u32(0x0025B1DC),
         "world": f"{world:08X}" if world else None,
         "worldTick": tick,
         "worldElapsedBits": f"{elapsed_bits:08X}",
+        "worldPaused": (reader.read(world + 0x303C, 1) or b"\0")[0]
+                       if pointer(world) else None,
+        "worldRealtime": (reader.read(world + 0x303D, 1) or b"\0")[0]
+                         if pointer(world) else None,
+        "savedBackbuffer": (f"{reader.u32(renderer + 0x484):08X}"
+                            if pointer(renderer) else None),
+        "savedBackbufferEnabled": ((reader.read(renderer + 0x488, 1) or b"\0")[0]
+                                   if pointer(renderer) else None),
+        "binkMovie": f"{movie:08X}" if movie else None,
+        "binkMode": reader.u32(0x002867F8),
+        "binkFlags": (reader.read(0x002867F4, 1) or b"\0")[0],
+        "binkLifecycle": reader.u32(0x00286804),
         **fields,
     }
     stream.write(json.dumps(row, separators=(",", ":")) + "\n")

@@ -535,10 +535,13 @@ def main() -> int:
                              history=actor_summary(actor, now),
                              classification=("world-transition"
                                              if now < world_transition_until else
+                                             "ambient-streaming"
+                                             if actor.resource_name == "a_chicken" else
                                              "semantics-unresolved"))
                         count("actor-despawn")
                         if (now >= world_transition_until and
                                 actor.kind == "pedestrian" and
+                                actor.resource_name != "a_chicken" and
                                 actor.life_state == "alive"):
                             emit(output, "anomaly", now, tick, **ident(actor),
                                  code="living-pedestrian-vanished",
@@ -557,9 +560,26 @@ def main() -> int:
                     observed_life_state |= current.life_state is not None
                     observed_ai_state_name |= current.ai_state_name is not None
                     if current.serial != old.serial:
-                        emit(output, "anomaly", now, tick, **ident(current),
-                             code="actor-address-reused", previousSerial=old.serial)
-                        count("anomaly")
+                        # The retail arena immediately reuses freed addresses.
+                        # Treat a changed stable serial as a complete lifecycle
+                        # boundary so histories from two objects never merge.
+                        fresh = read_actor(reader, address, profile, now)
+                        if fresh is None:
+                            continue
+                        current = fresh
+                        emit(output, "actor-despawn", now, tick, **ident(old),
+                             history=actor_summary(old, now),
+                             classification="address-reused",
+                             replacementSerial=current.serial)
+                        count("actor-despawn")
+                        emit(output, "actor-spawn", now, tick, **ident(current),
+                             scene=f"{current.scene:08X}",
+                             position=rounded(current.position),
+                             classification="reused-address",
+                             previousSerial=old.serial)
+                        count("actor-spawn")
+                        tracked[address] = current
+                        continue
                     changes = []
                     for index, (before, after) in enumerate(zip(old.state_words,
                                                                 current.state_words)):
