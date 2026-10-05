@@ -56,3 +56,20 @@ The release candidate built successfully at
 `E81F9837AAE397817D27C233D03B64C6D15C0AF2712E45176AAB25303E852DA5`.
 Both configured tests pass. Promotion and visible verification wait for the
 current user-controlled process to exit normally.
+
+## Follow-up Farm run, PID 78816
+
+The read-only UI/cinematic observer caught the full end of the unskipped Farm
+arrival. The cinematic list cleared and the gameplay HUD activated together at
+retail loop 8444, world tick 2529. The established native baseline releases at
+approximately tick 2527, so this run does not reproduce an early-HUD release.
+The normal objective presentation began at tick 2592 and closed at tick 2778.
+
+During the saucer beam shot, the renderer accepted Farm deform program kind 22
+at submission 12293 and repeatedly submitted the saucer screen-effect texture
+`0249F800` to the alternating scene targets. No distinct yellow world-space
+projection/decal appeared in the bounded trace. This narrows the defect to the
+projected-card/inline path rather than failure to start the overall beam shot.
+The currently running player executable predates the opt-in full inline packet
+trace; retain the next packet-complete run before changing vertex layout or
+inventing replacement geometry.
