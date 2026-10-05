@@ -137,12 +137,18 @@ def scan_actors(reader: Reader, start: int, end: int) -> dict[int, tuple]:
     if not data:
         return {}
     found = {}
-    # Retail heap allocations are 16-byte aligned.  Six exact constructor
-    # invariants prevent XBE code/data from being mistaken for live actors.
-    for offset in range(0, len(data) - min(profile[1] for profile in PROFILES), 0x10):
-        profile = matching_profile(data, offset)
-        if profile:
-            found[start + offset] = profile
+    # Search each vtable marker in C instead of unpacking every 16-byte heap
+    # slot through Python. Retail heap allocations are 16-byte aligned, and
+    # matching_profile still verifies all six constructor invariants before a
+    # candidate is accepted. This keeps the observer read-only while avoiding
+    # a full CPU core of polling overhead during gameplay.
+    for profile in PROFILES:
+        needle = struct.pack("<I", profile[2])
+        offset = data.find(needle)
+        while offset >= 0:
+            if offset % 0x10 == 0 and matching_profile(data, offset) == profile:
+                found[start + offset] = profile
+            offset = data.find(needle, offset + 1)
     return found
 
 
