@@ -3362,6 +3362,7 @@ static const recomp_entry_t g_recomp_table[] = {
     { 0x0009A8F0u, (recomp_func_t)sub_0009A8F0 },
     { 0x0009A900u, (recomp_func_t)sub_0009A900 },
     { 0x0009A920u, (recomp_func_t)sub_0009A920 },
+    { 0x0009A950u, (recomp_func_t)sub_0009A950 },
     { 0x0009A990u, (recomp_func_t)sub_0009A990 },
     { 0x0009A9A0u, (recomp_func_t)sub_0009A9A0 },
     { 0x0009A9E0u, (recomp_func_t)sub_0009A9E0 },
