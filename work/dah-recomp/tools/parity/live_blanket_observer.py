@@ -210,7 +210,12 @@ class Actor:
 
 # Words that are stable enough to expose AI/lifecycle transitions.  Transform
 # and intrusive-list storage are reported separately to avoid per-frame floods.
-VOLATILE_STATE_OFFSETS = {0x58, 0x11C, 0x120, 0x124, 0x128, 0x13C}
+VOLATILE_STATE_OFFSETS = {
+    0x58, 0x11C, 0x120, 0x124, 0x128,
+    # Per-frame float/interpolation storage. AI state, physics state, render
+    # identity, visibility, and transforms are decoded through named fields.
+    0x130, 0x138, 0x13C,
+}
 STATE_OFFSETS = tuple(offset for offset in (
     tuple(range(0x38, 0xBC, 4)) + tuple(range(0xC4, 0x134, 4)) +
     (0x138, 0x13C, 0x140, 0x144)) if offset not in VOLATILE_STATE_OFFSETS)
@@ -542,8 +547,14 @@ def main() -> int:
                     changes = []
                     for index, (before, after) in enumerate(zip(old.state_words,
                                                                 current.state_words)):
+                        offset = STATE_OFFSETS[index]
+                        if offset == 0x12C:
+                            # Bit 2 is the common per-frame visited/update bit;
+                            # retain every other object flag transition.
+                            before &= ~0x4
+                            after &= ~0x4
                         if before != after:
-                            changes.append({"offset": f"{STATE_OFFSETS[index]:03X}",
+                            changes.append({"offset": f"{offset:03X}",
                                             "before": f"{before:08X}",
                                             "after": f"{after:08X}"})
                     if changes or current.gate140 != old.gate140 or current.render != old.render:
