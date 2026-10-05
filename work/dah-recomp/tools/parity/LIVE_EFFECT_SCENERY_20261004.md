@@ -73,3 +73,26 @@ projected-card/inline path rather than failure to start the overall beam shot.
 The currently running player executable predates the opt-in full inline packet
 trace; retain the next packet-complete run before changing vertex layout or
 inventing replacement geometry.
+
+The same uninterrupted run exercised the cow Cortex Scan/tutorial path. The
+observer recorded the ability selector, Cortex target, thought bubble,
+notification and brain-stem UI as separate game-tick transitions. Six cow
+actors subsequently entered `animal_dead` together and streamed out before a
+cinematic/loading/tutorial handoff. This proves the interaction is no longer
+stuck at the UI prompt, but the simultaneous death transition still needs an
+equivalent xemu trace before it can be accepted as retail behavior.
+
+Player movement also exposed whole scenery-sector activation waves. At world
+tick 16676, the actor list admitted fir and birch trees, river rocks, forest
+clumps, hay bales, fence pieces and the rainwater tank on the same tick. This
+is a stronger candidate boundary for the reported scenery pop than the
+per-object frustum hold: the actors were absent from the world list before the
+wave, so a cull-only correction cannot make them render earlier.
+
+At ticks 17134 through 17177, the UI entered fade/loading and then restored the
+gameplay HUD while a police car, two police officers and the farmer's wife were
+created for the next encounter. The frame monitor recorded one 282.310 ms
+interval in that handoff (`late=1`) with zero failed presents and zero invalid
+simulation steps. Adjacent five-second windows returned to exact 30 Hz. Treat
+this as a synchronous transition hitch until a matched xemu run establishes
+the retail budget and event order.
