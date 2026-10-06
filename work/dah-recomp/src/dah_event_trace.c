@@ -131,7 +131,8 @@ static DWORD WINAPI writer_main(void *unused)
     return 0;
 }
 
-void dah_event_trace_initialize(void)
+void dah_event_trace_initialize(const char *run_id, const char *started_utc,
+                                uint64_t executable_hash)
 {
     const char *path = getenv("DAH_EVENT_TRACE");
     /* Always retain the most recent run so a one-frame hitch or transient AI
@@ -142,6 +143,13 @@ void dah_event_trace_initialize(void)
     output = fopen(path, "wb");
     if (!output) return;
     setvbuf(output, NULL, _IOFBF, 64u * 1024u);
+    fprintf(output,
+            "{\"event\":\"run-start\",\"schema\":1,\"runId\":\"%s\","
+            "\"pid\":%lu,\"startedUtc\":\"%s\","
+            "\"executableFnv1a64\":\"%016llX\"}\n",
+            run_id, GetCurrentProcessId(), started_utc,
+            (unsigned long long)executable_hash);
+    fflush(output);
     wake_event = CreateEventA(NULL, FALSE, FALSE, NULL);
     if (!wake_event) {
         fclose(output);

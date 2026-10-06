@@ -7,6 +7,23 @@ invariants, resolves names such as `h_male_farmer_shotgun`, `v_tractor`, and
 `p_tree_large_farm` from retail resource records, then records compact JSONL
 events instead of full object dumps.
 
+## Current-run evidence gate
+
+Every new recomp launch writes one identity to `furonlog.log`, the first
+`dah_event_trace.jsonl` record, and `dah_current_run.json`. The identity includes
+UTC start time, PID, and an FNV-1a fingerprint of the exact executable. Before
+reporting a finding from the active diagnostics, run:
+
+```powershell
+python tools/parity/validate_current_run.py --root <game-directory>
+```
+
+The gate rejects a mismatched runtime log, event trace from another launch,
+different executable fingerprint, or a manifest that says `running` after its
+process exited. Historical blanket captures remain separate, timestamped files;
+they are evidence for their named run and never establish a current regression
+without a new reproduction.
+
 The first coverage layer records actor spawn/despawn, raw lifecycle gate and render state,
 raw state-word transitions, transforms, address reuse, invalid transforms,
 large transform jumps, and actor removals. The `+0x140` byte is intentionally

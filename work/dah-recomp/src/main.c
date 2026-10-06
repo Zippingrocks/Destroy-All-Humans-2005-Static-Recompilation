@@ -31,6 +31,56 @@ static RECOMP_TLS int g_kpcr_watch_rearm;
 
 #include "dah_console.h"
 
+static uint64_t dah_hash_file_w(const wchar_t *path)
+{
+    uint64_t hash = 1469598103934665603ull;
+    unsigned char buffer[64u * 1024u];
+    FILE *file = _wfopen(path, L"rb");
+    size_t count;
+    if (!file) return 0;
+    while ((count = fread(buffer, 1, sizeof(buffer), file)) != 0) {
+        for (size_t i = 0; i < count; ++i) {
+            hash ^= buffer[i];
+            hash *= 1099511628211ull;
+        }
+    }
+    fclose(file);
+    return hash;
+}
+
+static void dah_write_json_string(FILE *file, const char *text)
+{
+    fputc('"', file);
+    for (; text && *text; ++text) {
+        unsigned char value = (unsigned char)*text;
+        if (value == '"' || value == '\\') fputc('\\', file);
+        if (value >= 32u) fputc(value, file);
+    }
+    fputc('"', file);
+}
+
+static void dah_write_run_manifest(const char *run_id, const char *started_utc,
+                                   uint64_t executable_hash,
+                                   const char *log_path, const char *event_path,
+                                   const char *status)
+{
+    FILE *file = fopen("dah_current_run.json", "wb");
+    if (!file) return;
+    fprintf(file, "{\n  \"schema\": 1,\n  \"runId\": ");
+    dah_write_json_string(file, run_id);
+    fprintf(file, ",\n  \"pid\": %lu,\n  \"startedUtc\": ", GetCurrentProcessId());
+    dah_write_json_string(file, started_utc);
+    fprintf(file, ",\n  \"executableFnv1a64\": \"%016llX\",\n  \"logPath\": ",
+            (unsigned long long)executable_hash);
+    dah_write_json_string(file, log_path);
+    fprintf(file, ",\n  \"eventTracePath\": ");
+    dah_write_json_string(file, event_path);
+    fprintf(file, ",\n  \"status\": ");
+    dah_write_json_string(file, status);
+    fprintf(file, "\n}\n");
+    fclose(file);
+}
+
 
 static int dah_internal_run(void)
 {
@@ -679,6 +729,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     WCHAR *directory_end;
     DWORD path_length;
     uint32_t path_hash = 2166136261u;
+    uint64_t executable_hash;
+    SYSTEMTIME run_time;
+    char run_id[96], started_utc[32];
     HANDLE instance_mutex;
     int internal_run = dah_internal_run();
     (void)previous; (void)command_line; (void)show;
@@ -690,6 +743,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
      * Resolve all game data, save paths and diagnostics beside this build. */
     path_length = GetModuleFileNameW(NULL, executable_path, 32768);
     if (!path_length || path_length >= 32768) return 1;
+    executable_hash = dah_hash_file_w(executable_path);
+    GetSystemTime(&run_time);
+    sprintf_s(started_utc, sizeof(started_utc),
+              "%04u-%02u-%02uT%02u:%02u:%02u.%03uZ",
+              run_time.wYear, run_time.wMonth, run_time.wDay,
+              run_time.wHour, run_time.wMinute, run_time.wSecond,
+              run_time.wMilliseconds);
+    sprintf_s(run_id, sizeof(run_id),
+              "%04u%02u%02uT%02u%02u%02u%03uZ-p%lu-%016llX",
+              run_time.wYear, run_time.wMonth, run_time.wDay,
+              run_time.wHour, run_time.wMinute, run_time.wSecond,
+              run_time.wMilliseconds, GetCurrentProcessId(),
+              (unsigned long long)executable_hash);
     for (DWORD i = 0; i < path_length; ++i)
         path_hash = (path_hash ^ (uint32_t)executable_path[i]) * 16777619u;
     swprintf_s(mutex_name, 64, L"Local\\DAH1Recomp-%08X", path_hash);
@@ -710,7 +776,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
      * to recomp.log, so allocating a separate console creates an empty
      * second window without providing any diagnostic output. */
     const char *dah_log_path=getenv("DAH_LOG_PATH");
+    const char *dah_event_path=getenv("DAH_EVENT_TRACE");
     if(!dah_log_path || !*dah_log_path)dah_log_path="furonlog.log";
+    if(!dah_event_path || !*dah_event_path)dah_event_path="dah_event_trace.jsonl";
     freopen(dah_log_path, "w", stdout);
     freopen(dah_log_path, "a", stderr);
     /* Both FILE streams must exist even for a hidden GUI process, then
@@ -719,7 +787,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
     printf("Destroy All Humans! (2005) native static recomp bring-up\n");
-    fprintf(stderr, "[DAH-RUN] pid=%lu data-directory=%ls\n", GetCurrentProcessId(), executable_path);
+    fprintf(stderr,
+            "[DAH-RUN] schema=1 id=%s pid=%lu started-utc=%s exe-fnv1a64=%016llX data-directory=%ls log=%s events=%s\n",
+            run_id, GetCurrentProcessId(), started_utc,
+            (unsigned long long)executable_hash, executable_path,
+            dah_log_path, dah_event_path);
+    dah_write_run_manifest(run_id, started_utc, executable_hash,
+                           dah_log_path, dah_event_path, "running");
     {
         const char *kpcr_watch = getenv("DAH_KPCR_WATCH");
         if (kpcr_watch && atoi(kpcr_watch) != 0)
@@ -728,7 +802,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     /* crashlog is a separate persistent crash-only archive.  Keep the
      * existing recomp crash handler and detailed runtime log intact. */
     dah_crashlog_initialize(dah_log_path);
-    dah_event_trace_initialize();
+    dah_event_trace_initialize(run_id, started_utc, executable_hash);
     AddVectoredExceptionHandler(0, log_unhandled_exception);
     /* Stack-sampling suspends the game thread by design.  Keep it available
      * for crash investigations, but do not let the diagnostic distort normal
@@ -823,6 +897,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     dah_start_model_watch();
     entry();
     dah_event_trace_shutdown();
+    dah_write_run_manifest(run_id, started_utc, executable_hash,
+                           dah_log_path, dah_event_path, "completed");
     printf("The translated game returned to the host.\n");
     xbox_kernel_shutdown();
     xbox_MemoryLayoutShutdown();
