@@ -246,6 +246,7 @@ static struct {
     uint32_t factor0[8], factor1[8];
     uint32_t color_icw[8], color_ocw[8], alpha_icw[8], alpha_ocw[8];
     uint32_t combiner_control, final_cw0, final_cw1, shader_stage_program;
+    uint32_t shader_other_stage_input;
     const uint32_t *active_pushbuffer;
     uint32_t active_pushbuffer_dwords, active_submission;
     uint32_t rejected_state_hash;
@@ -454,6 +455,7 @@ static uint32_t rejected_draw_hash(const char *reason)
     REJECT_HASH_WORD(g_pg.surface_format); REJECT_HASH_WORD(g_pg.surface_pitch);
     REJECT_HASH_WORD(g_pg.surface_color_offset); REJECT_HASH_WORD(g_pg.surface_zeta_offset);
     REJECT_HASH_WORD(g_pg.transform_start); REJECT_HASH_WORD(g_pg.shader_stage_program);
+    REJECT_HASH_WORD(g_pg.shader_other_stage_input);
     REJECT_HASH_WORD(g_pg.combiner_control); REJECT_HASH_WORD(g_pg.final_cw0);
     REJECT_HASH_WORD(g_pg.final_cw1); REJECT_HASH_WORD(g_pg.depth_test);
     REJECT_HASH_WORD(g_pg.blend_enable); REJECT_HASH_WORD(g_pg.cull_enable);
@@ -1020,7 +1022,7 @@ static uint32_t pack_rgba8(const float d[4])
  * Returns 1 on success, 0 when this draw should fall through to the
  * movie-gated path.  Never touches the existing reject counter or logs. */
 
-extern void d3d8_combiners_set_nv2a(uint32_t,uint32_t,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,uint32_t,uint32_t);
+extern void d3d8_combiners_set_nv2a(uint32_t,uint32_t,uint32_t,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,const uint32_t*,uint32_t,uint32_t);
 extern void d3d8_combiners_set_texture_alpha_one_mask(uint32_t);
 extern void dah_renderdoc_begin_effect(const char *label);
 
@@ -3243,7 +3245,7 @@ static int submit_indexed_3d(void)
      * equation as the advanced mesh paths. The former fixed-function
      * MODULATE2X approximation omitted the final fog mix, producing the dark
      * and abruptly saturated scene changes visible against xemu. */
-    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.shader_other_stage_input,
         g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
         g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
     d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
@@ -3655,7 +3657,7 @@ texture_ready: ;
         dev->lpVtbl->SetTexture(dev, stage, NULL);
         dev->lpVtbl->SetTextureStageState(dev, stage, D3DTSS_COLOROP, D3DTOP_DISABLE);
     }
-    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.shader_other_stage_input,
         g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
         g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
     d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
@@ -3886,7 +3888,7 @@ static int submit_postprocess(void)
             g_pg.depth_test,g_pg.depth_func,g_pg.depth_write,g_pg.combiner_control,
             g_pg.final_cw0,g_pg.final_cw1);
     }
-    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.shader_other_stage_input,g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
     d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
     d3d8_combiners_set_vertex_fog_constant(dah_transform_fog(c[187][0]));
     if(dependent_ar && dah_ui_animation_trace_enabled()){
@@ -4029,7 +4031,7 @@ static int submit_inline_screen_mov(void)
         dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MAGFILTER,D3DTEXF_LINEAR);
         dev->lpVtbl->SetTextureStageState(dev,0,D3DTSS_MIPFILTER,D3DTEXF_NONE);
     }
-    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,
+    d3d8_combiners_set_nv2a(g_pg.combiner_control,g_pg.shader_stage_program,g_pg.shader_other_stage_input,
         g_pg.color_icw,g_pg.color_ocw,g_pg.alpha_icw,g_pg.alpha_ocw,
         g_pg.factor0,g_pg.factor1,g_pg.final_cw0,g_pg.final_cw1);
     d3d8_combiners_set_texture_alpha_one_mask(dah_texture_alpha_one_mask());
@@ -4680,6 +4682,7 @@ int pgraph_d3d11_method(int subchannel, uint32_t method, uint32_t param)
     case NV097_SET_COMBINER_SPECULAR_FOG_CW0: g_pg.final_cw0 = param; return 1;
     case NV097_SET_COMBINER_SPECULAR_FOG_CW1: g_pg.final_cw1 = param; return 1;
     case NV097_SET_SHADER_STAGE_PROGRAM: g_pg.shader_stage_program = param; return 1;
+    case NV097_SET_SHADER_OTHER_STAGE_INPUT: g_pg.shader_other_stage_input = param; return 1;
 
     /* ── Draw Begin/End ── */
     case NV097_SET_BEGIN_END:

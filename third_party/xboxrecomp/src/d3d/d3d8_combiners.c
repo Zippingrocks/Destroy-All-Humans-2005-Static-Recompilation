@@ -67,7 +67,7 @@ static ID3D11Buffer *g_combiner_cb = NULL;
  * via frame counter).
  * ================================================================ */
 
-#define COMBINER_CACHE_SIZE 128
+#define COMBINER_CACHE_SIZE 2048
 
 typedef struct CombinerCacheEntry {
     BOOL                in_use;
@@ -206,6 +206,10 @@ void d3d8_combiners_parse_token(DWORD token, const DWORD *rs,
     state->tex_mode[1] = (NV2ATextureMode)((token >> 12) & 0xF);
     state->tex_mode[2] = (NV2ATextureMode)((token >> 16) & 0xF);
     state->tex_mode[3] = (NV2ATextureMode)((token >> 20) & 0xF);
+    state->tex_input[0] = 0;
+    state->tex_input[1] = 0;
+    state->tex_input[2] = 1;
+    state->tex_input[3] = 2;
 
     /* Bits [24:31]: dot mapping and other flags */
     state->flags = (token >> 24) & 0xFF;
@@ -222,6 +226,10 @@ void d3d8_combiners_parse_token(DWORD token, const DWORD *rs,
     state->tex_mode[1] = (NV2ATextureMode)((token >> 12) & 0xF);
     state->tex_mode[2] = (NV2ATextureMode)((token >> 16) & 0xF);
     state->tex_mode[3] = (NV2ATextureMode)((token >> 20) & 0xF);
+    state->tex_input[0] = 0;
+    state->tex_input[1] = 0;
+    state->tex_input[2] = 1;
+    state->tex_input[3] = 2;
     state->flags = (token >> 24) & 0xFF;
 }
 
@@ -230,6 +238,10 @@ void d3d8_combiners_from_render_states(const DWORD *rs,
 {
     int i;
     state->tex_alpha_one_mask = 0;
+    state->tex_input[0] = 0;
+    state->tex_input[1] = 0;
+    state->tex_input[2] = 1;
+    state->tex_input[3] = 2;
 
     /*
      * If called standalone (not from parse_token), read combiner count
@@ -568,10 +580,12 @@ int d3d8_combiners_generate_hlsl(const NV2ACombinerState *state,
         } else if (state->tex_mode[i] == NV2A_TEXMODE_3D) {
             EMIT("    float4 r_t%d = tex%d.Sample(samp%d, float3(input.tc%d.xy, 0));\n",
                  i, i, i, i);
-        } else if (state->tex_mode[i] == NV2A_TEXMODE_DEPENDENT_AR_T0 && i == 1) {
-            /* NV2A DPNDNT_AR stage 1 has a fixed stage-0 source. Its
-             * coordinates are texture color channels, not vertex UVs. */
-            EMIT("    float4 r_t1 = tex1.Sample(samp1, r_t0.ar);\n");
+        } else if (state->tex_mode[i] == NV2A_TEXMODE_DEPENDENT_AR && i > 0) {
+            EMIT("    float4 r_t%d = tex%d.Sample(samp%d, r_t%d.ar);\n",
+                 i, i, i, state->tex_input[i]);
+        } else if (state->tex_mode[i] == NV2A_TEXMODE_DEPENDENT_GB && i > 0) {
+            EMIT("    float4 r_t%d = tex%d.Sample(samp%d, r_t%d.gb);\n",
+                 i, i, i, state->tex_input[i]);
         } else {
             EMIT("    float4 r_t%d = tex%d.Sample(samp%d, input.tc%d.xy);\n",
                  i, i, i, i);
@@ -835,7 +849,7 @@ static ID3D11PixelShader *compile_combiner_shader(const NV2ACombinerState *state
 
     hr = D3DCompile(hlsl, (SIZE_T)len, "ps_combiner",
                     NULL, NULL, "main", "ps_5_0",
-                    D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+                    D3DCOMPILE_OPTIMIZATION_LEVEL0, 0,
                     &code, &errors);
     if (FAILED(hr)) {
         fprintf(stderr, "NV2A combiners: HLSL compile failed: %s\n",
@@ -1026,7 +1040,7 @@ void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask)
     g_combiner_state.tex_alpha_one_mask = mask & 15u;
 }
 
-void d3d8_combiners_set_nv2a(uint32_t control,uint32_t texture_modes,
+void d3d8_combiners_set_nv2a(uint32_t control,uint32_t texture_modes,uint32_t other_stage_input,
     const uint32_t *rgbin,const uint32_t *rgbout,const uint32_t *ain,const uint32_t *aout,
     const uint32_t *c0,const uint32_t *c1,uint32_t final0,uint32_t final1)
 {
@@ -1048,8 +1062,14 @@ void d3d8_combiners_set_nv2a(uint32_t control,uint32_t texture_modes,
         unsigned mode=(texture_modes>>(5*i))&31u;
         s->tex_mode[i]=mode==1u?NV2A_TEXMODE_2D:
             mode==3u?NV2A_TEXMODE_CUBEMAP:
-            mode==15u&&i==1u?NV2A_TEXMODE_DEPENDENT_AR_T0:NV2A_TEXMODE_NONE;
+            mode==15u&&i>0u?NV2A_TEXMODE_DEPENDENT_AR:
+            mode==16u&&i>0u?NV2A_TEXMODE_DEPENDENT_GB:NV2A_TEXMODE_NONE;
     }
+    s->tex_input[0]=0u;
+    s->tex_input[1]=0u;
+    s->tex_input[2]=(BYTE)((other_stage_input>>16u)&15u);
+    s->tex_input[3]=(BYTE)((other_stage_input>>20u)&15u);
+    for(unsigned i=1;i<4;i++) if(s->tex_input[i]>=i) s->tex_input[i]=(BYTE)(i-1u);
     for(unsigned i=0;i<4;i++) parse_combiner_input((final0>>(24-8*i))&255u,&s->final_input[i]);
     for(unsigned i=0;i<3;i++) parse_combiner_input((final1>>(24-8*i))&255u,&s->final_input[i+4]);
     g_ps_token=0xffffffffu; g_dirty=FALSE;

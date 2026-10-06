@@ -34,7 +34,7 @@ static void upload_threshold(void)
     const uint32_t rgbin[8]={0xC820C440},rgbout[8]={0x00000C00};
     const uint32_t ain[8]={0xD830D450,0xD8301010},aout[8]={0x00000C00,0x000000C0};
     const uint32_t constants[8]={0};
-    d3d8_combiners_set_nv2a(0x00011102,1,rgbin,rgbout,ain,aout,constants,constants,0x0000000E,0x00001C80);
+    d3d8_combiners_set_nv2a(0x00011102,1,0,rgbin,rgbout,ain,aout,constants,constants,0x0000000E,0x00001C80);
     CHECK(g_combiner_state.tex_alpha_one_mask==0);
 }
 int main(int argc,char **argv)
@@ -81,7 +81,7 @@ int main(int argc,char **argv)
     render_states[D3DRS_ALPHATESTENABLE]=0;
     const uint32_t zero[8]={0};
     for(unsigned stage=0;stage<4;++stage)for(unsigned x8=0;x8<2;++x8){
-        d3d8_combiners_set_nv2a(0,1u<<(stage*5),zero,zero,zero,zero,zero,zero,8+stage,(0x18+stage)<<8);
+        d3d8_combiners_set_nv2a(0,1u<<(stage*5),0,zero,zero,zero,zero,zero,zero,8+stage,(0x18+stage)<<8);
         d3d8_combiners_set_texture_alpha_one_mask(x8?1u<<stage:0);
         uint8_t expected[8]={191,64,159,0,64,223,159,32};
         if(x8)expected[3]=expected[7]=255;
@@ -92,12 +92,12 @@ int main(int argc,char **argv)
     const uint8_t lut[8]={255,0,0,255,0,0,255,255};
     ID3D11ShaderResourceView *table=texture(2,1,DXGI_FORMAT_R8G8B8A8_UNORM,lut,sizeof(lut));
     ID3D11DeviceContext_PSSetShaderResources(context,1,1,&table);
-    d3d8_combiners_set_nv2a(0,0x1e1,zero,zero,zero,zero,zero,zero,9,0x1900);
+    d3d8_combiners_set_nv2a(0,0x1e1,0,zero,zero,zero,zero,zero,zero,9,0x1900);
     d3d8_combiners_set_texture_alpha_one_mask(1);
     const uint8_t blue[8]={0,0,255,255,0,0,255,255};check_pixels("dependent AR consumes X8 alpha",blue);
     /* A disabled texture retains its default register contents even if a
      * stale caller mask names the stage. Render-state uploads also reset it. */
-    d3d8_combiners_set_nv2a(0,0,zero,zero,zero,zero,zero,zero,8,0x1800);
+    d3d8_combiners_set_nv2a(0,0,0,zero,zero,zero,zero,zero,zero,8,0x1800);
     d3d8_combiners_set_texture_alpha_one_mask(1);
     const uint8_t disabled[8]={0,0,0,0,0,0,0,0};check_pixels("disabled texture",disabled);
     d3d8_combiners_from_render_states(render_states,&g_combiner_state);CHECK(g_combiner_state.tex_alpha_one_mask==0);

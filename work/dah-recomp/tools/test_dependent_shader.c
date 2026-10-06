@@ -39,6 +39,22 @@ static void table_color(unsigned row, unsigned column, uint8_t rgba[4])
     rgba[2] = (uint8_t)(row*43 + column*97 + 101);
     rgba[3] = (uint8_t)(row*7 + column*47 + 151);
 }
+static void check_other_stage_routing(void)
+{
+    uint32_t words[8] = {0};
+    char hlsl[16384];
+    uint32_t modes = 1u | (1u << 5u) | (15u << 10u) | (16u << 15u);
+    uint32_t inputs = (1u << 16u) | (2u << 20u);
+    d3d8_combiners_set_nv2a(0, modes, inputs, words, words, words, words,
+                            words, words, 9u, 0x1900u);
+    CHECK(g_combiner_state.tex_mode[2] == NV2A_TEXMODE_DEPENDENT_AR);
+    CHECK(g_combiner_state.tex_mode[3] == NV2A_TEXMODE_DEPENDENT_GB);
+    CHECK(g_combiner_state.tex_input[2] == 1u);
+    CHECK(g_combiner_state.tex_input[3] == 2u);
+    CHECK(d3d8_combiners_generate_hlsl(&g_combiner_state, hlsl, sizeof(hlsl)) > 0);
+    CHECK(strstr(hlsl, "r_t2 = tex2.Sample(samp2, r_t1.ar)") != NULL);
+    CHECK(strstr(hlsl, "r_t3 = tex3.Sample(samp3, r_t2.gb)") != NULL);
+}
 static unsigned run(unsigned table_width, int linear, int negative)
 {
     float source[256][4]; uint8_t table[256*2*4];
@@ -67,7 +83,7 @@ static unsigned run(unsigned table_width, int linear, int negative)
     ID3D11DeviceContext_PSSetSamplers(context, 0, 2, samplers);
     uint32_t words[8] = {0};
     /* Final RGB=D=T1; alpha=G=T1.a. No color arithmetic can hide errors. */
-    d3d8_combiners_set_nv2a(0, 0x1e1u, words, words, words, words, words, words, 9u, 0x1900u);
+    d3d8_combiners_set_nv2a(0, 0x1e1u, 0, words, words, words, words, words, words, 9u, 0x1900u);
     CHECK(g_combiner_state.tex_mode[0] == NV2A_TEXMODE_2D);
     CHECK(g_combiner_state.tex_mode[1] == NV2A_TEXMODE_DEPENDENT_AR_T0);
     if (negative == 1) g_combiner_state.tex_mode[1] = NV2A_TEXMODE_NONE;
@@ -119,6 +135,7 @@ int main(int argc, char **argv)
     D3D_FEATURE_LEVEL level;
     HR(D3D11CreateDevice(NULL,D3D_DRIVER_TYPE_WARP,NULL,0,NULL,0,D3D11_SDK_VERSION,&device,&level,&context));
     HR(d3d8_combiners_init());
+    check_other_stage_routing();
     const char *vertex=
         "struct O {float4 p:SV_POSITION; float4 c0:COLOR0; float4 c1:COLOR1; float2 t0:TEXCOORD0; float3 t1:TEXCOORD1; float2 t2:TEXCOORD2; float2 t3:TEXCOORD3;};"
         "O main(uint id:SV_VertexID){O o=(O)0; float2 p=id==0?float2(-1,1):id==1?float2(3,1):float2(-1,-3);"

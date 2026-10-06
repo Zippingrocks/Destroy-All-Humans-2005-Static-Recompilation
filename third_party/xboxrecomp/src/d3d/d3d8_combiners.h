@@ -138,7 +138,9 @@ typedef enum NV2ATextureMode {
     NV2A_TEXMODE_3D      = 1,  /* 3D / volume texture */
     NV2A_TEXMODE_CUBEMAP = 2,  /* Cube map */
     NV2A_TEXMODE_NONE    = 3,  /* No texture bound */
-    NV2A_TEXMODE_DEPENDENT_AR_T0 = 4, /* Stage 1 samples stage 0 alpha/red. */
+    NV2A_TEXMODE_DEPENDENT_AR = 4, /* Sample a prior stage's alpha/red. */
+    NV2A_TEXMODE_DEPENDENT_AR_T0 = NV2A_TEXMODE_DEPENDENT_AR,
+    NV2A_TEXMODE_DEPENDENT_GB = 5, /* Sample a prior stage's green/blue. */
 } NV2ATextureMode;
 
 /* ================================================================
@@ -227,6 +229,7 @@ typedef struct NV2ACombinerState {
 
     /* --- Texture modes --- */
     NV2ATextureMode tex_mode[NV2A_MAX_TEXTURES];
+    BYTE tex_input[NV2A_MAX_TEXTURES]; /* Source stage for dependent reads. */
     DWORD tex_alpha_one_mask; /* X8 textures sample alpha=1, including RT views. */
 
     /* --- Flags --- */

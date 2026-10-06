@@ -51,10 +51,10 @@ void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask)
     ++postprocess_alpha_masks;
 }
 int dah_request_frame_capture(void) { CHECK(0); return 0; }
-void d3d8_combiners_set_nv2a(uint32_t a, uint32_t b, const uint32_t *c, const uint32_t *d,
+void d3d8_combiners_set_nv2a(uint32_t a, uint32_t b, uint32_t other, const uint32_t *c, const uint32_t *d,
     const uint32_t *e, const uint32_t *f, const uint32_t *g, const uint32_t *h, uint32_t i, uint32_t j)
 {
-    CHECK(postprocess_active && a == g_pg.combiner_control && b == 0x1e1u);
+    CHECK(postprocess_active && a == g_pg.combiner_control && b == 0x1e1u && other == g_pg.shader_other_stage_input);
     CHECK(c == g_pg.color_icw && d == g_pg.color_ocw && e == g_pg.alpha_icw && f == g_pg.alpha_ocw);
     CHECK(g == g_pg.factor0 && h == g_pg.factor1 && i == g_pg.final_cw0 && j == g_pg.final_cw1);
     ++postprocess_combiner_calls;

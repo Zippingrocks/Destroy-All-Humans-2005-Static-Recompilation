@@ -45,9 +45,9 @@ HRESULT d3d8_UploadCubeTextureImpl(IDirect3DTexture8 *a,const uint8_t *b,size_t 
 int dah_request_frame_capture(void) { CHECK(0);return 0; }
 void d3d8_combiners_set_vertex_fog(int enabled) { CHECK(enabled==1); }
 void d3d8_combiners_set_texture_alpha_one_mask(uint32_t mask) { CHECK(mask==0); }
-void d3d8_combiners_set_nv2a(uint32_t a,uint32_t b,const uint32_t *c,const uint32_t *d,
+void d3d8_combiners_set_nv2a(uint32_t a,uint32_t b,uint32_t other,const uint32_t *c,const uint32_t *d,
     const uint32_t *e,const uint32_t *f,const uint32_t *g,const uint32_t *h,uint32_t i,uint32_t j)
-{ (void)a;(void)b;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;(void)i;(void)j; }
+{ (void)a;(void)b;(void)other;(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;(void)i;(void)j; }
 static HRESULT __stdcall render_state(IDirect3DDevice8 *self,D3DRENDERSTATETYPE state,DWORD value)
 { (void)self;(void)state;(void)value;return S_OK; }
 static HRESULT __stdcall stage_state(IDirect3DDevice8 *self,DWORD stage,D3DTEXTURESTAGESTATETYPE type,DWORD value)
