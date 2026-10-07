@@ -63,6 +63,10 @@ The machine-readable ledger is
   `Physics::CollisionFilter::isCollisionEnabled`, matched at vtable slot
   `+0x0C`; its retail helper `0x00135EA0` performs the reciprocal mask test and
   the added system-group rejection;
+- retail `0x0004AB10` as `UFO::BuildingFixture::ApplyDamage`, and the class of
+  neighboring callback `0x0004ACC0` as `UFO::BuildingFixture`, using the exact
+  surviving class ID `0x6FC7A9F5` and vtable structure. The added retail
+  virtual's method name remains unknown;
 - retail `0x00015FC0` as an exact restored thunk whose name remains unknown.
 
 The ledger also keeps rejected candidates. Retail `0x00109870` occupies the
@@ -70,6 +74,12 @@ same nominal class-vtable offset as alpha
 `Traffic::ActorSamSite::Update`, but its arguments and behavior differ, so the
 name is rejected rather than propagated. Keeping negative evidence prevents a
 future investigation from repeating the same attractive mistake.
+
+Retail `0x0003E2E0` is retained as a provisional `SetTarget` alias because its
+behavior matches alpha `UFO::OrdnanceDiscrete::SetTarget`, but retail class ID
+`0x4A0548A5` has no alpha match. The weak ActorSamSite candidate for retail
+`0x0003CD20` is rejected. These rows demonstrate that recovering a useful
+semantic verb and recovering a fully qualified real name are separate claims.
 
 An accepted mapping is a local fact with recorded scope. It does not validate
 adjacent functions, every command in a dispatcher, or the identity of a

@@ -1,0 +1,557 @@
+{
+  "schema": 1,
+  "method": "normalized-instruction-and-function-shape-ranking",
+  "warning": "Candidates require manual control-flow, call-graph, constant, vtable, and runtime validation before naming retail code.",
+  "inputs": {
+    "retailFunctions": {
+      "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\work\\disasm-seeded\\functions.json",
+      "sha256": "5f5ab37805eb45b607752c924c62095fb14982cdfc95df31701650f8a7147e7b"
+    },
+    "retailAsm": {
+      "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\work\\disasm-seeded\\asm\\text.asm",
+      "sha256": "476a0887c2965874626bc8b1aa8fae9c7bef902794d8ec87c9bc91407aabd571"
+    },
+    "alphaFunctions": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\disasm\\functions.json",
+      "sha256": "19df6a0fd84c109accb207642909f003fbfbb3b38e192ff0c2a0f58a41708c20"
+    },
+    "alphaAsm": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\disasm\\asm\\text.asm",
+      "sha256": "de8ab6538f17eb1a5c22f846f61140c46f23031a723943ebda76eca764312a7f"
+    },
+    "alphaSymbols": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\sf-symbols.json",
+      "sha256": "2ddc12e60c78662f26e86925f5b63357ee67d964e2bb829a8ccde50de3f5c3e7"
+    }
+  },
+  "retail": {
+    "queriedAddress": "0x0003E2E0",
+    "explicitRange": true,
+    "functionStart": "0x0003E2E0",
+    "functionEnd": "0x0003E301",
+    "currentName": "sub_0003E2E0",
+    "instructionCount": 14,
+    "size": 33
+  },
+  "candidates": [
+    {
+      "score": 0.727389,
+      "alphaStart": "0x000611B0",
+      "alphaEnd": "0x000611D7",
+      "names": [
+        "UFO::OrdnanceDiscrete::SetTarget"
+      ],
+      "mnemonicScore": 0.756757,
+      "tokenScore": 0.756757,
+      "instructionShape": 0.608696,
+      "byteShape": 0.846154,
+      "callShape": 0.5,
+      "alphaInstructionCount": 23,
+      "alphaSize": 39
+    },
+    {
+      "score": 0.678288,
+      "alphaStart": "0x00075E60",
+      "alphaEnd": "0x00075E80",
+      "names": [
+        "hkStabilizedSphereMotion::hkStabilizedSphereMotion"
+      ],
+      "mnemonicScore": 0.692308,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.969697,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 32
+    },
+    {
+      "score": 0.678288,
+      "alphaStart": "0x00078980",
+      "alphaEnd": "0x000789A0",
+      "names": [
+        "hkStabilizedBoxMotion::hkStabilizedBoxMotion"
+      ],
+      "mnemonicScore": 0.692308,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.969697,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 32
+    },
+    {
+      "score": 0.672228,
+      "alphaStart": "0x000ED1C0",
+      "alphaEnd": "0x000ED1DE",
+      "names": [
+        "Core::BlockTimer::BlockTimer"
+      ],
+      "mnemonicScore": 0.692308,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.909091,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 30
+    },
+    {
+      "score": 0.670909,
+      "alphaStart": "0x000B75A0",
+      "alphaEnd": "0x000B75BE",
+      "names": [
+        "Graphics::Node::~Node"
+      ],
+      "mnemonicScore": 0.714286,
+      "tokenScore": 0.428571,
+      "instructionShape": 1.0,
+      "byteShape": 0.909091,
+      "callShape": 0.5,
+      "alphaInstructionCount": 14,
+      "alphaSize": 30
+    },
+    {
+      "score": 0.670553,
+      "alphaStart": "0x000EA020",
+      "alphaEnd": "0x000EA03F",
+      "names": [
+        "Sim::HeightRay::~HeightRay"
+      ],
+      "mnemonicScore": 0.666667,
+      "tokenScore": 0.518519,
+      "instructionShape": 0.928571,
+      "byteShape": 0.939394,
+      "callShape": 0.5,
+      "alphaInstructionCount": 13,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.653745,
+      "alphaStart": "0x0004A3B0",
+      "alphaEnd": "0x0004A3D1",
+      "names": [
+        "Traffic::WeaponGun::SetTarget"
+      ],
+      "mnemonicScore": 0.651163,
+      "tokenScore": 0.651163,
+      "instructionShape": 0.482759,
+      "byteShape": 1.0,
+      "callShape": 0.5,
+      "alphaInstructionCount": 29,
+      "alphaSize": 33
+    },
+    {
+      "score": 0.653745,
+      "alphaStart": "0x0004A9F0",
+      "alphaEnd": "0x0004AA11",
+      "names": [
+        "Traffic::WeaponPlatformTracking::SetTarget"
+      ],
+      "mnemonicScore": 0.651163,
+      "tokenScore": 0.651163,
+      "instructionShape": 0.482759,
+      "byteShape": 1.0,
+      "callShape": 0.5,
+      "alphaInstructionCount": 29,
+      "alphaSize": 33
+    },
+    {
+      "score": 0.651361,
+      "alphaStart": "0x000152F0",
+      "alphaEnd": "0x00015310",
+      "names": [
+        "UFO::ChargeWeapon::DeactivateFire"
+      ],
+      "mnemonicScore": 0.666667,
+      "tokenScore": 0.296296,
+      "instructionShape": 0.928571,
+      "byteShape": 0.969697,
+      "callShape": 1.0,
+      "alphaInstructionCount": 13,
+      "alphaSize": 32
+    },
+    {
+      "score": 0.645301,
+      "alphaStart": "0x00122D30",
+      "alphaEnd": "0x00122D4E",
+      "names": [
+        "Core::StringCrcTable::Free",
+        "Core::StringCrcTable::~StringCrcTable"
+      ],
+      "mnemonicScore": 0.666667,
+      "tokenScore": 0.296296,
+      "instructionShape": 0.928571,
+      "byteShape": 0.909091,
+      "callShape": 1.0,
+      "alphaInstructionCount": 13,
+      "alphaSize": 30
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x00014A50",
+      "alphaEnd": "0x00014A6F",
+      "names": [
+        "Sim::ParticlePattern::`scalar deleting destructor'",
+        "Sim::ParticlePatternLine::`scalar deleting destructor'",
+        "Sim::ParticlePatternOutsideBox::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0001B0E0",
+      "alphaEnd": "0x0001B0FF",
+      "names": [
+        "Sim::Modifier::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0001C2D0",
+      "alphaEnd": "0x0001C2EF",
+      "names": [
+        "UFO::BehaviorParametersTargetable::`scalar deleting destructor'",
+        "UFO::BehaviorParameters::`scalar deleting destructor'",
+        "UFO::BehaviorParametersPosition::`scalar deleting destructor'",
+        "UFO::BehaviorParametersNone::`scalar deleting destructor'",
+        "UFO::BehaviorParametersObject::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x00026B80",
+      "alphaEnd": "0x00026B9F",
+      "names": [
+        "UFO::WeaponEvent::`scalar deleting destructor'",
+        "Sim::FactoryEvent::`scalar deleting destructor'",
+        "UFO::MoveCameraEvent::`scalar deleting destructor'",
+        "Sim::Event::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::UpdateStateEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::EnterEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::IsValidEvent::`scalar deleting destructor'",
+        "Sim::AnimationTagEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::ExitEvent::`scalar deleting destructor'",
+        "Sim::TaskSimulateEvent::`scalar deleting destructor'",
+        "Sim::TriggerEvent::`scalar deleting destructor'",
+        "Sim::GroupRemoveEvent::`scalar deleting destructor'",
+        "Sim::PreSimulateEvent::`scalar deleting destructor'",
+        "Sim::UpdateEvent::`scalar deleting destructor'",
+        "Sim::EffectCompleteEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::SubEnterEvent::`scalar deleting destructor'",
+        "Sim::EmitterCompleteEvent::`scalar deleting destructor'",
+        "Sim::SimulateEvent::`scalar deleting destructor'",
+        "UFO::RechargeEvent::`scalar deleting destructor'",
+        "Sim::PostSimulateEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::SubExitEvent::`scalar deleting destructor'",
+        "Sim::GroupAddEvent::`scalar deleting destructor'",
+        "Sim::AnimateEvent::`scalar deleting destructor'",
+        "UFO::MoveStateMachine::IsValidTransitionEvent::`scalar deleting destructor'",
+        "Sim::PlaySoundEvent::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0003B6C0",
+      "alphaEnd": "0x0003B6DF",
+      "names": [
+        "Traffic::TrafficControllerOncommingTraffic::`scalar deleting destructor'",
+        "Traffic::TrafficControllerNoTraffic::`scalar deleting destructor'",
+        "Traffic::TrafficControllerTimer::`scalar deleting destructor'",
+        "Traffic::TrafficController::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x00043210",
+      "alphaEnd": "0x0004322F",
+      "names": [
+        "Traffic::PhysicsController::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x00045DA0",
+      "alphaEnd": "0x00045DBF",
+      "names": [
+        "Sim::ActorTask::`scalar deleting destructor'",
+        "Traffic::TaskUnloadEgressPoint::`scalar deleting destructor'",
+        "Traffic::TaskUnload::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000463D0",
+      "alphaEnd": "0x000463EF",
+      "names": [
+        "Traffic::Locomotion::`scalar deleting destructor'",
+        "Traffic::Locomotion4Wheel::`scalar deleting destructor'",
+        "Traffic::LocomotionTracked::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0004A490",
+      "alphaEnd": "0x0004A4AF",
+      "names": [
+        "Traffic::Weapon::`scalar deleting destructor'",
+        "Traffic::WeaponGun::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0005C000",
+      "alphaEnd": "0x0005C01F",
+      "names": [
+        "UFO::Mission::Objective::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0006AA30",
+      "alphaEnd": "0x0006AA4F",
+      "names": [
+        "UFO::Dispatcher_Pedestrian_LaneFollow_None::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Fear_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Follow_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Investigate_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_LaneFollow_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_RejoinLane_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_MoveTo_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_RejoinLane_None::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Animate_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Engage_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Animate_None::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Patrol_Path::`scalar deleting destructor'",
+        "UFO::Dispatcher::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Orient_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_LaneFollow_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_RejoinLane_Position::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Fear_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Converse_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Animate_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Orient_Object::`scalar deleting destructor'",
+        "UFO::Dispatcher_Pedestrian_Engage_Targetable::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x0006D940",
+      "alphaEnd": "0x0006D95F",
+      "names": [
+        "Driver::Mode::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x00082E30",
+      "alphaEnd": "0x00082E4F",
+      "names": [
+        "hkEntityListener::`scalar deleting destructor'",
+        "hkEntityListener::`vector deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000C0FC0",
+      "alphaEnd": "0x000C0FDF",
+      "names": [
+        "Graphics::Effect::Object::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000C3060",
+      "alphaEnd": "0x000C307F",
+      "names": [
+        "Graphics::Effect::Dof::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000C6470",
+      "alphaEnd": "0x000C648F",
+      "names": [
+        "Graphics::Directional::`scalar deleting destructor'",
+        "Graphics::Fog::`scalar deleting destructor'",
+        "Graphics::GeometryCopy::`scalar deleting destructor'",
+        "Graphics::SkinXBox::`scalar deleting destructor'",
+        "Graphics::Camera::`scalar deleting destructor'",
+        "Graphics::GeometryObject::`scalar deleting destructor'",
+        "Graphics::ParticleEffect::`scalar deleting destructor'",
+        "ResourceObject::`scalar deleting destructor'",
+        "Graphics::Spline::`scalar deleting destructor'",
+        "Graphics::Omni::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000D2C80",
+      "alphaEnd": "0x000D2C9F",
+      "names": [
+        "Sound::Emitter::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000D6E00",
+      "alphaEnd": "0x000D6E1F",
+      "names": [
+        "Physics::CollisionObject::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000E3070",
+      "alphaEnd": "0x000E308F",
+      "names": [
+        "Animation::Manipulator::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    },
+    {
+      "score": 0.64295,
+      "alphaStart": "0x000F4DF0",
+      "alphaEnd": "0x000F4E0F",
+      "names": [
+        "Sim::SpawnSite::`scalar deleting destructor'"
+      ],
+      "mnemonicScore": 0.615385,
+      "tokenScore": 0.384615,
+      "instructionShape": 0.857143,
+      "byteShape": 0.939394,
+      "callShape": 1.0,
+      "alphaInstructionCount": 12,
+      "alphaSize": 31
+    }
+  ]
+}

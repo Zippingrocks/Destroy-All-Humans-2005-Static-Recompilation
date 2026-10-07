@@ -58,6 +58,12 @@ vtable slot, strings/xrefs, evidence level and reviewer notes. Accept exact or
 structurally proven mappings. Keep uncertain names as aliases in the evidence
 database rather than compiling them into source comments as facts.
 
+When retail function discovery omitted a callback, use the byte-audited start
+and exclusive end with `match_alpha_retail_symbols.py --retail-address ...
+--retail-end ...`. The tool hashes its inputs and compares that exact range.
+This keeps missing discovery metadata from blocking symbol work while still
+requiring manual vtable, class-ID, signature and behavior validation.
+
 ## Safety and accuracy rules
 
 - Normal builds and runs remain unaffected unless a debug gate is enabled.

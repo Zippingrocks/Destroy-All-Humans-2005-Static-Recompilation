@@ -76,6 +76,37 @@ def parse_asm(path: Path) -> dict[int, dict]:
     return functions
 
 
+def parse_asm_range(path: Path, start: int, end: int) -> dict:
+    """Parse an exact instruction range even when function discovery missed it."""
+    tokens: list[str] = []
+    mnemonics: list[str] = []
+    with path.open("r", encoding="utf-8", errors="replace") as stream:
+        for raw in stream:
+            match = INSTRUCTION_RE.match(raw.rstrip("\r\n"))
+            if not match:
+                continue
+            address = int(match.group(1), 16)
+            if address < start:
+                continue
+            if address >= end:
+                break
+            mnemonic = match.group(2).lower()
+            operand = normalize_operand(match.group(3))
+            mnemonics.append(mnemonic)
+            tokens.append(f"{mnemonic}:{operand}")
+    if not tokens:
+        raise SystemExit(
+            f"retail range 0x{start:08X}..0x{end:08X} has no parsed instructions"
+        )
+    return {
+        "start": start,
+        "end": end,
+        "name": f"sub_{start:08X}",
+        "tokens": tokens,
+        "mnemonics": mnemonics,
+    }
+
+
 def load_function_metadata(path: Path) -> dict[int, dict]:
     return {int(item["start"], 16): item for item in json.loads(path.read_text(encoding="utf-8"))}
 
@@ -102,6 +133,12 @@ def shape_ratio(left: int, right: int) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--retail-address", required=True, type=lambda value: int(value, 0))
+    parser.add_argument(
+        "--retail-end",
+        type=lambda value: int(value, 0),
+        help=("exclusive end of a byte-audited retail function that automatic "
+              "function discovery omitted"),
+    )
     parser.add_argument("--retail-functions", required=True, type=Path)
     parser.add_argument("--retail-asm", required=True, type=Path)
     parser.add_argument("--alpha-functions", required=True, type=Path)
@@ -117,16 +154,32 @@ def main() -> int:
     alpha_asm = parse_asm(args.alpha_asm)
     alpha_symbols = load_symbols(args.alpha_symbols)
 
-    retail_start = next(
-        (start for start, item in retail_meta.items()
-         if start <= args.retail_address < int(item["end"], 16)),
-        None,
-    )
-    if retail_start is None or retail_start not in retail_asm:
-        raise SystemExit(f"retail address 0x{args.retail_address:08X} is not in a parsed function")
-
-    target_meta = retail_meta[retail_start]
-    target_asm = retail_asm[retail_start]
+    explicit_range = args.retail_end is not None
+    if explicit_range:
+        retail_start = args.retail_address
+        if args.retail_end <= retail_start:
+            raise SystemExit("--retail-end must be greater than --retail-address")
+        target_asm = parse_asm_range(args.retail_asm, retail_start, args.retail_end)
+        target_meta = {
+            "start": f"0x{retail_start:08X}",
+            "end": f"0x{args.retail_end:08X}",
+            "size": args.retail_end - retail_start,
+            "name": target_asm["name"],
+            "calls_to": [None for mnemonic in target_asm["mnemonics"] if mnemonic == "call"],
+        }
+    else:
+        retail_start = next(
+            (start for start, item in retail_meta.items()
+             if start <= args.retail_address < int(item["end"], 16)),
+            None,
+        )
+        if retail_start is None or retail_start not in retail_asm:
+            raise SystemExit(
+                f"retail address 0x{args.retail_address:08X} is not in a parsed "
+                "function; provide its verified exclusive end with --retail-end"
+            )
+        target_meta = retail_meta[retail_start]
+        target_asm = retail_asm[retail_start]
     target_count = len(target_asm["tokens"])
     candidates = []
     for start, candidate_asm in alpha_asm.items():
@@ -179,6 +232,7 @@ def main() -> int:
         "inputs": {name: {"path": str(path.resolve()), "sha256": sha256(path)} for name, path in paths.items()},
         "retail": {
             "queriedAddress": f"0x{args.retail_address:08X}",
+            "explicitRange": explicit_range,
             "functionStart": f"0x{retail_start:08X}",
             "functionEnd": target_meta["end"],
             "currentName": target_meta["name"],

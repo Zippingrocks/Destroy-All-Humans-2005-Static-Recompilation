@@ -58,6 +58,14 @@ sequence survives with changed addresses or field offsets. Treat the hit as a
 candidate until its function boundary, vtable/call slot and semantics are
 checked.
 
+If automatic retail function discovery omitted the target, pass its verified
+exclusive boundary with `--retail-end`. This analyzes the exact raw instruction
+range instead of silently treating it as part of the preceding function. The
+Santa callback set is the reference case: the class-level BuildingFixture
+match for `0x4ACC0` was accepted, the semantic SetTarget alias for `0x3E2E0`
+was kept provisional, and the weak ActorSamSite name for `0x3CD20` was
+rejected.
+
 Treat retail asset scripts as first-party evidence too. Inventory the relevant
 site block, unpack only the required resource type, record the resource hash,
 size and SHA-256, and disassemble the bytecode without editing it. Separate a

@@ -167,6 +167,19 @@ in `recomp_santa_callbacks.c`, and registered for indirect dispatch. They
 restore original retail code paths; their presence is not yet proof that the
 EMP pulse or Crypto visibility matches xemu.
 
+The exact-range alpha comparison then separated those observations. Retail
+`0x0004ACC0` belongs to `UFO::BuildingFixture`: its containing vtable has the
+same `0x6FC7A9F5` class ID and matching prefix as alpha BuildingFixture, while
+neighboring retail `0x0004AB10` occupies and behaves like the alpha
+`ApplyDamage` method. The added retail virtual at `0x0004ACC0` still has no
+proven method name. It is a legitimate missing callback found during the Santa
+run, but it is not a direct EMP-device callback. Retail `0x0003E2E0` is a
+strong semantic `SetTarget` candidate, but its class ID `0x4A0548A5` is absent
+from the alpha, so that name remains an alias. The weak ActorSamSite candidate
+for `0x0003CD20` was rejected because its class ID and control flow do not
+match. These accepted, provisional and rejected results are preserved in the
+symbol ledger rather than compiled into invented names.
+
 ## What the callback fix establishes
 
 The fix removes two proven unresolved entry points and the identified guest
@@ -208,6 +221,9 @@ rather than adding pickup behavior.
 - Preserve every current-run unresolved target with its caller, vtable, object,
   world state and executable identity. A repeated target can reveal a missing
   subsystem even when it is not the sole cause of the visible symptom.
+- Treat callbacks seen in one long process as a candidate set, not a causal
+  group. The BuildingFixture result demonstrates why class identity must be
+  recovered before assigning a scene-wide failure to every unresolved target.
 - A vtable-slot match becomes substantially stronger when constructor size,
   secondary vtables, destructor shape, and neighboring class methods also
   agree. Keep runtime resource identity separate until it is observed.
