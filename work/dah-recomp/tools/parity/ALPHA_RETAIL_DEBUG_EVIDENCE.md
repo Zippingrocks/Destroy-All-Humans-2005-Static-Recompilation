@@ -35,6 +35,13 @@ retail system fails. Each useful result must be reattached to original alpha
 bytes/PDB data and then independently matched to retail before it becomes a
 retail implementation or name.
 
+The Santa EMP content is a concrete limit. Exact searches of the March 2004
+Santa name/string reports and build/link reports found none of
+`m_emp_mine`, `weapon_emp_detonate`, `ActorTypeMineStatic`, or
+`WeaponTypeDetonate`, while the retail Santa directory contains all four. The
+alpha PDB can still name structurally matched shared classes, but it cannot be
+used as proof of the final EMP resource or pulse implementation.
+
 ## Accepted retail mappings
 
 The machine-readable ledger is
@@ -49,7 +56,20 @@ The machine-readable ledger is
   Modesta capture independently joins this class to resource `m_emp_mine`;
 - retail `0x00105FB0` as `Traffic::Actor::SetOnFire`, used as a structurally
   matched neighborhood anchor;
+- retail `0x0012AA50`, `0x0012AA70`, and `0x0012AA90` as the
+  `Physics::CollisionObject` category-name, category-flag and collide-mask
+  getters; the retail packed word adds a six-bit system group before its mask;
+- retail `0x00135F00` as
+  `Physics::CollisionFilter::isCollisionEnabled`, matched at vtable slot
+  `+0x0C`; its retail helper `0x00135EA0` performs the reciprocal mask test and
+  the added system-group rejection;
 - retail `0x00015FC0` as an exact restored thunk whose name remains unknown.
+
+The ledger also keeps rejected candidates. Retail `0x00109870` occupies the
+same nominal class-vtable offset as alpha
+`Traffic::ActorSamSite::Update`, but its arguments and behavior differ, so the
+name is rejected rather than propagated. Keeping negative evidence prevents a
+future investigation from repeating the same attractive mistake.
 
 An accepted mapping is a local fact with recorded scope. It does not validate
 adjacent functions, every command in a dispatcher, or the identity of a
@@ -63,6 +83,12 @@ first committed result,
 `SetJetPackEnable`, `GetJetPackEnable`, `SetTagAlienAbilityEnable`, and
 `SetPhysicsEnableBody`. Xrefs remain clues until the referenced handler is
 disassembled and its behavior is verified.
+
+`tools/analysis/find_xbe_pattern.py` searches file-backed XBE sections with
+hex-byte and `??` wildcard patterns and reports Xbox virtual addresses. It made
+the collision-filter comparison reproducible: the alpha reciprocal category
+and mask sequence locates retail helper `0x00135EA0`, whose vtable wrapper and
+slot then establish the accepted retail mapping above.
 
 ## Reproducible intake for a missing retail system
 

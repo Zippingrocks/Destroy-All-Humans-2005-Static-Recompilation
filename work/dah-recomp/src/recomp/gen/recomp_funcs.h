@@ -10879,4 +10879,9 @@ void sub_002176B9(void);
 void sub_002176C7(void);
 void sub_0021FA38(void);
 
+/* Byte-checked indirect callbacks observed during the Santa EMP run. */
+void sub_0003CD20(void);
+void sub_0003E2E0(void);
+void sub_0004ACC0(void);
+
 #endif /* RECOMP_FUNCS_H */

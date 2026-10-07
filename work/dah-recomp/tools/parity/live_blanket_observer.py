@@ -90,6 +90,10 @@ class Reader:
         data = self.read(address, 4)
         return struct.unpack_from("<I", data)[0] if data else 0
 
+    def u8(self, address: int) -> int | None:
+        data = self.read(address, 1)
+        return data[0] if data else None
+
     def image_path(self) -> Path | None:
         capacity = ctypes.c_uint32(32768)
         buffer = ctypes.create_unicode_buffer(capacity.value)
@@ -184,6 +188,13 @@ class Actor:
     life_state: str | None
     physics_body: int
     physics_vtable: int
+    physics_collision: int
+    physics_collision_vtable: int
+    physics_collidable: int
+    physics_filter_info: int | None
+    physics_category: int | None
+    physics_group: int | None
+    physics_collide_mask: int | None
     physics_velocity: tuple[float, float, float] | None
     physics_inner: int
     physics_inner_vtable: int
@@ -209,6 +220,7 @@ class Actor:
     life_transitions: int = 0
     target_transitions: int = 0
     physics_transitions: int = 0
+    physics_filter_transitions: int = 0
     render_transitions: int = 0
     max_speed: float = 0.0
     anomalies: list[str] = field(default_factory=list)
@@ -238,6 +250,86 @@ def cstring(reader: Reader, address: int, limit: int = 96) -> str | None:
 
 
 RESOURCE_NAMES: dict[int, str | None] = {}
+
+
+def read_collision_filter(reader: Reader, body: int) -> dict:
+    """Follow the retail body -> collision object -> Havok filter path.
+
+    CollisionObject vtables 00238180 and 00237968 both expose the raw filter
+    reader 0012AA40 at slot +80. Retail 00135EA0 proves the packed layout:
+    category bits 0..4, six-bit system group at 5..10, collide mask at 11+.
+    """
+    collision = reader.u32(body + 0x18) if pointer(body) else 0
+    vtable = reader.u32(collision) if pointer(collision) else 0
+    raw_reader = reader.u32(vtable + 0x80) if pointer(vtable) else 0
+    collidable = (reader.u32(collision + 4)
+                  if raw_reader == 0x0012AA40 else 0)
+    info = (reader.u32(collidable + 0x28)
+            if pointer(collidable) else None)
+    return {
+        "collision": collision,
+        "vtable": vtable,
+        "collidable": collidable,
+        "info": info,
+        "category": info & 0x1F if info is not None else None,
+        "group": (info >> 5) & 0x3F if info is not None else None,
+        "collide_mask": info >> 11 if info is not None else None,
+    }
+
+
+def collision_pair_enabled(first: int, second: int) -> tuple[bool, str]:
+    """Reproduce retail Physics::CollisionFilter at 00135EA0."""
+    first_category, second_category = first & 0x1F, second & 0x1F
+    first_mask, second_mask = first >> 11, second >> 11
+    masks_accept = (bool(first_mask & (1 << second_category)) or
+                    bool(second_mask & (1 << first_category)))
+    if not masks_accept:
+        return False, "neither-collide-mask-accepts-other-category"
+    first_group, second_group = (first >> 5) & 0x3F, (second >> 5) & 0x3F
+    if first_group and first_group == second_group:
+        return False, "matching-nonzero-system-group"
+    return True, "collide-mask-accepted"
+
+
+def read_player_state(reader: Reader) -> dict | None:
+    """Read the source-proven UFO::PlayerObject -> Crypto path."""
+    control = reader.u32(0x0025FCEC)
+    player = reader.u32(control + 0x38) if pointer(control) else 0
+    crypto = reader.u32(player + 0x38) if pointer(player) else 0
+    if not pointer(crypto) or reader.u32(crypto) != 0x0022C9F8:
+        return None
+    body = reader.u32(crypto + 0x110)
+    filter_state = read_collision_filter(reader, body)
+    scene_object = reader.u32(crypto + 0x28)
+    scene_raw = reader.read(scene_object, 0x50) if pointer(scene_object) else None
+    crypto_position = None
+    if scene_raw:
+        candidate = tuple(f32(scene_raw, 0x2C + index * 4) for index in range(3))
+        if all(math.isfinite(value) for value in candidate):
+            crypto_position = candidate
+    return {
+        "controlSystem": f"{control:08X}",
+        "player": f"{player:08X}",
+        "playerFocus": f"{reader.u32(player + 0x30):08X}",
+        "crypto": f"{crypto:08X}",
+        "cryptoVtable": "0022C9F8",
+        "cryptoSceneObject": f"{scene_object:08X}" if scene_object else None,
+        "cryptoPosition": rounded(crypto_position),
+        "cryptoObjectFlags": (f"{reader.u32(scene_object + 0x4C):08X}"
+                              if pointer(scene_object) else None),
+        "cryptoBody": f"{body:08X}" if body else None,
+        "cryptoBodyVtable": f"{reader.u32(body):08X}" if pointer(body) else None,
+        "cryptoCollision": (f"{filter_state['collision']:08X}"
+                            if filter_state["collision"] else None),
+        "cryptoCollisionVtable": (f"{filter_state['vtable']:08X}"
+                                  if filter_state["vtable"] else None),
+        "cryptoFilterInfo": (f"{filter_state['info']:08X}"
+                             if filter_state["info"] is not None else None),
+        "cryptoCategory": filter_state["category"],
+        "cryptoSystemGroup": filter_state["group"],
+        "cryptoCollideMask": filter_state["collide_mask"],
+        "jetpackStoredDisable": reader.u8(player + 0x360),
+    }
 
 
 def read_actor(reader: Reader, address: int, profile: tuple, now: float,
@@ -285,6 +377,16 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         life_state = None
     physics_body = u32(raw, 0x110) if size >= 0x114 else 0
     physics_vtable = reader.u32(physics_body) if pointer(physics_body) else 0
+    # Retail Physics::RigidBody methods 00124980/001249E0 forward collide flag
+    # and mask to the primary collision object at body+0x18.
+    filter_state = read_collision_filter(reader, physics_body)
+    physics_collision = filter_state["collision"]
+    physics_collision_vtable = filter_state["vtable"]
+    physics_collidable = filter_state["collidable"]
+    physics_filter_info = filter_state["info"]
+    physics_category = filter_state["category"]
+    physics_group = filter_state["group"]
+    physics_collide_mask = filter_state["collide_mask"]
     physics_velocity = None
     physics_inner = 0
     physics_inner_vtable = 0
@@ -319,6 +421,12 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
                   if ai_raw else ()),
         life_state=life_state, physics_body=physics_body,
         physics_vtable=physics_vtable,
+        physics_collision=physics_collision,
+        physics_collision_vtable=physics_collision_vtable,
+        physics_collidable=physics_collidable,
+        physics_filter_info=physics_filter_info,
+        physics_category=physics_category, physics_group=physics_group,
+        physics_collide_mask=physics_collide_mask,
         physics_velocity=physics_velocity, physics_inner=physics_inner,
         physics_inner_vtable=physics_inner_vtable,
         physics_quaternion=physics_quaternion,
@@ -344,6 +452,7 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         life_transitions=old.life_transitions if old else 0,
         target_transitions=old.target_transitions if old else 0,
         physics_transitions=old.physics_transitions if old else 0,
+        physics_filter_transitions=(old.physics_filter_transitions if old else 0),
         render_transitions=old.render_transitions if old else 0,
         max_speed=old.max_speed if old else 0.0,
         anomalies=list(old.anomalies) if old else [])
@@ -375,6 +484,17 @@ def ident(actor: Actor) -> dict:
             "aiPhase48": actor.ai_phase48,
             "physicsBody": f"{actor.physics_body:08X}" if actor.physics_body else None,
             "physicsVtable": f"{actor.physics_vtable:08X}" if actor.physics_vtable else None,
+            "physicsCollision": (f"{actor.physics_collision:08X}"
+                                 if actor.physics_collision else None),
+            "physicsCollisionVtable": (f"{actor.physics_collision_vtable:08X}"
+                                       if actor.physics_collision_vtable else None),
+            "physicsCollidable": (f"{actor.physics_collidable:08X}"
+                                  if actor.physics_collidable else None),
+            "physicsFilterInfo": (f"{actor.physics_filter_info:08X}"
+                                  if actor.physics_filter_info is not None else None),
+            "physicsCategory": actor.physics_category,
+            "physicsSystemGroup": actor.physics_group,
+            "physicsCollideMask": actor.physics_collide_mask,
             "physicsVelocity": rounded(actor.physics_velocity),
             "physicsInner": f"{actor.physics_inner:08X}" if actor.physics_inner else None,
             "physicsInnerVtable": (f"{actor.physics_inner_vtable:08X}"
@@ -416,6 +536,7 @@ def actor_summary(actor: Actor, now: float) -> dict:
         "lifeTransitions": actor.life_transitions,
         "targetTransitions": actor.target_transitions,
         "physicsTransitions": actor.physics_transitions,
+        "physicsFilterTransitions": actor.physics_filter_transitions,
         "physicsBodySeen": actor.physics_body_seen,
         "renderTransitions": actor.render_transitions,
         "maxSpeed": round(actor.max_speed, 5),
@@ -490,6 +611,13 @@ def main() -> int:
     observed_ai_state_name = False
     observed_sam_site = False
     observed_sam_site_physics = False
+    observed_player_crypto = False
+    observed_player_filter = False
+    observed_emp_crypto_pair = False
+    observed_emp_proximity = False
+    previous_player_state: dict | None = None
+    previous_pair_state: tuple | None = None
+    previous_emp_proximity: dict[tuple[int, int], bool] = {}
     image_path = reader.image_path()
 
     def count(kind: str) -> None:
@@ -506,7 +634,9 @@ def main() -> int:
                  coverage=["actor-lifecycle", "actor-state", "actor-transform",
                            "visibility-flags", "unexpected-despawn",
                            "teleport", "nonfinite-transform",
-                           "physics-body-lifecycle", "sam-site-presence"])
+                           "physics-body-lifecycle", "physics-filter-state",
+                           "sam-site-presence", "player-crypto-state",
+                           "emp-player-collision-pair", "emp-proximity"])
             while time.perf_counter() < deadline and reader.is_running():
                 perf_now = time.perf_counter()
                 now = time.time()
@@ -522,6 +652,24 @@ def main() -> int:
                     last_heartbeat_time = now
                     stalled_heartbeats = 0
                 previous_tick = tick
+
+                player_state = read_player_state(reader)
+                if player_state is not None:
+                    observed_player_crypto = True
+                    observed_player_filter |= player_state["cryptoFilterInfo"] is not None
+                    if player_state != previous_player_state:
+                        emit(output, "player-state", now, tick, **player_state,
+                             reason=("player-discovered"
+                                     if previous_player_state is None else
+                                     "player-or-crypto-state-transition"),
+                             previous=previous_player_state)
+                        count("player-state")
+                elif previous_player_state is not None:
+                    emit(output, "player-state", now, tick,
+                         reason="player-or-crypto-unavailable",
+                         previous=previous_player_state)
+                    count("player-state")
+                previous_player_state = player_state
 
                 if perf_now >= next_scan:
                     found = scan_actors(reader, args.scan_start, args.scan_end)
@@ -653,6 +801,7 @@ def main() -> int:
                             current.life_state != old.life_state or
                             current.physics_body != old.physics_body or
                             current.physics_vtable != old.physics_vtable or
+                            current.physics_filter_info != old.physics_filter_info or
                             current.ai_target_53c != old.ai_target_53c or
                             current.ai_target_540 != old.ai_target_540):
                         ai_changed = (current.ai_state != old.ai_state or
@@ -663,6 +812,8 @@ def main() -> int:
                                           current.ai_target_540 != old.ai_target_540)
                         physics_changed = (current.physics_body != old.physics_body or
                                            current.physics_vtable != old.physics_vtable)
+                        physics_filter_changed = (
+                            current.physics_filter_info != old.physics_filter_info)
                         previous_state_seconds = now - old.ai_state_entered
                         previous_physics_seconds = now - old.physics_state_entered
                         if ai_changed:
@@ -680,6 +831,8 @@ def main() -> int:
                             current.physics_transitions += 1
                             current.physics_state_entered = now
                             current.ragdoll_stuck_reported = False
+                        if physics_filter_changed:
+                            current.physics_filter_transitions += 1
                         emit(output, "ai-state", now, tick, **ident(current),
                              previousStateSeconds=round(previous_state_seconds, 3),
                              previousPhysicsSeconds=round(previous_physics_seconds, 3),
@@ -711,6 +864,16 @@ def main() -> int:
                                                  if old.physics_vtable else None),
                                  bodyPresent=bool(current.physics_body))
                             count("physics-state")
+                        if physics_filter_changed:
+                            emit(output, "physics-filter-state", now, tick,
+                                 **ident(current),
+                                 previousFilterInfo=(
+                                     f"{old.physics_filter_info:08X}"
+                                     if old.physics_filter_info is not None else None),
+                                 previousCategory=old.physics_category,
+                                 previousSystemGroup=old.physics_group,
+                                 previousCollideMask=old.physics_collide_mask)
+                            count("physics-filter-state")
                         if old.life_state == "dead" and current.life_state == "alive":
                             current.anomalies.append("dead-pedestrian-became-alive")
                             emit(output, "anomaly", now, tick, **ident(current),
@@ -779,6 +942,79 @@ def main() -> int:
                         count("anomaly")
                     tracked[address] = current
 
+                emp_filters = sorted({
+                    actor.physics_filter_info for actor in tracked.values()
+                    if actor.kind == "traffic-actor-sam-site" and
+                    actor.resource_name == "m_emp_mine" and
+                    actor.physics_filter_info is not None
+                })
+                crypto_filter = (int(player_state["cryptoFilterInfo"], 16)
+                                 if player_state and
+                                 player_state["cryptoFilterInfo"] is not None else None)
+                pair_state = ((crypto_filter, tuple(emp_filters))
+                              if crypto_filter is not None and emp_filters else None)
+                if pair_state is not None:
+                    observed_emp_crypto_pair = True
+                    if pair_state != previous_pair_state:
+                        pairs = []
+                        for emp_filter in emp_filters:
+                            enabled, reason = collision_pair_enabled(
+                                emp_filter, crypto_filter)
+                            pairs.append({
+                                "empFilterInfo": f"{emp_filter:08X}",
+                                "empCategory": emp_filter & 0x1F,
+                                "empSystemGroup": (emp_filter >> 5) & 0x3F,
+                                "empCollideMask": emp_filter >> 11,
+                                "cryptoFilterInfo": f"{crypto_filter:08X}",
+                                "cryptoCategory": crypto_filter & 0x1F,
+                                "cryptoSystemGroup": (crypto_filter >> 5) & 0x3F,
+                                "cryptoCollideMask": crypto_filter >> 11,
+                                "retailFilterAccepts": enabled,
+                                "decision": reason,
+                            })
+                        emit(output, "emp-player-collision-pair", now, tick,
+                             pairs=pairs,
+                             previous=(
+                                 {"cryptoFilterInfo": f"{previous_pair_state[0]:08X}",
+                                  "empFilterInfo": [f"{value:08X}" for value in
+                                                    previous_pair_state[1]]}
+                                 if previous_pair_state is not None else None))
+                        count("emp-player-collision-pair")
+                previous_pair_state = pair_state
+
+                crypto_position = (tuple(player_state["cryptoPosition"])
+                                   if player_state and
+                                   player_state["cryptoPosition"] is not None else None)
+                live_emp_keys: set[tuple[int, int]] = set()
+                if crypto_position is not None:
+                    for actor in tracked.values():
+                        if (actor.kind != "traffic-actor-sam-site" or
+                                actor.resource_name != "m_emp_mine" or
+                                actor.position is None):
+                            continue
+                        key = (actor.address, actor.serial)
+                        live_emp_keys.add(key)
+                        distance = math.dist(crypto_position, actor.position)
+                        inside = distance < 21.0
+                        previous_inside = previous_emp_proximity.get(key)
+                        if previous_inside is None or previous_inside != inside:
+                            observed_emp_proximity = True
+                            transition = (
+                                "discovered-inside" if previous_inside is None and inside
+                                else "discovered-outside" if previous_inside is None
+                                else "entered" if inside else "exited"
+                            )
+                            emit(output, "emp-proximity", now, tick, **ident(actor),
+                                 cryptoPosition=rounded(crypto_position),
+                                 empPosition=rounded(actor.position),
+                                 distance=round(distance, 4), threshold=21.0,
+                                 insideTutorialRadius=inside, transition=transition)
+                            count("emp-proximity")
+                        previous_emp_proximity[key] = inside
+                for key in tuple(previous_emp_proximity):
+                    if key not in live_emp_keys:
+                        del previous_emp_proximity[key]
+
                 if perf_now >= next_heartbeat:
                     heartbeat_seconds = max(now - last_heartbeat_time, 1e-9)
                     tick_delta = ((tick - last_heartbeat_tick) & 0xFFFFFFFF
@@ -822,8 +1058,14 @@ def main() -> int:
                      "healthTransitions": counts.get("health-change", 0) > 0,
                      "physicsRecovery": counts.get("physics-recovery", 0) > 0,
                      "physicsTransitions": counts.get("physics-state", 0) > 0,
+                     "physicsFilterTransitions": (
+                         counts.get("physics-filter-state", 0) > 0),
                      "samSiteObserved": observed_sam_site,
                      "samSitePhysicsObserved": observed_sam_site_physics,
+                     "playerCryptoObserved": observed_player_crypto,
+                     "playerCollisionFilterObserved": observed_player_filter,
+                     "empCryptoCollisionPairObserved": observed_emp_crypto_pair,
+                     "empProximityObserved": observed_emp_proximity,
                      "aliveDeadMeaning": observed_life_state,
                      "effectOwnership": False,
                      "aiTaskNames": observed_ai_state_name,

@@ -41,6 +41,15 @@ semantics survived; it does not grant a blanket mapping to unrelated symbols.
    registration and implementation are mapped. Keep them in internal builds;
    label any run that uses them as diagnostic rather than parity evidence.
 
+Each phase has a concrete exit condition. Inventory ends when every proposed
+name has an evidence-ledger row. The read-only adapter ends when it can identify
+the actor/resource, mission objective, body/filter, last contact, ability flags
+and relevant call boundaries in one timestamped run. Draw-only overlays end
+when enabled and disabled runs produce identical simulation traces. A mutating
+command is eligible only after its retail registration hash, argument parsing,
+state writes, callers and reset behavior are byte- or structure-matched and a
+normal build cannot invoke it accidentally.
+
 ## Symbol validation
 
 For each proposed retail name, store retail address/range, alpha address/name,
@@ -72,3 +81,18 @@ Modesta capture has now joined four instances to `m_emp_mine` and shown a
 non-null body on each one. This is the model for restoring later debug labels:
 prove the class, observe which asset or mission object uses it, then trace the
 specific state transition that is wrong.
+
+The first physics-level proof follows the same rule. Alpha
+`Physics::CollisionFilter::isCollisionEnabled` maps structurally to retail
+`0x00135F00`; retail helper `0x00135EA0` exposes the evolved packed layout and
+the exact pair decision. This supports a read-only overlay showing object name,
+category, system group, collide mask, pair acceptance, body state and last
+contact. It does not support forcing contact or changing a mask. Shape,
+broadphase and contact-callback instrumentation remain separate stages.
+
+The first explicit rejection is equally useful. Alpha primary-vtable slot
+`+0x84` names `Traffic::ActorSamSite::Update`, but retail slot `+0x84` points
+to `0x00109870`, which takes two arguments and handles a collision/event
+payload rather than rebuilding the alpha SAM-site transform. That candidate is
+recorded as rejected in the ledger. It demonstrates why a shared class and
+slot are evidence inputs rather than permission to copy an alpha name.

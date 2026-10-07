@@ -8,11 +8,30 @@
     "observer": "blanket-v3",
     "worldTick": 5695
   },
-  "claim": "Four live m_emp_mine resources used the structurally matched Traffic::ActorSamSite class and each exposed a non-null physics body.",
+  "claim": "Four live m_emp_mine resources used the structurally matched Traffic::ActorSamSite class, each exposed a non-null physics body, and all four had packed collision filter 0x009D6009 (category 9, system group 0, collide mask 5036).",
   "limits": [
-    "Body presence does not prove a collision shape, matching filters, broadphase registration, contact dispatch, or gameplay response.",
+    "Retail 0x00135F00/0x00135EA0 accepts a pair if either collide mask contains the other category, then rejects a matching nonzero system group; the mine value is not a disabled mask.",
+    "A later same-process Crypto sample had category 2, system group 0, and collide mask 184785. The retail predicate accepts that value against the observed mine value, but the two samples were not captured at the same tick.",
+    "Body and filter acceptance do not prove a collision shape, broadphase registration, contact dispatch, trigger script, or gameplay response.",
     "The checkpoint has not yet been aligned and compared with xemu."
   ],
+  "collisionPredicate": {
+    "retailEntry": "00135F00",
+    "retailPackedHelper": "00135EA0",
+    "alphaEntry": "000DB7D0",
+    "rule": "accept if either mask contains the other category; reject if both system groups are equal and nonzero"
+  },
+  "playerObservation": {
+    "worldTick": 14885,
+    "filterInfo": "168E8802",
+    "category": 2,
+    "systemGroup": 0,
+    "collideMask": 184785,
+    "jetpackStoredDisable": 0,
+    "retailPredicateAcceptsObservedEmpFilter": true,
+    "sameProcessAsEmpCapture": true,
+    "sameTickAsEmpCapture": false
+  },
   "instances": [
     {
       "actor": "02D28780",
@@ -21,6 +40,10 @@
       "actorVtable": "00226A80",
       "physicsBody": "02D289AC",
       "physicsVtable": "00235CA8",
+      "physicsFilterInfo": "009D6009",
+      "physicsCategory": 9,
+      "physicsSystemGroup": 0,
+      "physicsCollideMask": 5036,
       "position": [751.80463, 713.95184, 16.85]
     },
     {
@@ -30,6 +53,10 @@
       "actorVtable": "00226A80",
       "physicsBody": "02DAF45C",
       "physicsVtable": "00235CA8",
+      "physicsFilterInfo": "009D6009",
+      "physicsCategory": 9,
+      "physicsSystemGroup": 0,
+      "physicsCollideMask": 5036,
       "position": [749.44855, 808.31909, 16.85]
     },
     {
@@ -39,6 +66,10 @@
       "actorVtable": "00226A80",
       "physicsBody": "02DFC9FC",
       "physicsVtable": "00235CA8",
+      "physicsFilterInfo": "009D6009",
+      "physicsCategory": 9,
+      "physicsSystemGroup": 0,
+      "physicsCollideMask": 5036,
       "position": [748.48859, 722.33691, 16.85093]
     },
     {
@@ -48,6 +79,10 @@
       "actorVtable": "00226A80",
       "physicsBody": "02E662BC",
       "physicsVtable": "00235CA8",
+      "physicsFilterInfo": "009D6009",
+      "physicsCategory": 9,
+      "physicsSystemGroup": 0,
+      "physicsCollideMask": 5036,
       "position": [741.75836, 801.50134, 16.85]
     }
   ]

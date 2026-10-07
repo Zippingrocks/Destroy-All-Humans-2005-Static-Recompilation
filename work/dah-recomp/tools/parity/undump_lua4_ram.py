@@ -153,12 +153,20 @@ def main() -> None:
     parser.add_argument("ram", type=Path)
     parser.add_argument("--offset", required=True, type=lambda s: int(s, 0))
     parser.add_argument("--find", action="append", default=[])
+    parser.add_argument(
+        "--proto-path",
+        action="append",
+        default=[],
+        help="only print an exact prototype path such as 0.2 (repeatable)",
+    )
     args = parser.parse_args()
     reader = Reader(args.ram.read_bytes(), args.offset)
     reader.header()
     root = reader.proto()
     matches = []
     for path, proto in walk(root):
+        if args.proto_path and path not in args.proto_path:
+            continue
         if all(term in refs(proto) for term in args.find):
             matches.append((path, proto))
     for path, proto in matches:

@@ -44,12 +44,31 @@ objects distinguishable in the run report.
 
 Version 3 adds the structurally proven retail `Traffic::ActorSamSite` class,
 records physics-body pointer changes independently from vtable changes, and
-emits `physics-state` plus `coverage-gap` events. Its run-end coverage reports
-whether an ActorSamSite and one of its bodies were actually observed. In Santa
-Modesta run `20261007T064831185Z-p48988-9470C2DDEE4F43E3`, that joined four
-instances to resource `m_emp_mine`; all four had non-null bodies using vtable
-`0x00235CA8`. The observer deliberately does not infer working collision from
-body presence.
+decodes each body's exact packed collision filter from the retail
+collision-object path. It emits `physics-state`, `physics-filter-state`,
+`player-state`, `emp-player-collision-pair`, `emp-proximity`, and
+`coverage-gap` events. `emp-proximity` records Crypto and mine positions and
+the exact entry/exit transition across the retail mission script's 21-unit
+tutorial radius; it does not treat that radius as proof of an EMP discharge. Its
+run-end coverage reports whether ActorSamSite, Crypto and their filters were
+actually observed. In Santa Modesta run
+`20261007T064831185Z-p48988-9470C2DDEE4F43E3`, that joined four instances to
+resource `m_emp_mine`; all four had non-null bodies using vtable `0x00235CA8`.
+A follow-up live read found packed filter `0x009D6009` on every mine: category
+9, system group 0, collide mask 5036.
+
+Retail `0x00135F00` and helper `0x00135EA0` prove the pair decision: contact is
+accepted when either object's collide mask contains the other object's
+category, except for equal nonzero system groups. The observer reproduces that
+decision and records both packed inputs. It still does not infer a working
+shape, broadphase entry, contact callback or script response from filter
+acceptance, and it never changes the filter.
+
+Crypto position comes from the same actor `+0x28` scene-object transform used
+for the entity census. A previously probed `Crypto+0x4A0` word is deliberately
+not reported as a scene-node pointer: live values did not satisfy a guest
+pointer or vtable invariant, so assigning a meaning would turn an offset guess
+into false evidence.
 
 The watcher also reports proven player-health changes from class `00226338`,
 pedestrian physics-body transitions, successful corpse/ragdoll-to-active-body
