@@ -88,9 +88,10 @@ The default follows that process until it exits and then emits actor summaries
 and a `run-end` event. Use `--seconds N` only for a deliberately bounded probe.
 
 For a test session containing several user-launched runs,
-`watch_blanket_runs.py` can watch one exact executable path and start one hidden,
-read-only observer per detected process. It does not launch, focus, control, or
-terminate the game:
+`watch_blanket_runs.py` can watch one exact executable path and start the hidden,
+read-only actor and UI/cinematic observers for each detected process. This keeps
+one-frame objective/text transitions beside the actor lifecycle record. It does
+not launch, focus, control, or terminate the game:
 
 ```powershell
 python tools/parity/watch_blanket_runs.py `

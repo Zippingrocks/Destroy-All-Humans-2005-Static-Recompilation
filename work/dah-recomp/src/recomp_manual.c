@@ -58,6 +58,7 @@ extern void sub_00081B70(void);
 extern void sub_0003CD20(void);
 extern void sub_0003E2E0(void);
 extern void sub_0004ACC0(void);
+extern void sub_000A21A0(void);
 static int dah_input_is_internal(void);
 static unsigned g_dah_input_state_calls;
 /* Read-only diagnostic mirrors used to correlate guest math with the logical
@@ -4610,6 +4611,7 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x0003CD20u: return sub_0003CD20;
     case 0x0003E2E0u: return sub_0003E2E0;
     case 0x0004ACC0u: return sub_0004ACC0;
+    case 0x000A21A0u: return sub_000A21A0;
     case 0x00012140u: return dah_retail_12140;
     case 0x00012160u: return dah_retail_12160;
     case 0x0003C660u: return dah_retail_3c660;

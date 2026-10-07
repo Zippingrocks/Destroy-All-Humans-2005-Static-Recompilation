@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "title": "Long-play DestructoRay reset callback evidence",
+  "run": {
+    "runId": "20261007T064831185Z-p48988-9470C2DDEE4F43E3",
+    "pid": 48988,
+    "executableSha256": "901E64782833D3C4A7DE2D1F4EA2CA24332074562B69E35EA60163614E800AAD",
+    "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+    "log": "furonlog.log",
+    "eventTrace": "dah_event_trace.jsonl"
+  },
+  "callback": {
+    "target": "0x000A21A0",
+    "end": "0x000A21B2",
+    "size": 18,
+    "instructionCount": 8,
+    "codeBytesSha256": "9C606C4A53C5BFA7AAB7C39B1CFC53B4F72DF58A061461B8621111F0EAF6DB18",
+    "callerReturn": "0x0009E5BB",
+    "retailVtable": "0x0022FB38",
+    "vtableSlot": "0x40",
+    "classId": "0xB0011E79",
+    "className": "UFO::WeaponDestructoRay",
+    "methodName": "Reset",
+    "evidenceLevel": "B",
+    "retailBehavior": "Calls the object's state method at vtable slot 0x60 with false, then tail-calls the base reset at 0x00097C00, which clears state bytes at offsets 0x34 and 0x37.",
+    "alphaComparison": {
+      "alphaVtable": "0x001E9998",
+      "alphaVtableSlot": "0x40",
+      "alphaSlotTarget": "0x00035120",
+      "alphaSlotNamesInclude": "UFO::Weapon::Reset",
+      "alphaClassIdMethod": "0x0001AB30",
+      "alphaClassId": "0xB0011E79",
+      "neighboringMatches": [
+        "alpha UFO::WeaponDestructoRay::VirtualClassId aligns with retail 0x000A2170",
+        "alpha UFO::WeaponDestructoRay::DerivedFrom aligns with retail 0x000A2140",
+        "alpha UFO::WeaponDestructoRay::ProcessEvent aligns exactly in shape with retail 0x000A2680"
+      ],
+      "decision": "accepted-class-and-method"
+    },
+    "status": "restored-original-bytes-runtime-validation-open"
+  },
+  "implementation": {
+    "boundaryTool": "tools/lift_longplay_runtime_callbacks.py",
+    "compiledSource": "src/recomp/gen/recomp_longplay_callbacks.c",
+    "dispatch": "src/recomp_manual.c"
+  },
+  "limits": [
+    "The callback explains skipped DestructoRay reset behavior; it does not by itself prove the reported firing cadence differed from xemu.",
+    "The currently running process predates this repair. A fresh run on the staged executable must show that 0x000A21A0 no longer falls through unresolved dispatch.",
+    "The reported G-man hats, invisible characters, tank, cutscene effects, broken transient models, freeze, and text faults remain separate observations until a shared state or call boundary is captured."
+  ]
+}

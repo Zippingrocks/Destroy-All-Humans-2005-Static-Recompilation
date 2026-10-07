@@ -2,7 +2,8 @@
 """Attach the read-only blanket observer to each matching DAH process run.
 
 The watcher never launches, focuses, controls, or terminates the game. It only
-starts one hidden observer child for each exact executable path it discovers.
+starts hidden actor and UI/cinematic observers for each exact executable path
+it discovers.
 """
 
 from __future__ import annotations
@@ -93,12 +94,13 @@ def main() -> int:
     target = args.executable.resolve()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     observer = Path(__file__).with_name("live_blanket_observer.py")
-    children: dict[int, subprocess.Popen] = {}
+    ui_observer = Path(__file__).with_name("live_ui_transition_observer.py")
+    children: dict[int, list[subprocess.Popen]] = {}
     completed = set()
     try:
         while True:
-            for pid, child in list(children.items()):
-                if child.poll() is not None:
+            for pid, process_children in list(children.items()):
+                if all(child.poll() is not None for child in process_children):
                     completed.add(pid)
                     del children[pid]
             current_pids = process_ids(target.name)
@@ -111,13 +113,18 @@ def main() -> int:
                     continue
                 stamp = time.strftime("%Y%m%d-%H%M%S")
                 output = args.output_dir / f"blanket-{stamp}-pid{pid}.jsonl"
-                command = [sys.executable, str(observer), "--pid", str(pid),
-                           "--output", str(output), "--hz", str(args.hz),
-                           "--scan-seconds", str(args.scan_seconds)]
-                children[pid] = subprocess.Popen(
+                ui_output = args.output_dir / f"ui-{stamp}-pid{pid}.jsonl"
+                commands = (
+                    [sys.executable, str(observer), "--pid", str(pid),
+                     "--output", str(output), "--hz", str(args.hz),
+                     "--scan-seconds", str(args.scan_seconds)],
+                    [sys.executable, str(ui_observer), "--pid", str(pid),
+                     "--output", str(ui_output), "--hz", "30"],
+                )
+                children[pid] = [subprocess.Popen(
                     command, creationflags=CREATE_NO_WINDOW,
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL)
+                    stderr=subprocess.DEVNULL) for command in commands]
             time.sleep(max(0.1, args.poll_seconds))
     except KeyboardInterrupt:
         return 0

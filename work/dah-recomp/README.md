@@ -68,7 +68,15 @@ tests because the title may poll the controller multiple times per frame.
 
 ## Build
 
-Open a Visual Studio developer prompt, then run:
+The recommended build command initializes the installed Visual C++ toolset and
+Windows SDK automatically, verifies that `stdint.h` and `d3d11.lib` are
+available, and then builds in the background shell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_release.ps1
+```
+
+The equivalent manual commands, from a Visual Studio developer prompt, are:
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64

@@ -317,6 +317,8 @@ def read_player_state(reader: Reader) -> dict | None:
         "cryptoPosition": rounded(crypto_position),
         "cryptoObjectFlags": (f"{reader.u32(scene_object + 0x4C):08X}"
                               if pointer(scene_object) else None),
+        "cryptoRender": f"{reader.u32(crypto + 0x144):08X}",
+        "cryptoStateByte140": reader.u8(crypto + 0x140),
         "cryptoBody": f"{body:08X}" if body else None,
         "cryptoBodyVtable": f"{reader.u32(body):08X}" if pointer(body) else None,
         "cryptoCollision": (f"{filter_state['collision']:08X}"
@@ -626,7 +628,7 @@ def main() -> int:
     try:
         with args.output.open("x", encoding="utf-8", buffering=1) as output:
             emit(output, "run-start", start_time, 0, pid=args.pid,
-                 observer="blanket-v3", sampleHz=args.hz,
+                 observer="blanket-v4", sampleHz=args.hz,
                  executable=str(image_path) if image_path else None,
                  executableSha256=file_sha256(image_path),
                  scanSeconds=args.scan_seconds,
@@ -636,6 +638,7 @@ def main() -> int:
                            "teleport", "nonfinite-transform",
                            "physics-body-lifecycle", "physics-filter-state",
                            "sam-site-presence", "player-crypto-state",
+                           "player-render-state",
                            "emp-player-collision-pair", "emp-proximity"])
             while time.perf_counter() < deadline and reader.is_running():
                 perf_now = time.perf_counter()

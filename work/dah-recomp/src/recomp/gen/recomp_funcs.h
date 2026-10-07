@@ -10884,4 +10884,7 @@ void sub_0003CD20(void);
 void sub_0003E2E0(void);
 void sub_0004ACC0(void);
 
+/* Byte-checked indirect callbacks observed during long playtests. */
+void sub_000A21A0(void);
+
 #endif /* RECOMP_FUNCS_H */
