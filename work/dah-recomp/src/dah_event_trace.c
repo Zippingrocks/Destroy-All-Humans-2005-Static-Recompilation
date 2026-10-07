@@ -7,7 +7,8 @@
 #include "dah_event_trace.h"
 
 enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
-enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2 };
+enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
+       DAH_EVENT_ABILITY_FLAG = 3 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -31,6 +32,10 @@ typedef struct DahTraceEvent {
             uint32_t draw_count, draw_delta;
             uint32_t present_result, flags;
         } frame;
+        struct {
+            uint32_t command, owner, offset;
+            uint32_t old_value, new_value, caller;
+        } ability;
     } payload;
 } DahTraceEvent;
 
@@ -118,6 +123,21 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.frame.total_us, event->payload.frame.draw_count,
                     event->payload.frame.draw_delta,
                     event->payload.frame.present_result, event->payload.frame.flags);
+            else if (event->type == DAH_EVENT_ABILITY_FLAG) fprintf(output,
+                    "{\"event\":\"ability-flag\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"ability\":\"jetpack-enabled\","
+                    "\"command\":\"%08X\",\"owner\":\"%08X\","
+                    "\"offset\":\"%X\",\"oldStoredDisable\":%u,"
+                    "\"newStoredDisable\":%u,\"oldEnabled\":%u,"
+                    "\"newEnabled\":%u,\"caller\":\"%08X\"}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.ability.command, event->payload.ability.owner,
+                    event->payload.ability.offset,
+                    event->payload.ability.old_value,
+                    event->payload.ability.new_value,
+                    event->payload.ability.old_value ? 0u : 1u,
+                    event->payload.ability.new_value ? 0u : 1u,
+                    event->payload.ability.caller);
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -241,6 +261,36 @@ void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
     event->payload.frame.draw_delta = draw_delta;
     event->payload.frame.present_result = present_result;
     event->payload.frame.flags = flags;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_ability_flag(uint32_t command, uint32_t owner,
+                                  uint32_t offset, uint32_t old_value,
+                                  uint32_t new_value, uint32_t caller)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_ABILITY_FLAG;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event->payload.ability.command = command;
+    event->payload.ability.owner = owner;
+    event->payload.ability.offset = offset;
+    event->payload.ability.old_value = old_value;
+    event->payload.ability.new_value = new_value;
+    event->payload.ability.caller = caller;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);
 }

@@ -19,6 +19,14 @@ strong evidence that parts of the same naming conventions and registration
 surface reached retail. It is not evidence that every alpha command retained
 the same address, layout or semantics.
 
+There is already one exact validation of this method. Alpha
+`UFO::PlayerObject::ProcessScript` at `0x0002A540` and retail `0x00083A50`
+share the same script-command hashes and table order around
+`SetJetPackEnable`, including hash `0x47A92D5E`. Both command branches parse a
+Boolean and store its inverse in the player object, with the expected retail
+layout shift. This proves that some command names, hashes and dispatch
+semantics survived; it does not grant a blanket mapping to unrelated symbols.
+
 ## Phases
 
 1. **Inventory only.** Cross-index alpha PDB symbols, retail strings, retail

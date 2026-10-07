@@ -12,6 +12,21 @@ The current retail string table contains `GetJetPackEnable`,
 survives in the shipped executable. It does not yet prove which mission object
 or script invokes it.
 
+The alpha PDB names alpha `0x0002A540` as
+`UFO::PlayerObject::ProcessScript`. Its script-registration table contains the
+same `SetJetPackEnable` hash (`0x47A92D5E`), the same command-table order, and
+the same generic-handler structure as retail `0x00083A50`. The command branch
+also matches semantically: it reads a Boolean argument, stores its inverse as
+the player's internal disable byte (alpha `+0x3D8`, retail `+0x360`), and
+returns. This is level B structural evidence for the retail function name and
+level A evidence for the command hash and Boolean inversion.
+
+The event trace now records every retail `SetJetPackEnable` write as an
+`ability-flag` event with world tick, player address, old/new stored disable
+byte, derived old/new enabled state and caller. This tells the next matched
+Santa run whether the mission actually dispatched the command and whether the
+player state changed, without adding or forcing gameplay behavior.
+
 ## Crash evidence
 
 - Crash text: `crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt`

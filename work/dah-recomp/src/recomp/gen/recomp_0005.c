@@ -25296,6 +25296,9 @@ loc_00084110: ;
     SET_LO8(eax, (uint32_t)(-(int32_t)LO8(eax)));
     SET_LO8(eax, _cf ? 0xFFFFFFFF : 0); /* sbb self (CF extend) */
     SET_LO8(eax, LO8(eax) + 1);
+    dah_event_trace_ability_flag(0x47A92D5Eu, edi, 0x360u,
+                                 MEM8(edi + 0x360u), LO8(eax),
+                                 MEM32(esp + 0x64u));
     MEM8(edi + 0x360) = LO8(eax);
     POP32(esp, edi);
     POP32(esp, esi);
