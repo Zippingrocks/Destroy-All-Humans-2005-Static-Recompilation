@@ -160,3 +160,11 @@ Remaining work includes exact frame-boundary reference capture, equal initial
 save/RNG/animation state, complete transition sequences, and the full menu/game
 route. Current screenshots establish concrete rendering defects and fixes;
 they do not establish pixel-perfect or complete timing parity.
+# Investigation and debug restoration
+
+- `RECOMP_INVESTIGATION_WORKFLOW.md` defines the evidence-preserving workflow
+  for crashes, missing systems and parity defects.
+- `DEBUG_RESTORATION_PLAN.md` defines how alpha PDB names and surviving retail
+  debug facilities may be restored without contaminating normal parity runs.
+- Incident files such as `SANTA_EMP_INCIDENT_20261006.md` apply the workflow to
+  one reproducible defect and carry its acceptance matrix.

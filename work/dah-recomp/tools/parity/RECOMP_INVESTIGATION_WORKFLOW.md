@@ -1,0 +1,102 @@
+# Recomp investigation workflow
+
+This is the required workflow for a missing, broken, inaccurate, or crashing
+game system. It preserves the evidence that led to a fix and makes the same
+method reusable on the next system.
+
+## 1. Freeze the run
+
+Record the UTC time, process ID, executable hash, level, mission, checkpoint,
+input sequence, and whether the run was retail xemu or the native recomp. Keep
+the crash dump, crash text, `furonlog.log`, event trace, observer output, and
+screenshots together. Run `validate_current_run.py` before treating a live log
+as evidence. Never merge observations from different runs without labeling
+them.
+
+## 2. Split observations from hypotheses
+
+Write each visible symptom independently. For example, an invisible player, an
+inert EMP prop, missing collision, and a process crash are four observations.
+They become one defect only after a shared call, object, or state transition is
+observed. This prevents a plausible story from replacing evidence.
+
+## 3. Build the last-good-to-first-bad timeline
+
+Correlate these layers in order:
+
+1. input and mission/script event;
+2. entity spawn, resource identity, transform, render and lifecycle state;
+3. physics body, broadphase/contact, pickup/interaction and damage events;
+4. gameplay state such as ability enable, energy and animation;
+5. effects, audio, HUD and camera;
+6. unresolved indirect calls and guest stack/register state;
+7. exception address, access type and crash signature.
+
+The earliest proven divergence is the repair boundary. A later null dereference
+is evidence of damage, not automatically the cause.
+
+## 4. Recover code identity
+
+Disassemble the retail bytes around the boundary and enumerate callers,
+callees, vtable slots, object-field offsets, constants, strings and neighboring
+functions. Compare with the alpha PDB and alpha executable using the following
+evidence levels:
+
+- **A — exact:** identical bytes or control flow with verified address changes.
+- **B — structural:** matching control flow, constants, call neighborhood,
+  vtable position and object layout.
+- **C — supported hypothesis:** matching string, RTTI, resource hash or nearby
+  symbol, but incomplete code agreement.
+- **D — clue only:** name proximity or a similarity score by itself.
+
+Levels A and B may justify a retail function name or implementation. Levels C
+and D guide instrumentation and searches; they do not justify code changes.
+`tools/analysis/match_alpha_retail_symbols.py` generates candidates and hashes
+all of its inputs, but its ranking is never an automatic rename.
+
+## 5. Restore the smallest proven boundary
+
+Prefer exact missing callbacks, thunks, destructors, registration records, or
+script bridges over downstream state patches. Preserve the retail calling
+convention, return cleanup, tail calls, flags and object writes. Put manual
+entries in `recomp_lookup_manual` when function discovery missed a real vtable
+target. Do not invent gameplay state to make a symptom disappear.
+
+An unresolved indirect call is especially urgent when its caller pushes a
+saved register before dispatch. The current safe fallback restores the
+pre-call guest ESP; continuing caller code can then pop the return address or
+arguments into registers and poison later virtual calls. The tell is:
+
+`unresolved target -> code addresses appear in object registers -> zero or
+invalid vtable target -> access violation`.
+
+## 6. Instrument the complete behavior chain
+
+Instrumentation must answer which object acted, which object received it, the
+old and new state, the retail call address, the world tick, and the mission
+phase. Gate high-volume traces behind an environment variable and bound them.
+Debug views are observational: they must not alter game state or be counted as
+parity evidence.
+
+For an interactive world object, trace at least resource load, construction,
+registration, collision shape/body, contact or pickup eligibility, script
+event, ability/state mutation, animation, effect/audio/HUD response,
+destruction or reset, streaming out, and checkpoint reload.
+
+## 7. Compare the same checkpoint in xemu
+
+Use the same save, checkpoint, camera, input edges and world tick window.
+Compare state changes first and pixels second. Pixel differences cannot explain
+whether a collision callback or mission event fired. Once state timing agrees,
+compare frame sequence, effects, animation, audio/HUD timing and final image.
+
+## 8. Validate and close
+
+A fix needs a positive reproduction and negative controls. Re-run the original
+trigger, reload the checkpoint, leave and return to the area, and test a level
+without the feature. Require no new unresolved targets in the relevant window,
+no recurrence of the crash signature, and no observer anomalies. Record the
+exact evidence, code changed, tests, remaining unknowns and executable hash.
+
+“No crash” is one acceptance item. A system is complete only when its full
+behavior chain and matched xemu timing are accounted for.

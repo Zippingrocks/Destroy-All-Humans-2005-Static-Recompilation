@@ -3752,6 +3752,43 @@ extern void sub_0003D080(void);
 extern void sub_0006B710(void);
 extern void sub_0009C180(void);
 extern void sub_000A7BA0(void);
+extern void sub_00016C20(void);
+extern void sub_00105DA0(void);
+
+/*
+ * These two retail entry points were present in live vtables but were missed
+ * by function discovery.  An unresolved indirect call restores the pre-call
+ * guest ESP; callers that saved registers immediately before the call then
+ * pop the wrong words and eventually dispatch through corrupted object state.
+ * Keep these implementations instruction-for-instruction equivalent to the
+ * retail code, including the tail call and RET 4 stack cleanup.
+ */
+static void dah_retail_15fc0(void)
+{
+    g_eax = MEM32(g_ecx + 0x1Cu);
+    if (MEM8(g_eax + 0x189u) == 1u) {
+        sub_00105DA0(); /* retail JMP 0x00105DA0 */
+        return;
+    }
+    g_esp += 4u;
+}
+
+static void dah_retail_16ca0(void)
+{
+    PUSH32(g_esp, g_esi);
+    g_esi = g_ecx;
+    PUSH32(g_esp, 0x00016CA8u);
+    sub_00016C20();
+    if (MEM8(g_esp + 8u) & 1u) {
+        PUSH32(g_esp, g_esi);
+        PUSH32(g_esp, 0x00016CB5u);
+        sub_0006B710();
+        g_esp += 4u;
+    }
+    g_eax = g_esi;
+    POP32(g_esp, g_esi);
+    g_esp += 8u;
+}
 
 static void dah_retail_12140(void)
 {
@@ -4565,6 +4602,8 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x00035650u: return dah_retail_35650;
     case 0x0001CB50u: return dah_retail_1cb50;
     case 0x000566A0u: return dah_retail_566a0;
+    case 0x00015FC0u: return dah_retail_15fc0;
+    case 0x00016CA0u: return dah_retail_16ca0;
     case 0x00012140u: return dah_retail_12140;
     case 0x00012160u: return dah_retail_12160;
     case 0x0003C660u: return dah_retail_3c660;
