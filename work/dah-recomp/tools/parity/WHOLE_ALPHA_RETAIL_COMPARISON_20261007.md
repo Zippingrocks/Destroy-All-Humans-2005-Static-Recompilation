@@ -24,18 +24,21 @@ the CSV files beside it. Regenerate them with
 
 The retail inventory contains 10,828 discovered function ranges. Instructions
 were parsed for 10,801; 27 ranges are retained as explicit exceptions rather
-than silently dropped. The alpha inventory contains 8,943 ranges, 8,925 with
-parsed instructions, and 8,735 starts carrying original symbol names.
+than silently dropped. The heuristic alpha inventory contains 8,943 ranges.
+The original PDB supplies 9,652 code-symbol addresses, including 917 real
+entry boundaries that the heuristic inventory merged into adjacent functions
+or omitted. Adding those authoritative boundaries produces 9,860 alpha ranges,
+9,801 with parsed instructions.
 
 | Executable section | Retail discovered / parsed | Alpha discovered / parsed |
 |---|---:|---:|
-| `.text` | 9,677 / 9,669 | 7,772 / 7,755 |
-| `D3D` | 269 / 268 | 257 / 257 |
-| `DSOUND` | 417 / 417 | 382 / 382 |
-| `XGRPH` | 25 / 25 | 23 / 23 |
-| `XMV` | 64 / 64 | 65 / 65 |
-| `XPP` | 161 / 161 | 161 / 161 |
-| `XNET` | absent | 283 / 282 |
+| `.text` | 9,677 / 9,669 | 8,249 / 8,249 |
+| `D3D` | 269 / 268 | 328 / 291 |
+| `DSOUND` | 417 / 417 | 502 / 484 |
+| `XGRPH` | 25 / 25 | 24 / 24 |
+| `XMV` | 64 / 64 | 225 / 223 |
+| `XPP` | 161 / 161 | 227 / 225 |
+| `XNET` | absent | 305 / 305 |
 | retail Bink sections | 215 / 197 | absent |
 
 The 18 unparsed retail `BINKYUY2` ranges account for most retail exceptions.
@@ -49,13 +52,13 @@ Every retail function has one row in `whole-function-map.csv`:
 
 | Candidate state | Retail functions |
 |---|---:|
-| exact normalized structural candidate | 2,367 |
-| additional high-confidence candidate | 652 |
-| medium candidate | 2,193 |
-| weak or ambiguous candidate | 4,840 |
-| no named alpha candidate | 776 |
+| exact normalized structural candidate | 2,364 |
+| additional high-confidence candidate | 650 |
+| medium candidate | 2,200 |
+| weak or ambiguous candidate | 4,828 |
+| no named alpha candidate | 786 |
 
-This supplies 3,019 strong structural candidates and another 2,193 useful
+This supplies 3,014 strong structural candidates and another 2,200 useful
 leads. A candidate is not automatically accepted as a retail function name.
 Constants, addresses and branch destinations are normalized for comparison,
 so generic accessors and tiny thunks can resemble unrelated functions. Names
@@ -67,13 +70,13 @@ overlap because one symbol may belong to several systems:
 
 | Named system evidence | Strong candidates |
 |---|---:|
-| rendering and graphics | 407 |
-| physics and Havok | 308 |
-| audio and movies | 427 |
-| UI, HUD and menus | 127 |
-| missions and scripting | 212 |
+| rendering and graphics | 409 |
+| physics and Havok | 305 |
+| audio and movies | 425 |
+| UI, HUD and menus | 128 |
+| missions and scripting | 215 |
 | AI and traffic | 63 |
-| weapons and ordnance | 184 |
+| weapons and ordnance | 185 |
 | player, character and ship | 77 |
 
 These rows give future defects a searchable starting point. A missing weapon
@@ -82,26 +85,19 @@ joined to an alpha name candidate, then confirmed against retail code and xemu.
 
 ## Classes and object identity
 
-The alpha symbols expose 63 named `VirtualClassId` functions. Fifty of their
-32-bit IDs occur unchanged in a retail return-immediate function. Thirteen
-alpha IDs do not occur unchanged:
+The alpha symbols expose 64 named `VirtualClassId` functions. Fifty-eight of
+their 32-bit IDs occur unchanged at a vtable-referenced retail
+`mov eax, immediate; ret` entry. The earlier count was 51 because function
+discovery had merged several six-byte methods into neighboring ranges.
+`PlayerCharacter`, `PlayerShip`, `ActorCar`, `ActorPedestrian`,
+`WeaponCortex`, `WeaponDeathRay`, and `WeaponHypnoRay` are now proven shared.
 
-- `PlayerCharacter`, `PlayerShip`, `ActorCar`, `ActorPedestrian`,
-  `ActorSamSite`, `ParticleEffect`, `CameraObject` and `AnimObject`;
-- `WeaponCortex`, `WeaponDeathRay`, `WeaponHypnoRay`, `WeaponBrainRay` and
-  `WeaponCloak`.
-
-This does not mean those classes were removed. It proves their alpha IDs cannot
-be copied into retail unchanged. For example, `ActorSamSite` survives with the
-same broad class family and object size, but the alpha ID `0x8BF075A5` becomes
-retail `0xF64BBE96` and its retail vtable grows. This is exactly the kind of
-version drift that made the restored EMP callbacks require retail bytes rather
-than an alpha implementation.
-
-Retail contains 207 two-instruction `mov eax, immediate; ret` functions. The
-50 shared values are strong identity evidence. The other immediate values are
-kept as candidates because that machine-code shape alone does not prove a
-class ID.
+Six alpha IDs still do not occur unchanged: `ActorSamSite`, `ParticleEffect`,
+`CameraObject`, `AnimObject`, `WeaponBrainRay`, and `WeaponCloak`. This does
+not mean those classes were removed. It proves only that these six alpha IDs
+cannot yet be copied into retail unchanged. Retail has 218 vtable-referenced
+return-immediate entries; 58 are shared identities and the remainder stay
+unnamed until class layout, callers and behavior agree.
 
 ## Strings and debug evidence
 
@@ -140,18 +136,20 @@ authority for final missions and presentation.
 
 ## Recomp callback coverage
 
-The data-section scan found 863 pointer-like tables containing 2,857 unique
-retail code targets. Of those, 2,735 are discovered function starts and every
+The data-section scan found 567 pointer-like tables containing 3,575 unique
+retail code targets. Of those, 2,895 are discovered function starts and every
 one is reachable through the native dispatcher. There are zero known missing
 discovered function starts in these tables.
 
-The remaining 122 targets enter inside a discovered function. Five are already
-handled explicitly. The other 117 are retained as `internal-target-candidate`
-rows for caller and runtime review. They are commonly switch arms or loop
-entries and must not be reported or implemented wholesale as missing
-callbacks. The earlier apparent total of 982 gaps came from scanning executable
-sections and mixing jump tables with callbacks; the corrected database removes
-that false signal.
+The remaining 680 targets begin at valid retail instructions inside a range
+that heuristic discovery treated as one function. Three hundred twelve are
+already explicitly dispatchable. This pass recovered two byte-verified vtable
+entries: traffic callback `0x00016A90` and the deleting destructor at
+`0x0009A210` for retail class ID `0x2786C33B`. Both now have generated bodies
+and manual dispatch entries. The other 368 remain candidates because many are
+intentional loop/switch entries or shared trap targets such as unaligned
+`0x00139ADB`; they must be accepted from boundary, table and runtime evidence,
+not implemented wholesale.
 
 ## How this drives completion
 

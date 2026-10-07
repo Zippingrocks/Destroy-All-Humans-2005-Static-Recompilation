@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "00016A90",
+      "end": "00016B47",
+      "bytes": 183,
+      "instructions": 63,
+      "tableSlot": "0x00226800",
+      "codeBytesSha256": "3ED6B6A171A3C749A8D785CC79FBEB264AFF6E48F4456533662DC235D16E1692",
+      "observation": "traffic actor vtable slot +0x50; event/effect callback"
+    },
+    {
+      "start": "0009A210",
+      "end": "0009A22E",
+      "bytes": 30,
+      "instructions": 11,
+      "tableSlot": "0x0022F3DC",
+      "codeBytesSha256": "9429E223E191388664A4E436246089476EB31B1FCD512F86D0EE4BF03095E725",
+      "observation": "class 0x2786C33B vtable slot +0x24; scalar deleting destructor"
+    }
+  ]
+}

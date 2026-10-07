@@ -33,10 +33,14 @@
   },
   "functions": {
     "retailDiscovered": 10828,
-    "alphaDiscovered": 8943,
-    "alphaNamedFunctionStarts": 8735,
+    "alphaDiscoveredRaw": 8943,
+    "alphaDiscovered": 9860,
+    "alphaNamedFunctionStarts": 9652,
+    "pdbCodeSymbolAddresses": 9652,
+    "pdbStartsAlreadyDiscovered": 8735,
+    "pdbAddedStarts": 917,
     "retailUnparsed": 27,
-    "alphaUnparsed": 18,
+    "alphaUnparsed": 59,
     "retailBySection": {
       ".text": {
         "discovered": 9677,
@@ -93,60 +97,60 @@
     },
     "alphaBySection": {
       ".text": {
-        "discovered": 7772,
-        "parsed": 7755
+        "discovered": 8249,
+        "parsed": 8249
       },
       "D3D": {
-        "discovered": 257,
-        "parsed": 257
+        "discovered": 328,
+        "parsed": 291
       },
       "DSOUND": {
-        "discovered": 382,
-        "parsed": 382
+        "discovered": 502,
+        "parsed": 484
       },
       "XGRPH": {
-        "discovered": 23,
-        "parsed": 23
+        "discovered": 24,
+        "parsed": 24
       },
       "XMV": {
-        "discovered": 65,
-        "parsed": 65
+        "discovered": 225,
+        "parsed": 223
       },
       "XNET": {
-        "discovered": 283,
-        "parsed": 282
+        "discovered": 305,
+        "parsed": 305
       },
       "XPP": {
-        "discovered": 161,
-        "parsed": 161
+        "discovered": 227,
+        "parsed": 225
       }
     },
     "statusCounts": {
-      "medium-candidate": 2193,
-      "exact-structural-candidate": 2367,
-      "high-confidence-candidate": 652,
-      "weak-or-ambiguous": 4840,
-      "no-named-alpha-candidate": 776
+      "medium-candidate": 2200,
+      "exact-structural-candidate": 2364,
+      "weak-or-ambiguous": 4828,
+      "high-confidence-candidate": 650,
+      "no-named-alpha-candidate": 786
     },
     "strongCandidateSystems": {
-      "renderingGraphics": 407,
-      "physicsHavok": 308,
-      "audioMovie": 427,
-      "uiHudMenu": 127,
-      "missionScript": 212,
+      "renderingGraphics": 409,
+      "physicsHavok": 305,
+      "audioMovie": 425,
+      "uiHudMenu": 128,
+      "missionScript": 215,
       "aiTraffic": 63,
-      "weaponsOrdnance": 184,
+      "weaponsOrdnance": 185,
       "playerCharacterShip": 77
     },
     "database": "whole-function-map.csv"
   },
   "classIds": {
-    "alphaNamed": 63,
-    "retailReturnImmediateCandidates": 207,
+    "alphaNamed": 64,
+    "retailReturnImmediateCandidates": 218,
     "statusCounts": {
-      "retail-only": 157,
-      "alpha-only": 13,
-      "shared": 50
+      "retail-only": 160,
+      "shared": 58,
+      "alpha-only": 6
     },
     "database": "whole-class-id-map.csv"
   },
@@ -185,18 +189,18 @@
       ".rdata",
       ".data"
     ],
-    "candidateTables": 863,
-    "uniqueTargets": 2857,
-    "functionStartTargets": 2735,
-    "coveredFunctionStarts": 2735,
+    "candidateTables": 567,
+    "uniqueTargets": 3575,
+    "functionStartTargets": 2895,
+    "coveredFunctionStarts": 2895,
     "missingFunctionStarts": 0,
-    "internalTargets": 122,
-    "coveredInternalTargets": 5,
-    "internalTargetCandidates": 117,
+    "internalTargets": 680,
+    "coveredInternalTargets": 312,
+    "internalTargetCandidates": 368,
     "statusCounts": {
-      "covered-function-start": 2735,
-      "internal-target-candidate": 117,
-      "internal-target-covered": 5
+      "covered-function-start": 2895,
+      "internal-target-covered": 312,
+      "internal-target-candidate": 368
     },
     "database": "whole-callback-target-map.csv"
   }

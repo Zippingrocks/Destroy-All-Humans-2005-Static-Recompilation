@@ -22,6 +22,8 @@ CALLBACKS = (
     (0x0003E2E0, "current-run", "sub_0003E2E0"),
     (0x0004ACC0, "current-run", "sub_0004ACC0"),
     (0x000A21A0, "current-run", "sub_000A21A0"),
+    (0x00016A90, "static-vtable", "sub_00016A90"),
+    (0x0009A210, "static-vtable", "sub_0009A210"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),

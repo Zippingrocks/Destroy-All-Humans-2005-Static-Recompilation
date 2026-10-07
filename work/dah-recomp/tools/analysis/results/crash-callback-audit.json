@@ -61,6 +61,20 @@
       "status": "implemented-and-dispatchable"
     },
     {
+      "address": "0x00016A90",
+      "origin": "static-vtable",
+      "function": "sub_00016A90",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0009A210",
+      "origin": "static-vtable",
+      "function": "sub_0009A210",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
       "address": "0x00041540",
       "origin": "historical",
       "function": "sub_00041540",

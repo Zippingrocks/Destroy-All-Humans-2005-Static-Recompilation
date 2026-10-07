@@ -91,12 +91,102 @@ def parse_instructions(path: Path, functions: list[dict]) -> dict[int, dict]:
     return by_start
 
 
+def all_instruction_addresses(path: Path) -> set[int]:
+    result = set()
+    paths = sorted(path.glob("*.asm"), key=lambda item: item.name.lower()) if path.is_dir() else [path]
+    for asm_path in paths:
+        with asm_path.open("r", encoding="utf-8", errors="replace") as stream:
+            for raw_line in stream:
+                match = INSN_RE.match(raw_line.rstrip("\r\n"))
+                if match:
+                    result.add(int(match.group(1), 16))
+    return result
+
+
 def load_named_symbols(path: Path) -> dict[int, list[str]]:
     document = json.loads(path.read_text(encoding="utf-8"))
     return {
         int(item["address"], 16): item["names"]
         for item in document["symbols"]
         if item.get("executable_section") and item.get("names")
+    }
+
+
+def augment_functions_with_pdb_starts(
+    functions: list[dict], symbol_path: Path, xbe_path: Path
+) -> tuple[list[dict], dict[str, int]]:
+    """Split/add alpha ranges at original PDB code-symbol boundaries.
+
+    The heuristic disassembler occasionally merges two real functions across
+    padding or omits an uncalled virtual entirely. The PDB is authoritative for
+    alpha entry addresses, so its code symbols supplement those guessed starts.
+    """
+    document = json.loads(symbol_path.read_text(encoding="utf-8"))
+    code_sections = {item["section"] for item in functions}
+    symbol_rows = [
+        item for item in document["symbols"]
+        if item.get("section") in code_sections and item.get("names")
+    ]
+    symbol_sections = {
+        int(item["address"], 16): item["section"] for item in symbol_rows
+    }
+    original_by_start = {int(item["start"], 16): item for item in functions}
+    original_by_section: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for item in functions:
+        original_by_section[item["section"]].append(
+            (int(item["start"], 16), int(item["end"], 16))
+        )
+    for ranges in original_by_section.values():
+        ranges.sort()
+    _, xbe_section_rows = xbe_sections(xbe_path)
+    section_ends = {
+        item["name"]: item["va"] + item["virtualSize"] for item in xbe_section_rows
+    }
+
+    starts_by_section: dict[str, set[int]] = defaultdict(set)
+    for item in functions:
+        starts_by_section[item["section"]].add(int(item["start"], 16))
+    for address, section in symbol_sections.items():
+        starts_by_section[section].add(address)
+
+    augmented = []
+    for section, start_set in starts_by_section.items():
+        starts = sorted(start_set)
+        ranges = original_by_section[section]
+        range_index = 0
+        for index, start in enumerate(starts):
+            while range_index < len(ranges) and ranges[range_index][1] <= start:
+                range_index += 1
+            containing_end = None
+            if range_index < len(ranges) and ranges[range_index][0] <= start < ranges[range_index][1]:
+                containing_end = ranges[range_index][1]
+            next_start = starts[index + 1] if index + 1 < len(starts) else section_ends.get(section, start + 1)
+            original = original_by_start.get(start)
+            natural_end = int(original["end"], 16) if original else containing_end
+            end = min(next_start, natural_end) if natural_end else next_start
+            if end <= start:
+                continue
+            if original:
+                row = dict(original)
+                row["end"] = f"0x{end:08X}"
+                row["size"] = end - start
+            else:
+                row = {
+                    "start": f"0x{start:08X}",
+                    "end": f"0x{end:08X}",
+                    "size": end - start,
+                    "name": f"pdb_{start:08X}",
+                    "section": section,
+                    "confidence": 1.0,
+                    "detection_method": "original_pdb_symbol",
+                }
+            augmented.append(row)
+    raw_starts = set(original_by_start)
+    pdb_starts = set(symbol_sections)
+    return augmented, {
+        "pdbCodeSymbolAddresses": len(pdb_starts),
+        "pdbStartsAlreadyDiscovered": len(pdb_starts & raw_starts),
+        "pdbAddedStarts": len(pdb_starts - raw_starts),
     }
 
 
@@ -174,6 +264,11 @@ def content_inventory(root: Path) -> dict[str, dict]:
     result = {}
     for path in sorted(root.rglob("*")):
         if not path.is_file():
+            continue
+        # Extracted load-group working sets are derivative analysis output,
+        # not files from either game image. Keep the corpus comparison at the
+        # original block/archive layer.
+        if any(part.lower() == "pkg_decompressed" for part in path.relative_to(root).parts):
             continue
         relative = path.relative_to(root).as_posix()
         result[relative] = {
@@ -267,6 +362,40 @@ def class_ids(functions: dict[int, dict], names: dict[int, list[str]] | None = N
     return rows
 
 
+def return_immediate_entries(path: Path, allowed_addresses: set[int]) -> list[dict]:
+    """Find vtable-referenced ``mov eax, immediate; ret`` entry points.
+
+    Retail function discovery can merge tiny class-ID methods into a preceding
+    range.  Reading the original instruction stream recovers those entries,
+    while requiring a data-table reference avoids treating arbitrary two-line
+    sequences inside larger functions as class identities.
+    """
+    rows = []
+    paths = sorted(path.glob("*.asm"), key=lambda item: item.name.lower()) if path.is_dir() else [path]
+    for asm_path in paths:
+        previous = None
+        with asm_path.open("r", encoding="utf-8", errors="replace") as stream:
+            for raw_line in stream:
+                match = INSN_RE.match(raw_line.rstrip("\r\n"))
+                if not match:
+                    continue
+                address = int(match.group(1), 16)
+                mnemonic = match.group(2).lower()
+                operands = match.group(3).split(";", 1)[0].strip().lower()
+                if mnemonic == "ret" and previous and previous[0] in allowed_addresses:
+                    prior_address, prior_mnemonic, prior_operands = previous
+                    parts = [part.strip() for part in prior_operands.split(",", 1)]
+                    if prior_mnemonic == "mov" and len(parts) == 2 and parts[0] == "eax":
+                        immediate = RETURN_ID_RE.match(parts[1])
+                        if immediate:
+                            rows.append({
+                                "address": prior_address,
+                                "id": int(immediate.group(1), 16),
+                            })
+                previous = (address, mnemonic, operands)
+    return rows
+
+
 def section_coverage(functions: dict[int, dict]) -> dict[str, dict[str, int]]:
     sections: dict[str, list[dict]] = defaultdict(list)
     for item in functions.values():
@@ -297,7 +426,10 @@ def main() -> int:
     args = parser.parse_args()
 
     retail_meta = load_functions(args.retail_functions)
-    alpha_meta = load_functions(args.alpha_functions)
+    alpha_meta_raw = load_functions(args.alpha_functions)
+    alpha_meta, alpha_pdb_coverage = augment_functions_with_pdb_starts(
+        alpha_meta_raw, args.alpha_symbols, args.alpha_xbe
+    )
     retail = parse_instructions(args.retail_asm, retail_meta)
     alpha_all = parse_instructions(args.alpha_asm, alpha_meta)
     alpha_names = load_named_symbols(args.alpha_symbols)
@@ -392,8 +524,13 @@ def main() -> int:
         rows.append(row)
         status_counts[status] += 1
 
+    retail_instruction_addresses = all_instruction_addresses(args.retail_asm)
+    raw_callback_rows, raw_callback_table_count = callback_table_targets(
+        args.retail_xbe, retail_instruction_addresses
+    )
+    retail_table_targets = {row["target"] for row in raw_callback_rows}
     alpha_id_rows = class_ids(alpha_all, alpha_names)
-    retail_id_rows = class_ids(retail)
+    retail_id_rows = return_immediate_entries(args.retail_asm, retail_table_targets)
     alpha_ids: dict[int, list[dict]] = defaultdict(list)
     retail_ids: dict[int, list[dict]] = defaultdict(list)
     for row in alpha_id_rows:
@@ -452,12 +589,10 @@ def main() -> int:
     callback_rows = []
     callback_table_count = 0
     if args.recomp_generated_dispatch and args.recomp_manual:
-        instruction_addresses = {
-            address for item in retail.values() for address, _, _ in item["raw"]
-        }
         function_starts = set(retail)
         dispatchable = dispatch_addresses(args.recomp_generated_dispatch, args.recomp_manual)
-        callback_rows, callback_table_count = callback_table_targets(args.retail_xbe, instruction_addresses)
+        callback_rows = raw_callback_rows
+        callback_table_count = raw_callback_table_count
         for row in callback_rows:
             target = row["target"]
             row["target"] = f"0x{target:08X}"
@@ -504,8 +639,10 @@ def main() -> int:
         },
         "functions": {
             "retailDiscovered": len(retail),
+            "alphaDiscoveredRaw": len(alpha_meta_raw),
             "alphaDiscovered": len(alpha_all),
             "alphaNamedFunctionStarts": len(alpha),
+            **alpha_pdb_coverage,
             "retailUnparsed": sum(not item["tokens"] for item in retail.values()),
             "alphaUnparsed": sum(not item["tokens"] for item in alpha_all.values()),
             "retailBySection": section_coverage(retail),
