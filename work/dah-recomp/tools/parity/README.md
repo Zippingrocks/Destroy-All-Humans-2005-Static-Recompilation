@@ -160,6 +160,7 @@ Remaining work includes exact frame-boundary reference capture, equal initial
 save/RNG/animation state, complete transition sequences, and the full menu/game
 route. Current screenshots establish concrete rendering defects and fixes;
 they do not establish pixel-perfect or complete timing parity.
+
 # Investigation and debug restoration
 
 - `RECOMP_INVESTIGATION_WORKFLOW.md` defines the evidence-preserving workflow
@@ -169,5 +170,8 @@ they do not establish pixel-perfect or complete timing parity.
 - `ALPHA_RETAIL_DEBUG_EVIDENCE.md` pins the actual alpha PDB/XBE artifacts,
   separates original evidence from host-authored alpha-recomp experiments, and
   points to the machine-readable accepted-name ledger.
+- `ALPHA_RETAIL_CRASH_AUDIT_20261007.md` inventories preserved and historical
+  crashes, proves the restored callback coverage, and records which
+  ActorSamSite structures survived or changed between alpha and retail.
 - Incident files such as `SANTA_EMP_INCIDENT_20261006.md` apply the workflow to
   one reproducible defect and carry its acceptance matrix.

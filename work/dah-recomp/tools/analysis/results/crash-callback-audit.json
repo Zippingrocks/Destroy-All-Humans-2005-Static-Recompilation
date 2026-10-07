@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "retailXbe": {
+    "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\default.xbe",
+    "sha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb"
+  },
+  "preservedCrashCount": 1,
+  "preservedCrashes": [
+    {
+      "signature": "DAH-1AF563F1251E7840",
+      "first_seen": "20261007T061712.003Z",
+      "exception": "C0000005",
+      "host_rva": "00000000003FE4FE",
+      "access": 0,
+      "guest_return": "0010680E",
+      "report": "crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    }
+  ],
+  "callbacks": [
+    {
+      "address": "0x00015FC0",
+      "origin": "current-crash",
+      "function": "dah_retail_15fc0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00016CA0",
+      "origin": "current-crash",
+      "function": "dah_retail_16ca0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003CD20",
+      "origin": "current-run",
+      "function": "sub_0003CD20",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003E2E0",
+      "origin": "current-run",
+      "function": "sub_0003E2E0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0004ACC0",
+      "origin": "current-run",
+      "function": "sub_0004ACC0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x000A21A0",
+      "origin": "current-run",
+      "function": "sub_000A21A0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00041540",
+      "origin": "historical",
+      "function": "sub_00041540",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00085FE0",
+      "origin": "historical",
+      "function": "sub_00085FE0",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0004F9E0",
+      "origin": "historical",
+      "function": "sub_0004F9E0",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00054B20",
+      "origin": "historical",
+      "function": "sub_00054B20",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0011FA30",
+      "origin": "historical-stale-log",
+      "function": "sub_0011FA30",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00143689",
+      "origin": "historical-stale-log",
+      "function": "sub_00143689",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    }
+  ],
+  "retailActorSamSiteVtable": {
+    "address": "0x00226A80",
+    "deletingDestructorSlot": {
+      "offset": "0x24",
+      "target": "0x00016CA0"
+    },
+    "restoredRetailOnlySlot": {
+      "offset": "0xE4",
+      "target": "0x00015FC0"
+    }
+  },
+  "alpha": {
+    "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\build\\game-data\\ufo-dev.xbe",
+    "sha256": "cd1ebc185bb9ab9207971e6bd21fb434511db29471080dce85a08b21d514acc8",
+    "actorSamSitePrimaryVtable": "0x001EE848",
+    "deletingDestructorSlot": {
+      "offset": "0x24",
+      "target": "0x0004A0B0"
+    },
+    "firstNonFunctionWord": {
+      "offset": "0x98",
+      "value": "0x6F746341",
+      "ascii": "Acto"
+    }
+  }
+}

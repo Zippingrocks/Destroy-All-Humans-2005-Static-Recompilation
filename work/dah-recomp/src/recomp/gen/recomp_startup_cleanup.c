@@ -169,7 +169,8 @@ loc_0013C5B3: ;
     if (CMP_EQ(_fa, _fb)) goto loc_0013C5BE; /* je: equal / zero */
 
 loc_0013C5B7: ;
-    eax++;
+    eax = eax + 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* inc flags snapshot */
 
 loc_0013C5B8: ;
     SET_LO8(ecx, MEM8(eax));
@@ -179,7 +180,8 @@ loc_0013C5B8: ;
 
 loc_0013C5BE: ;
     SET_LO8(ecx, MEM8(eax));
-    eax++;
+    eax = eax + 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* inc flags snapshot */
     _fa = (uint32_t)(LO8(ecx)) & 0xFFu; _fb = (uint32_t)(LO8(ecx)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(ecx), LO8(ecx) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0013C5EF; /* je: equal / zero */
@@ -198,7 +200,8 @@ loc_0013C5CC: ;
     if (CMP_EQ(_fa, _fb)) goto loc_0013C5D8; /* je: equal / zero */
 
 loc_0013C5D1: ;
-    eax++;
+    eax = eax + 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* inc flags snapshot */
 
 loc_0013C5D2: ;
     SET_LO8(ecx, MEM8(eax));
@@ -210,7 +213,8 @@ loc_0013C5D8: ;
     edx = eax;
 
 loc_0013C5DA: ;
-    eax--;
+    eax = eax - 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* dec flags snapshot */
     _fa = (uint32_t)(MEM8(eax)) & 0xFFu; _fb = (uint32_t)(0x30) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp MEM8(eax), 0x30 (8-bit) */
     if (CMP_EQ(_fa, _fb)) goto loc_0013C5DA; /* je: equal / zero */
@@ -221,12 +225,15 @@ loc_0013C5E0: ;
     if (CMP_NE(_fa, _fb)) goto loc_0013C5E5; /* jne: not equal / not zero */
 
 loc_0013C5E4: ;
-    eax--;
+    eax = eax - 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* dec flags snapshot */
 
 loc_0013C5E5: ;
     SET_LO8(ecx, MEM8(edx));
-    eax++;
-    edx++;
+    eax = eax + 1;
+    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* inc flags snapshot */
+    edx = edx + 1;
+    _fa = (uint32_t)(edx) & 0xFFFFFFFFu; _fas = (int32_t)(int32_t)_fa; /* inc flags snapshot */
     _fa = (uint32_t)(LO8(ecx)) & 0xFFu; _fb = (uint32_t)(LO8(ecx)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(ecx), LO8(ecx) (8-bit) */
     MEM8(eax) = LO8(ecx);

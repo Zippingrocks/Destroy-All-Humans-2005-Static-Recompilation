@@ -82,11 +82,15 @@ callbacks.
 The class identity around `0x00016CA0` is now structurally proven. Retail
 constructor `0x00016B50` installs primary vtable `0x00226A80`, secondary vtable
 `0x00226A20`, and constructs a `0x35C`-byte object. Alpha vtable `0x001EE848`
-has the same shape, and its matching slot names alpha `0x0004A0B0` as
+shares the deleting-destructor slot at `+0x24`, which names alpha `0x0004A0B0` as
 `Traffic::ActorSamSite::scalar deleting destructor`. Neighboring alpha symbols
 include `Traffic::ActorSamSite::SetCollideFlag`, `SetCollideMask`, `EnableBody`,
 `Update`, and `ApplyDamage`. This is level B evidence that the retail class is
 `Traffic::ActorSamSite` and its missing destructor is retail `0x00016CA0`.
+The primary interfaces are not identical: alpha function pointers end before
+`+0x98`, while retail continues through at least `+0xE4`. The crash callback
+`0x00015FC0` occupies retail slot `+0xE4`, so the alpha contains no method that
+can be copied or named for that slot.
 
 The runtime join is now proven as well. Read-only capture
 `blanket-runs/santa-emp-live-p48988-20261007T065543Z.jsonl`, from recomp run

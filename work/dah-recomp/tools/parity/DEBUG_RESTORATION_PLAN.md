@@ -80,8 +80,10 @@ ability flags such as jetpack enable. Together these expose the whole EMP chain
 without guessing gameplay behavior.
 
 The first class-level proof is now recorded for retail primary vtable
-`0x00226A80`: constructor layout and size, both vtables, the deleting-destructor
-slot, and neighboring methods match alpha `Traffic::ActorSamSite`. The blanket
+`0x00226A80`: constructor layout and size, corresponding vtables, the
+deleting-destructor slot, and neighboring methods identify alpha
+`Traffic::ActorSamSite`. Retail expands the primary interface beyond the alpha
+table; restored retail callback `0x00015FC0` is at added slot `+0xE4`. The blanket
 observer uses that name and reports the runtime resource separately. A Santa
 Modesta capture has now joined four instances to `m_emp_mine` and shown a
 non-null body on each one. This is the model for restoring later debug labels:
