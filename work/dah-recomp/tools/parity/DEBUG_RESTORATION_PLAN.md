@@ -63,3 +63,10 @@ The first useful targets are collision/body visualization, actor resource and
 class labels, streaming/render eligibility, mission event/state display, and
 ability flags such as jetpack enable. Together these expose the whole EMP chain
 without guessing gameplay behavior.
+
+The first class-level proof is now recorded for retail primary vtable
+`0x00226A80`: constructor layout and size, both vtables, the deleting-destructor
+slot, and neighboring methods match alpha `Traffic::ActorSamSite`. The blanket
+observer uses that name but still reports the runtime resource separately.
+This is the model for restoring later debug labels: prove the class, then
+observe which asset or mission object uses it.

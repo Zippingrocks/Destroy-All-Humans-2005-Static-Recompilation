@@ -52,6 +52,25 @@ retail delete routine according to its flag. Both real entry points were absent
 from generated function discovery and are now registered as byte-audited manual
 callbacks.
 
+The class identity around `0x00016CA0` is now structurally proven. Retail
+constructor `0x00016B50` installs primary vtable `0x00226A80`, secondary vtable
+`0x00226A20`, and constructs a `0x35C`-byte object. Alpha vtable `0x001EE848`
+has the same shape, and its matching slot names alpha `0x0004A0B0` as
+`Traffic::ActorSamSite::scalar deleting destructor`. Neighboring alpha symbols
+include `Traffic::ActorSamSite::SetCollideFlag`, `SetCollideMask`, `EnableBody`,
+`Update`, and `ApplyDamage`. This is level B evidence that the retail class is
+`Traffic::ActorSamSite` and its missing destructor is retail `0x00016CA0`.
+It does **not** yet prove that the encountered EMP device is an ActorSamSite;
+the next capture must join the class to its runtime resource name.
+
+The read-only blanket observer now uses the proven class name, records its
+physics-body state at discovery, records body-pointer changes as well as
+vtable changes, and reports a `coverage-gap` if an observed ActorSamSite never
+exposes a physics body. Run-end coverage says independently whether a SAM-site
+class and one of its bodies were observed. These events distinguish a missing
+entity/body from a missing contact or script response without changing game
+state.
+
 The neighboring retail actor functions also validate the alpha comparison
 method: retail `0x00105FB0` matches alpha `Traffic::Actor::SetOnFire`, while the
 following layout strongly maps the range to the alpha Traffic actor methods.
@@ -96,3 +115,6 @@ rather than adding pickup behavior.
   retail call mapping.
 - The earliest unresolved call in the causal window is a stronger repair point
   than the final null vtable call.
+- A vtable-slot match becomes substantially stronger when constructor size,
+  secondary vtables, destructor shape, and neighboring class methods also
+  agree. Keep runtime resource identity separate until it is observed.

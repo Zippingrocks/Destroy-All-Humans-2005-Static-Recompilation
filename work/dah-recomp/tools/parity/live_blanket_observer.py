@@ -27,13 +27,16 @@ GUEST_MIN, GUEST_MAX = 0x10000, 0x08000000
 # Exact post-constructor signatures reached by retail pedestrian dispatch
 # 00063770.  Names remain address based unless the retail type is proven.
 # The 22ECD8 class is known PropType; 226C60 is the pedestrian actor path.
+# Retail 226A80 is structurally matched to alpha Traffic::ActorSamSite: the
+# complete vtable shape, object size, constructor writes, and scalar deleting
+# destructor slot agree.  Resource identity remains a separate observation.
 PROFILES = (
     ("actor-225e88", 0x32C, 0x00225E88, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225E28, 0x00226648),
     ("actor-2261a8", 0x534, 0x002261A8, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225FE0, 0x00226648),
     ("actor-226338", 0x378, 0x00226338, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225FE0, 0x00226648),
     ("actor-2264f0", 0x354, 0x002264F0, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226480, 0x00226648),
     ("actor-2268b0", 0x3B4, 0x002268B0, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226850, 0x00226648),
-    ("actor-226a80", 0x35C, 0x00226A80, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226A20, 0x00226648),
+    ("traffic-actor-sam-site", 0x35C, 0x00226A80, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226A20, 0x00226648),
     ("pedestrian", 0x5C0, 0x00226C60, 0x0022D480, 0x00226C44, 0x002264DC, 0x00226BE8, 0x00226648),
     ("actor-229328", 0x130, 0x00229328, 0x00229314, 0x00225C90, 0x0022C8A0, 0x002292B8, 0x00229248),
     ("actor-22e7d0", 0x1A4, 0x0022E7D0, 0x0022D480, 0x00225C90, 0x0022C8A0, 0x0022E770, 0x00226648),
@@ -196,6 +199,8 @@ class Actor:
     ai_state_min_height: float | None = None
     ai_state_max_height: float | None = None
     physics_state_entered: float = 0.0
+    physics_body_seen: bool = False
+    physics_missing_reported: bool = False
     ragdoll_stuck_reported: bool = False
     last_moved: float = 0.0
     distance_travelled: float = 0.0
@@ -328,6 +333,9 @@ def read_actor(reader: Reader, address: int, profile: tuple, now: float,
         ai_state_max_height=old.ai_state_max_height if old else (
             position[2] if position else None),
         physics_state_entered=old.physics_state_entered if old else now,
+        physics_body_seen=((old.physics_body_seen if old else False) or
+                           bool(physics_body)),
+        physics_missing_reported=(old.physics_missing_reported if old else False),
         ragdoll_stuck_reported=old.ragdoll_stuck_reported if old else False,
         last_moved=old.last_moved if old else now,
         distance_travelled=old.distance_travelled if old else 0.0,
@@ -407,6 +415,7 @@ def actor_summary(actor: Actor, now: float) -> dict:
         "lifeTransitions": actor.life_transitions,
         "targetTransitions": actor.target_transitions,
         "physicsTransitions": actor.physics_transitions,
+        "physicsBodySeen": actor.physics_body_seen,
         "renderTransitions": actor.render_transitions,
         "maxSpeed": round(actor.max_speed, 5),
         "lastPosition": rounded(actor.position),
@@ -478,6 +487,8 @@ def main() -> int:
     stalled_heartbeats = 0
     observed_life_state = False
     observed_ai_state_name = False
+    observed_sam_site = False
+    observed_sam_site_physics = False
     image_path = reader.image_path()
 
     def count(kind: str) -> None:
@@ -519,10 +530,18 @@ def main() -> int:
                                 tracked[address] = actor
                                 observed_life_state |= actor.life_state is not None
                                 observed_ai_state_name |= actor.ai_state_name is not None
+                                if actor.kind == "traffic-actor-sam-site":
+                                    observed_sam_site = True
+                                    observed_sam_site_physics |= bool(actor.physics_body)
                                 emit(output, "actor-spawn", now, tick, **ident(actor),
                                      scene=f"{actor.scene:08X}",
                                      position=rounded(actor.position))
                                 count("actor-spawn")
+                                if actor.kind == "traffic-actor-sam-site":
+                                    emit(output, "physics-state", now, tick, **ident(actor),
+                                         reason="sam-site-discovered",
+                                         bodyPresent=bool(actor.physics_body))
+                                    count("physics-state")
                         else:
                             tracked[address].missing_scans = 0
                     for address, actor in list(tracked.items()):
@@ -559,6 +578,9 @@ def main() -> int:
                         continue
                     observed_life_state |= current.life_state is not None
                     observed_ai_state_name |= current.ai_state_name is not None
+                    if current.kind == "traffic-actor-sam-site":
+                        observed_sam_site = True
+                        observed_sam_site_physics |= bool(current.physics_body)
                     if current.serial != old.serial:
                         # The retail arena immediately reuses freed addresses.
                         # Treat a changed stable serial as a complete lifecycle
@@ -578,6 +600,13 @@ def main() -> int:
                              classification="reused-address",
                              previousSerial=old.serial)
                         count("actor-spawn")
+                        if current.kind == "traffic-actor-sam-site":
+                            observed_sam_site = True
+                            observed_sam_site_physics |= bool(current.physics_body)
+                            emit(output, "physics-state", now, tick, **ident(current),
+                                 reason="sam-site-reused-address",
+                                 bodyPresent=bool(current.physics_body))
+                            count("physics-state")
                         tracked[address] = current
                         continue
                     changes = []
@@ -620,6 +649,7 @@ def main() -> int:
                             current.ai_state_id != old.ai_state_id or
                             current.ai_state_name != old.ai_state_name or
                             current.life_state != old.life_state or
+                            current.physics_body != old.physics_body or
                             current.physics_vtable != old.physics_vtable or
                             current.ai_target_53c != old.ai_target_53c or
                             current.ai_target_540 != old.ai_target_540):
@@ -629,7 +659,8 @@ def main() -> int:
                         life_changed = current.life_state != old.life_state
                         target_changed = (current.ai_target_53c != old.ai_target_53c or
                                           current.ai_target_540 != old.ai_target_540)
-                        physics_changed = current.physics_vtable != old.physics_vtable
+                        physics_changed = (current.physics_body != old.physics_body or
+                                           current.physics_vtable != old.physics_vtable)
                         previous_state_seconds = now - old.ai_state_entered
                         previous_physics_seconds = now - old.physics_state_entered
                         if ai_changed:
@@ -657,6 +688,8 @@ def main() -> int:
                              previousLifeState=old.life_state,
                              previousPhysicsVtable=(f"{old.physics_vtable:08X}"
                                                     if old.physics_vtable else None),
+                             previousPhysicsBody=(f"{old.physics_body:08X}"
+                                                  if old.physics_body else None),
                              previousTarget53C=(f"{old.ai_target_53c:08X}"
                                                 if old.ai_target_53c else None),
                              previousTarget540=(f"{old.ai_target_540:08X}"
@@ -667,6 +700,15 @@ def main() -> int:
                              previousStateMinHeight=old.ai_state_min_height,
                              previousStateMaxHeight=old.ai_state_max_height)
                         count("ai-state")
+                        if physics_changed:
+                            emit(output, "physics-state", now, tick, **ident(current),
+                                 reason="body-or-vtable-transition",
+                                 previousBody=(f"{old.physics_body:08X}"
+                                               if old.physics_body else None),
+                                 previousVtable=(f"{old.physics_vtable:08X}"
+                                                 if old.physics_vtable else None),
+                                 bodyPresent=bool(current.physics_body))
+                            count("physics-state")
                         if old.life_state == "dead" and current.life_state == "alive":
                             current.anomalies.append("dead-pedestrian-became-alive")
                             emit(output, "anomaly", now, tick, **ident(current),
@@ -694,6 +736,18 @@ def main() -> int:
                                  ragdollSeconds=round(previous_physics_seconds, 3),
                                  result="returned-to-active-body")
                             count("physics-recovery")
+                    if (current.kind == "traffic-actor-sam-site" and
+                            not current.physics_body_seen and
+                            now - current.first_seen >= 1.0 and
+                            not current.physics_missing_reported):
+                        current.physics_missing_reported = True
+                        emit(output, "coverage-gap", now, tick, **ident(current),
+                             code="sam-site-physics-body-not-observed",
+                             observedSeconds=round(now - current.first_seen, 3),
+                             detail=("The proven ActorSamSite object has not exposed a "
+                                     "physics body; compare its resource and lifecycle "
+                                     "with the matched xemu checkpoint"))
+                        count("coverage-gap")
                     if (current.kind == "pedestrian" and
                             current.life_state == "alive" and
                             current.physics_vtable == 0x00237FA8 and
@@ -765,6 +819,9 @@ def main() -> int:
                      "damageCause": False,
                      "healthTransitions": counts.get("health-change", 0) > 0,
                      "physicsRecovery": counts.get("physics-recovery", 0) > 0,
+                     "physicsTransitions": counts.get("physics-state", 0) > 0,
+                     "samSiteObserved": observed_sam_site,
+                     "samSitePhysicsObserved": observed_sam_site_physics,
                      "aliveDeadMeaning": observed_life_state,
                      "effectOwnership": False,
                      "aiTaskNames": observed_ai_state_name,

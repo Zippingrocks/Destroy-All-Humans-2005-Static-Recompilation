@@ -166,5 +166,8 @@ they do not establish pixel-perfect or complete timing parity.
   for crashes, missing systems and parity defects.
 - `DEBUG_RESTORATION_PLAN.md` defines how alpha PDB names and surviving retail
   debug facilities may be restored without contaminating normal parity runs.
+- `ALPHA_RETAIL_DEBUG_EVIDENCE.md` pins the actual alpha PDB/XBE artifacts,
+  separates original evidence from host-authored alpha-recomp experiments, and
+  points to the machine-readable accepted-name ledger.
 - Incident files such as `SANTA_EMP_INCIDENT_20261006.md` apply the workflow to
   one reproducible defect and carry its acceptance matrix.

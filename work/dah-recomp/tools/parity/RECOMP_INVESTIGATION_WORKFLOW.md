@@ -78,6 +78,12 @@ phase. Gate high-volume traces behind an environment variable and bound them.
 Debug views are observational: they must not alter game state or be counted as
 parity evidence.
 
+Track pointer presence separately from the pointed object's vtable. A body can
+be attached or removed while both samples decode to a null vtable, and watching
+only vtable changes loses that lifecycle boundary. For a named class, record
+the class proof and runtime resource identity separately; a correct vtable name
+does not prove which mission prop instantiated it.
+
 For an interactive world object, trace at least resource load, construction,
 registration, collision shape/body, contact or pickup eligibility, script
 event, ability/state mutation, animation, effect/audio/HUD response,
