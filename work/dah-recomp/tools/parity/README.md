@@ -173,5 +173,10 @@ they do not establish pixel-perfect or complete timing parity.
 - `ALPHA_RETAIL_CRASH_AUDIT_20261007.md` inventories preserved and historical
   crashes, proves the restored callback coverage, and records which
   ActorSamSite structures survived or changed between alpha and retail.
+- `WHOLE_ALPHA_RETAIL_COMPARISON_20261007.md` expands that work to every
+  discovered function in every executable section, all strings and named class
+  IDs, both complete block trees, and all data-section callback/vtable targets.
+  Its row-level databases live under
+  `tools/analysis/results/whole-alpha-retail/`.
 - Incident files such as `SANTA_EMP_INCIDENT_20261006.md` apply the workflow to
   one reproducible defect and carry its acceptance matrix.
