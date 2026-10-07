@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_event_trace.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

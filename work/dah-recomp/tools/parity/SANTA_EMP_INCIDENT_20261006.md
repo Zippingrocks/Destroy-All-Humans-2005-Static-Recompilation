@@ -60,8 +60,19 @@ has the same shape, and its matching slot names alpha `0x0004A0B0` as
 include `Traffic::ActorSamSite::SetCollideFlag`, `SetCollideMask`, `EnableBody`,
 `Update`, and `ApplyDamage`. This is level B evidence that the retail class is
 `Traffic::ActorSamSite` and its missing destructor is retail `0x00016CA0`.
-It does **not** yet prove that the encountered EMP device is an ActorSamSite;
-the next capture must join the class to its runtime resource name.
+
+The runtime join is now proven as well. Read-only capture
+`blanket-runs/santa-emp-live-p48988-20261007T065543Z.jsonl`, from recomp run
+`20261007T064831185Z-p48988-9470C2DDEE4F43E3`, observed four objects with
+primary vtable `0x00226A80` and exact resource name `m_emp_mine`. Their serials
+were 1232, 1048, 1224 and 1065. All four exposed non-null body pointers whose
+vtable was `0x00235CA8`. This establishes that the encountered EMP mines use
+`Traffic::ActorSamSite`, and rules out missing object or body construction at
+that captured checkpoint. It does not yet establish correct collision masks,
+contact dispatch, trigger response or mission behavior.
+The durable, compact record is
+`tools/analysis/results/santa-emp-runtime-evidence.json`; the full JSONL remains
+a local run artifact and is deliberately excluded from source control.
 
 The read-only blanket observer now uses the proven class name, records its
 physics-body state at discovery, records body-pointer changes as well as
@@ -77,6 +88,25 @@ following layout strongly maps the range to the alpha Traffic actor methods.
 The generic similarity tool produced weaker unrelated candidates, so those
 candidates were rejected. This is the intended A/B/C/D evidence discipline.
 
+The retail script surface adds a direct causal bridge. The exact
+`SetPhysicsEnableBody` string at `0x0022C024` is registered at retail
+`0x00073A5C` with handler `0x000717D0`. That handler resolves tagged actors and
+their forceable interface; its unfiltered enable branch calls `0x00105BD0`.
+That is the same caller that reached missing vtable thunk `0x00015FC0` in the
+crash. The callback restoration therefore repairs a proven body-enable path,
+although the next instrumented run still has to show whether the EMP mission
+dispatches it and with which tag and enable value.
+
+The new event trace records that boundary as `physics-body-command`, including
+world tick, tag hash, optional filter hash, actor, forceable interface,
+requested state and caller. It also records `SetTagAlienAbilityEnable` writes
+as `tag-alien-ability`, including the ability hash and old/new stored-disable
+byte. A generated conditional-branch defect in retail handler `0x00072D40` was
+corrected at the two affected comparisons: previously an unknown ability hash
+could fall through and change the brain-ability byte because the generated
+fallback flags variable was never updated. The correction reproduces the
+retail `jne` decisions; it does not add a new ability.
+
 ## What the callback fix establishes
 
 The fix removes two proven unresolved entry points and the identified guest
@@ -88,9 +118,9 @@ Those require the matched runtime validation below.
 
 | Layer | Required native evidence | Required xemu comparison | Status |
 |---|---|---|---|
-| Resource | exact resource/type/hash and successful construction | same object identity at checkpoint | open |
-| World | stable transform, streaming and visibility | same spawn/despawn timing | open |
-| Physics | shape, body, filter and broadphase registration | same blocking/contact behavior | open |
+| Resource | exact resource/type/hash and successful construction | same object identity at checkpoint | recomp proven: four `m_emp_mine` / `ActorSamSite`; xemu open |
+| World | stable transform, streaming and visibility | same spawn/despawn timing | recomp checkpoint captured; matched timing open |
+| Physics | shape, body, filter and broadphase registration | same blocking/contact behavior | four bodies proven; shape/filter/contact open |
 | Interaction | contact/pickup eligibility and dispatched callback | same allowed/denied interaction | open |
 | Mission | script event and mission-state transition | same event tick/order | open |
 | Ability | old/new jetpack-enabled state and caller | same disable/restore timing | open |
@@ -118,3 +148,12 @@ rather than adding pickup behavior.
 - A vtable-slot match becomes substantially stronger when constructor size,
   secondary vtables, destructor shape, and neighboring class methods also
   agree. Keep runtime resource identity separate until it is observed.
+- A non-null body proves construction, not collision. When an actor can be
+  walked through, continue through shape, filter, broadphase, contact and
+  script response instead of rebuilding a body that already exists.
+- Script strings and their registration xrefs can connect a visible gameplay
+  defect to a precise translated handler. Follow that handler through its
+  callers before deciding whether a missing callback is related.
+- Generated flag fallbacks are a review signal. Confirm every affected retail
+  branch from the original instruction before replacing it with an explicit
+  comparison; never apply a global search-and-replace.

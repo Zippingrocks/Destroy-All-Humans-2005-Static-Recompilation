@@ -1,0 +1,303 @@
+{
+  "schema": 1,
+  "method": "exact-nul-string-and-file-backed-dword-xrefs",
+  "warning": "A pointer reference is a table/code clue, not proof of a function name.",
+  "input": {
+    "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\default.xbe",
+    "sha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB"
+  },
+  "strings": [
+    {
+      "query": "SetJetPackEnable",
+      "occurrences": [
+        {
+          "section": "",
+          "address": "0x0022D9DC",
+          "xrefs": [
+            {
+              "section": "",
+              "address": "0x0022DA3C",
+              "aligned": true,
+              "context": [
+                {
+                  "address": "0x0022DA28",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA2C",
+                  "value": "0xB08F9B4D",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA30",
+                  "value": "0x0022D9F0",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA34",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA38",
+                  "value": "0x2A8D7248",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA3C",
+                  "value": "0x0022D9DC",
+                  "selected": true
+                },
+                {
+                  "address": "0x0022DA40",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA44",
+                  "value": "0x47A92D5E",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA48",
+                  "value": "0x0022CEB4",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA4C",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DA50",
+                  "value": "0xA6EAA92E",
+                  "selected": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "query": "GetJetPackEnable",
+      "occurrences": [
+        {
+          "section": "",
+          "address": "0x0022D96C",
+          "xrefs": [
+            {
+              "section": "",
+              "address": "0x0022DAF0",
+              "aligned": true,
+              "context": [
+                {
+                  "address": "0x0022DADC",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAE0",
+                  "value": "0x38905743",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAE4",
+                  "value": "0x0022D980",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAE8",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAEC",
+                  "value": "0x093CC83A",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAF0",
+                  "value": "0x0022D96C",
+                  "selected": true
+                },
+                {
+                  "address": "0x0022DAF4",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAF8",
+                  "value": "0x0B8E1978",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DAFC",
+                  "value": "0x0022D958",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DB00",
+                  "value": "0x00083A50",
+                  "selected": false
+                },
+                {
+                  "address": "0x0022DB04",
+                  "value": "0xB9AE405A",
+                  "selected": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "query": "SetTagAlienAbilityEnable",
+      "occurrences": [
+        {
+          "section": "",
+          "address": "0x0022BCB0",
+          "xrefs": [
+            {
+              "section": "",
+              "address": "0x00073DD0",
+              "aligned": true,
+              "context": [
+                {
+                  "address": "0x00073DBC",
+                  "value": "0xCC68000C",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DC0",
+                  "value": "0x8B0022BC",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DC4",
+                  "value": "0x5826E8CE",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DC8",
+                  "value": "0x4068000C",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DCC",
+                  "value": "0x6800072D",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DD0",
+                  "value": "0x0022BCB0",
+                  "selected": true
+                },
+                {
+                  "address": "0x00073DD4",
+                  "value": "0x15E8CE8B",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DD8",
+                  "value": "0x68000C58",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DDC",
+                  "value": "0x00072EA0",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DE0",
+                  "value": "0x22BCA068",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073DE4",
+                  "value": "0xE8CE8B00",
+                  "selected": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "query": "SetPhysicsEnableBody",
+      "occurrences": [
+        {
+          "section": "",
+          "address": "0x0022C024",
+          "xrefs": [
+            {
+              "section": "",
+              "address": "0x00073A5C",
+              "aligned": true,
+              "context": [
+                {
+                  "address": "0x00073A48",
+                  "value": "0x3C680007",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A4C",
+                  "value": "0x8B0022C0",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A50",
+                  "value": "0x5B9AE8CE",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A54",
+                  "value": "0xD068000C",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A58",
+                  "value": "0x68000717",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A5C",
+                  "value": "0x0022C024",
+                  "selected": true
+                },
+                {
+                  "address": "0x00073A60",
+                  "value": "0x89E8CE8B",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A64",
+                  "value": "0x68000C5B",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A68",
+                  "value": "0x00071940",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A6C",
+                  "value": "0x22C01868",
+                  "selected": false
+                },
+                {
+                  "address": "0x00073A70",
+                  "value": "0xE8CE8B00",
+                  "selected": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

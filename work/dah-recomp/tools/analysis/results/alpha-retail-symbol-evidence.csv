@@ -1,5 +1,5 @@
 retail_address,alpha_address,proposed_name,evidence_level,status,anchors,notes
 0x00083A50,0x0002A540,UFO::PlayerObject::ProcessScript,B,accepted,"same SetJetPackEnable hash 0x47A92D5E; same table order; same Boolean parse/invert/store branch","Class layout shifts from alpha +0x3D8 to retail +0x360; name applies to the generic script dispatcher"
-0x00016CA0,0x0004A0B0,Traffic::ActorSamSite::scalar deleting destructor,B,accepted,"same primary-vtable slot; matching 0x35C object; matching primary/secondary vtable shape; matching scalar destructor flow","Runtime resource using the class must still be observed"
+0x00016CA0,0x0004A0B0,Traffic::ActorSamSite::scalar deleting destructor,B,accepted,"same primary-vtable slot; matching 0x35C object; matching primary/secondary vtable shape; matching scalar destructor flow","Live run 20261007T064831185Z joins four class instances to resource m_emp_mine; all expose physics vtable 0x00235CA8"
 0x00105FB0,0x00044170,Traffic::Actor::SetOnFire,B,accepted,"matching constants; control flow; class neighborhood and call relationships","Used as a neighborhood anchor, not evidence that the EMP invokes SetOnFire"
 0x00015FC0,,,A,restored-address-only,"byte-audited four-instruction vtable thunk; exact caller and tail-call behavior","No real function name accepted yet"

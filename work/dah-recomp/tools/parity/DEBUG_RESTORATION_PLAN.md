@@ -67,6 +67,8 @@ without guessing gameplay behavior.
 The first class-level proof is now recorded for retail primary vtable
 `0x00226A80`: constructor layout and size, both vtables, the deleting-destructor
 slot, and neighboring methods match alpha `Traffic::ActorSamSite`. The blanket
-observer uses that name but still reports the runtime resource separately.
-This is the model for restoring later debug labels: prove the class, then
-observe which asset or mission object uses it.
+observer uses that name and reports the runtime resource separately. A Santa
+Modesta capture has now joined four instances to `m_emp_mine` and shown a
+non-null body on each one. This is the model for restoring later debug labels:
+prove the class, observe which asset or mission object uses it, then trace the
+specific state transition that is wrong.

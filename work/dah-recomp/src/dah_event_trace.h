@@ -20,5 +20,14 @@ void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
 void dah_event_trace_ability_flag(uint32_t command, uint32_t owner,
                                   uint32_t offset, uint32_t old_value,
                                   uint32_t new_value, uint32_t caller);
+void dah_event_trace_tag_ability(uint32_t ability_hash, uint32_t actor,
+                                 uint32_t offset, uint32_t old_value,
+                                 uint32_t new_value, uint32_t caller);
+void dah_event_trace_physics_body_command(uint32_t tag_hash,
+                                          uint32_t filter_hash,
+                                          uint32_t actor,
+                                          uint32_t forceable,
+                                          uint32_t requested_enable,
+                                          uint32_t caller);
 
 #endif

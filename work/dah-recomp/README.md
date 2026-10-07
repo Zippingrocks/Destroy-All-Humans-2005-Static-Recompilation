@@ -82,6 +82,13 @@ archives under `build-ninja/backups`.
 The build copies the locally extracted `default.xbe` beside it. Game data
 remains user-supplied and must not be redistributed.
 
+Missing or inaccurate systems follow the evidence workflow in
+`tools/parity/RECOMP_INVESTIGATION_WORKFLOW.md`. The Santa EMP incident in
+`tools/parity/SANTA_EMP_INCIDENT_20261006.md` is the first filled example, and
+`tools/parity/ALPHA_RETAIL_DEBUG_EVIDENCE.md` records how alpha PDB names are
+validated before they are applied to retail code. These documents are the
+project record for reproducing a fix instead of relying on session memory.
+
 ## Current bring-up status
 
 The real animated title, original New Game profile creation and mothership

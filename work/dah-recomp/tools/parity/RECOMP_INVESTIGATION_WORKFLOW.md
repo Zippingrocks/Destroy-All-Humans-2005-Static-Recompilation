@@ -84,6 +84,12 @@ only vtable changes loses that lifecycle boundary. For a named class, record
 the class proof and runtime resource identity separately; a correct vtable name
 does not prove which mission prop instantiated it.
 
+Treat a live object, a live body, a collision shape, a broadphase entry, a
+matching filter pair, a contact callback, and a gameplay response as separate
+checkpoints. Seeing one never implies the later checkpoints. This distinction
+turned the Santa EMP problem from “missing physics” into the narrower open
+question of filter/contact/script behavior after four mine bodies were observed.
+
 For an interactive world object, trace at least resource load, construction,
 registration, collision shape/body, contact or pickup eligibility, script
 event, ability/state mutation, animation, effect/audio/HUD response,
@@ -106,3 +112,22 @@ exact evidence, code changed, tests, remaining unknowns and executable hash.
 
 “No crash” is one acceptance item. A system is complete only when its full
 behavior chain and matched xemu timing are accounted for.
+
+## Incident packet template
+
+Keep one small document per defect with these fields so the reasoning survives
+after the run and can be repeated:
+
+- observed symptoms, each stated independently;
+- run identity and immutable hashes;
+- last-good and first-bad event, with world ticks;
+- retail boundary, callers, callees, original bytes and calling convention;
+- alpha/PDB candidate with evidence level and rejected alternatives;
+- runtime class-to-resource join and relevant object/body state;
+- smallest code repair and observational probes added;
+- native and xemu reproduction steps and checkpoint alignment;
+- positive result, negative controls, remaining open layers and shipped hash.
+
+The Santa EMP incident document is the first filled example. Future bug work
+should copy its structure and add new evidence rather than overwrite earlier
+observations.

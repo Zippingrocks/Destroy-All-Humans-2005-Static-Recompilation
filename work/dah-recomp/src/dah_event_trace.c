@@ -8,7 +8,8 @@
 
 enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
 enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
-       DAH_EVENT_ABILITY_FLAG = 3 };
+       DAH_EVENT_ABILITY_FLAG = 3, DAH_EVENT_TAG_ABILITY = 4,
+       DAH_EVENT_PHYSICS_BODY_COMMAND = 5 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -36,6 +37,14 @@ typedef struct DahTraceEvent {
             uint32_t command, owner, offset;
             uint32_t old_value, new_value, caller;
         } ability;
+        struct {
+            uint32_t ability_hash, actor, offset;
+            uint32_t old_value, new_value, caller;
+        } tag_ability;
+        struct {
+            uint32_t tag_hash, filter_hash, actor, forceable;
+            uint32_t requested_enable, caller;
+        } physics_body_command;
     } payload;
 } DahTraceEvent;
 
@@ -138,6 +147,35 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.ability.old_value ? 0u : 1u,
                     event->payload.ability.new_value ? 0u : 1u,
                     event->payload.ability.caller);
+            else if (event->type == DAH_EVENT_TAG_ABILITY) fprintf(output,
+                    "{\"event\":\"tag-alien-ability\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"abilityHash\":\"%08X\","
+                    "\"actor\":\"%08X\",\"offset\":\"%X\","
+                    "\"oldStoredDisable\":%u,\"newStoredDisable\":%u,"
+                    "\"oldEnabled\":%u,\"newEnabled\":%u,"
+                    "\"caller\":\"%08X\"}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.tag_ability.ability_hash,
+                    event->payload.tag_ability.actor,
+                    event->payload.tag_ability.offset,
+                    event->payload.tag_ability.old_value,
+                    event->payload.tag_ability.new_value,
+                    event->payload.tag_ability.old_value ? 0u : 1u,
+                    event->payload.tag_ability.new_value ? 0u : 1u,
+                    event->payload.tag_ability.caller);
+            else if (event->type == DAH_EVENT_PHYSICS_BODY_COMMAND) fprintf(output,
+                    "{\"event\":\"physics-body-command\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"tagHash\":\"%08X\","
+                    "\"filterHash\":\"%08X\",\"actor\":\"%08X\","
+                    "\"forceable\":\"%08X\",\"requestedEnable\":%u,"
+                    "\"caller\":\"%08X\"}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.physics_body_command.tag_hash,
+                    event->payload.physics_body_command.filter_hash,
+                    event->payload.physics_body_command.actor,
+                    event->payload.physics_body_command.forceable,
+                    event->payload.physics_body_command.requested_enable,
+                    event->payload.physics_body_command.caller);
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -291,6 +329,69 @@ void dah_event_trace_ability_flag(uint32_t command, uint32_t owner,
     event->payload.ability.old_value = old_value;
     event->payload.ability.new_value = new_value;
     event->payload.ability.caller = caller;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_tag_ability(uint32_t ability_hash, uint32_t actor,
+                                 uint32_t offset, uint32_t old_value,
+                                 uint32_t new_value, uint32_t caller)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_TAG_ABILITY;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event->payload.tag_ability.ability_hash = ability_hash;
+    event->payload.tag_ability.actor = actor;
+    event->payload.tag_ability.offset = offset;
+    event->payload.tag_ability.old_value = old_value;
+    event->payload.tag_ability.new_value = new_value;
+    event->payload.tag_ability.caller = caller;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_physics_body_command(uint32_t tag_hash,
+                                          uint32_t filter_hash,
+                                          uint32_t actor,
+                                          uint32_t forceable,
+                                          uint32_t requested_enable,
+                                          uint32_t caller)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_PHYSICS_BODY_COMMAND;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event->payload.physics_body_command.tag_hash = tag_hash;
+    event->payload.physics_body_command.filter_hash = filter_hash;
+    event->payload.physics_body_command.actor = actor;
+    event->payload.physics_body_command.forceable = forceable;
+    event->payload.physics_body_command.requested_enable = requested_enable;
+    event->payload.physics_body_command.caller = caller;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);
 }

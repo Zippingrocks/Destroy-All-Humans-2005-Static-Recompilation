@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_event_trace.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -29542,6 +29543,7 @@ void sub_000717D0(void)
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     int _cf = 0; /* carry flag */
+    uint32_t dah_tag_hash = 0;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000717D0: ;
@@ -29596,6 +29598,7 @@ loc_00071820: ;
     PUSH32(esp, 0x0007182Fu); sub_000D54A0(); /* call 0x000D54A0 */
 
 loc_0007182F: ;
+    dah_tag_hash = eax;
     PUSH32(esp, eax);
     ecx = esi;
     PUSH32(esp, 0x00071837u); sub_0010E3F0(); /* call 0x0010E3F0 */
@@ -29661,6 +29664,9 @@ loc_00071887: ;
     if (TEST_Z(_fa, _fb)) goto loc_00071913; /* je: equal / zero */
 
 loc_00071891: ;
+    dah_event_trace_physics_body_command(
+        dah_tag_hash, MEM32(esp + 0x10), esi, edi,
+        LO8(ebx) ? 0u : 1u, MEM32(esp + 0x1Cu));
     eax = MEM32(esp + 0x10);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
@@ -33638,10 +33644,14 @@ loc_00072E27: ;
 loc_00072E2F: ;
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(0xBAD7F988u) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0xBAD7F988u (32-bit) */
-    goto loc_00072E51;
+    if (CMP_NE(_fa, _fb)) goto loc_00072E8D; /* jne: not equal / not zero */
+    goto loc_00072E53;
 
 loc_00072E37: ;
     SET_LO8(eax, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D1u,
+                                MEM8(esi + 0x3D1), LO8(eax),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D1) = LO8(eax);
     goto loc_00072E75;
 
@@ -33655,20 +33665,29 @@ loc_00072E4B: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0xFA18544Du (32-bit) */
 
 loc_00072E51: ;
-    if (_flags /* jne: not equal / not zero */) goto loc_00072E8D;
+    if (CMP_NE(_fa, _fb)) goto loc_00072E8D; /* jne: not equal / not zero */
 
 loc_00072E53: ;
     SET_LO8(ecx, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D2u,
+                                MEM8(esi + 0x3D2), LO8(ecx),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D2) = LO8(ecx);
     goto loc_00072E75;
 
 loc_00072E5F: ;
     SET_LO8(edx, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D0u,
+                                MEM8(esi + 0x3D0), LO8(edx),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D0) = LO8(edx);
     goto loc_00072E75;
 
 loc_00072E6B: ;
     SET_LO8(eax, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0xC6u,
+                                MEM8(esi + 0xC6), LO8(eax),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0xC6) = LO8(eax);
 
 loc_00072E75: ;

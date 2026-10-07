@@ -45,7 +45,8 @@ The machine-readable ledger is
   semantics;
 - retail `0x00016CA0` as
   `Traffic::ActorSamSite::scalar deleting destructor` with level B evidence
-  across constructor size, vtables, slot and destructor shape;
+  across constructor size, vtables, slot and destructor shape; a live Santa
+  Modesta capture independently joins this class to resource `m_emp_mine`;
 - retail `0x00105FB0` as `Traffic::Actor::SetOnFire`, used as a structurally
   matched neighborhood anchor;
 - retail `0x00015FC0` as an exact restored thunk whose name remains unknown.
@@ -53,6 +54,15 @@ The machine-readable ledger is
 An accepted mapping is a local fact with recorded scope. It does not validate
 adjacent functions, every command in a dispatcher, or the identity of a
 mission resource using the class.
+
+`tools/analysis/find_xbe_string_xrefs.py` makes the retail registration search
+repeatable. Given an XBE and exact strings, it records the input hash, every
+NUL-terminated occurrence, each file-backed dword xref and nearby dwords. The
+first committed result,
+`tools/analysis/results/retail-ability-command-xrefs.json`, anchors
+`SetJetPackEnable`, `GetJetPackEnable`, `SetTagAlienAbilityEnable`, and
+`SetPhysicsEnableBody`. Xrefs remain clues until the referenced handler is
+disassembled and its behavior is verified.
 
 ## Reproducible intake for a missing retail system
 

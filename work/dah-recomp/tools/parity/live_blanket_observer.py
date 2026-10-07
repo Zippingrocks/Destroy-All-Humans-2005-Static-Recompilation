@@ -29,7 +29,8 @@ GUEST_MIN, GUEST_MAX = 0x10000, 0x08000000
 # The 22ECD8 class is known PropType; 226C60 is the pedestrian actor path.
 # Retail 226A80 is structurally matched to alpha Traffic::ActorSamSite: the
 # complete vtable shape, object size, constructor writes, and scalar deleting
-# destructor slot agree.  Resource identity remains a separate observation.
+# destructor slot agree.  Resource identity remains a separate observation in
+# every event; Santa run 20261007T064831185Z joined this class to m_emp_mine.
 PROFILES = (
     ("actor-225e88", 0x32C, 0x00225E88, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225E28, 0x00226648),
     ("actor-2261a8", 0x534, 0x002261A8, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225FE0, 0x00226648),
@@ -504,7 +505,8 @@ def main() -> int:
                  scanRange=[f"{args.scan_start:08X}", f"{args.scan_end:08X}"],
                  coverage=["actor-lifecycle", "actor-state", "actor-transform",
                            "visibility-flags", "unexpected-despawn",
-                           "teleport", "nonfinite-transform"])
+                           "teleport", "nonfinite-transform",
+                           "physics-body-lifecycle", "sam-site-presence"])
             while time.perf_counter() < deadline and reader.is_running():
                 perf_now = time.perf_counter()
                 now = time.time()

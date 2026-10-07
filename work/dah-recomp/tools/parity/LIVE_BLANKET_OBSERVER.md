@@ -42,6 +42,15 @@ living pedestrian that disappears without an observed death are explicit
 anomalies. This makes quiet, stuck, streamed, killed, and allocator-reused
 objects distinguishable in the run report.
 
+Version 3 adds the structurally proven retail `Traffic::ActorSamSite` class,
+records physics-body pointer changes independently from vtable changes, and
+emits `physics-state` plus `coverage-gap` events. Its run-end coverage reports
+whether an ActorSamSite and one of its bodies were actually observed. In Santa
+Modesta run `20261007T064831185Z-p48988-9470C2DDEE4F43E3`, that joined four
+instances to resource `m_emp_mine`; all four had non-null bodies using vtable
+`0x00235CA8`. The observer deliberately does not infer working collision from
+body presence.
+
 The watcher also reports proven player-health changes from class `00226338`,
 pedestrian physics-body transitions, successful corpse/ragdoll-to-active-body
 recovery, and a living pedestrian that remains on the corpse/ragdoll body for
@@ -110,6 +119,13 @@ present result, and pacing flags. The variable is read only at startup, so its
 path cannot be changed retroactively in an already-running process. Its writer
 runs below normal priority and flushes in one-second batches
 so disk I/O does not stall the game thread.
+
+The same ring now records `ability-flag` for `SetJetPackEnable`,
+`tag-alien-ability` for the per-actor alien ability dispatcher, and
+`physics-body-command` for `SetPhysicsEnableBody`. These retain the relevant
+hash, actor or owner, old/new state where applicable, caller, and world tick.
+They are observational hooks in the original retail handlers; they do not
+force the command or change its argument.
 
 Rank the exact dips without discarding faster frames:
 

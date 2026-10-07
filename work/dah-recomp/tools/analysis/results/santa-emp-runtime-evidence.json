@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "status": "recomp-observation-not-xemu-parity",
+  "run": {
+    "runId": "20261007T064831185Z-p48988-9470C2DDEE4F43E3",
+    "pid": 48988,
+    "executableSha256": "901E64782833D3C4A7DE2D1F4EA2CA24332074562B69E35EA60163614E800AAD",
+    "observer": "blanket-v3",
+    "worldTick": 5695
+  },
+  "claim": "Four live m_emp_mine resources used the structurally matched Traffic::ActorSamSite class and each exposed a non-null physics body.",
+  "limits": [
+    "Body presence does not prove a collision shape, matching filters, broadphase registration, contact dispatch, or gameplay response.",
+    "The checkpoint has not yet been aligned and compared with xemu."
+  ],
+  "instances": [
+    {
+      "actor": "02D28780",
+      "serial": 1232,
+      "resource": "m_emp_mine",
+      "actorVtable": "00226A80",
+      "physicsBody": "02D289AC",
+      "physicsVtable": "00235CA8",
+      "position": [751.80463, 713.95184, 16.85]
+    },
+    {
+      "actor": "02DAF230",
+      "serial": 1048,
+      "resource": "m_emp_mine",
+      "actorVtable": "00226A80",
+      "physicsBody": "02DAF45C",
+      "physicsVtable": "00235CA8",
+      "position": [749.44855, 808.31909, 16.85]
+    },
+    {
+      "actor": "02DFC7D0",
+      "serial": 1224,
+      "resource": "m_emp_mine",
+      "actorVtable": "00226A80",
+      "physicsBody": "02DFC9FC",
+      "physicsVtable": "00235CA8",
+      "position": [748.48859, 722.33691, 16.85093]
+    },
+    {
+      "actor": "02E66090",
+      "serial": 1065,
+      "resource": "m_emp_mine",
+      "actorVtable": "00226A80",
+      "physicsBody": "02E662BC",
+      "physicsVtable": "00235CA8",
+      "position": [741.75836, 801.50134, 16.85]
+    }
+  ]
+}
