@@ -34932,7 +34932,7 @@ void sub_0009CFE0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_0009CFE0: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_0009CFF4; /* jne: not equal / not zero */
@@ -46544,7 +46544,7 @@ loc_000A24E9: ;
     if (CMP_L(_fas, _fbs)) goto loc_000A2454; /* jl: less (signed <) */
 
 loc_000A24FA: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     POP32(esp, ebp);

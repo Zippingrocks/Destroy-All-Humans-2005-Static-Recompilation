@@ -752,7 +752,7 @@ static uint8_t g_dah_console_god_previous_invulnerable;
 static int g_dah_console_god_actor_state_saved;
 static unsigned g_dah_console_god_blocks;
 static unsigned g_dah_console_god_damage_blocks;
-static uint8_t g_dah_console_god_previous_global_gate;
+static int g_dah_console_infinite_ammo_enabled;
 extern int dah_console_is_open(void);
 extern int dah_console_key_blocked(int virtual_key);
 extern int dah_host_has_input_focus(void);
@@ -765,10 +765,10 @@ static int dah_dev_npc_guest_ptr(uint32_t pointer);
 
 /* Developer-only invulnerability. Retail health storage is a bounded scalar
  * at Crypto+368: +8 is current health and +C is the maximum used by retail's
- * setter 00059560. Crypto+378 is the actor-local damage gate. The retail
- * damage implementations also share the global byte at 002867AC: health
- * drain (0007E880) and the recovered damage classes all bypass damage while
- * it is set. God mode owns both retail gates while enabled. */
+ * setter 00059560. Crypto+142 is retail SetInvulnerable and Crypto+378 is the
+ * actor-local damage gate. The global byte at 002867AC also suppresses weapon
+ * resource consumption and changes unrelated combat behavior, so God mode
+ * deliberately leaves it under retail control. */
 static uint32_t dah_console_god_crypto(void)
 {
     uint32_t system = MEM32(0x0025FCECu), player, crypto;
@@ -787,7 +787,6 @@ void dah_console_god_enforce(void)
     uint32_t damage_gate;
     float current, maximum;
     if (!g_dah_console_god_enabled) return;
-    MEM8(0x002867ACu) = 1u;
     crypto = dah_console_god_crypto();
     if (!crypto) return;
     damage_gate = MEM32(crypto + 0x378u);
@@ -891,15 +890,12 @@ static void dah_console_god_set(int enabled)
 {
     uint32_t crypto = dah_console_god_crypto();
     if (!enabled && g_dah_console_god_enabled) {
-        MEM8(0x002867ACu) = g_dah_console_god_previous_global_gate;
         if (crypto && crypto == g_dah_console_god_actor &&
             g_dah_console_god_actor_state_saved) {
             MEM8(crypto + 0x142u) = g_dah_console_god_previous_invulnerable;
             MEM32(crypto + 0x378u) = g_dah_console_god_previous_actor_gate;
         }
     }
-    if (enabled && !g_dah_console_god_enabled)
-        g_dah_console_god_previous_global_gate = MEM8(0x002867ACu);
     g_dah_console_god_enabled = enabled != 0;
     g_dah_console_god_actor = 0u;
     g_dah_console_god_actor_state_saved = 0;
@@ -917,11 +913,26 @@ static void dah_console_god_initialize(void)
     g_dah_console_god_initialized = 1;
     setting = getenv("DAH_GOD_MODE");
     if (setting && (!strcmp(setting, "1") || !_stricmp(setting, "on"))) {
-        g_dah_console_god_previous_global_gate = MEM8(0x002867ACu);
         g_dah_console_god_enabled = 1;
         fprintf(stderr, "[DAH-GOD] enabled=1 source=environment\n");
         fflush(stderr);
     }
+}
+
+int dah_console_infinite_ammo_enabled(void)
+{
+    return g_dah_console_infinite_ammo_enabled;
+}
+
+static void dah_console_infinite_ammo_toggle(void)
+{
+    g_dah_console_infinite_ammo_enabled =
+        !g_dah_console_infinite_ammo_enabled;
+    fprintf(stderr, "[DAH-INFINITE-AMMO] enabled=%d\n",
+            g_dah_console_infinite_ammo_enabled);
+    fflush(stderr);
+    dah_console_write("Infinite ammo %s.",
+                      g_dah_console_infinite_ammo_enabled ? "ON" : "OFF");
 }
 
 int dah_dev_npc_accept_spawn(uint32_t resource_hash, uint32_t actor)
@@ -1513,10 +1524,16 @@ static void dah_console_poll(void)
             dah_console_write("Crypto at %.1f, %.1f, %.1f. Original gameplay is active.", x-2.5f, y-2.5f, z);
         else dah_console_write("Frontend or level transition; Crypto is not currently available.");
         dah_console_write("God mode: %s.", g_dah_console_god_enabled ? "ON" : "OFF");
+        dah_console_write("Infinite ammo: %s.",
+                          g_dah_console_infinite_ammo_enabled ? "ON" : "OFF");
         return;
     }
     if (tokens == 1 && !_stricmp(command, "god")) {
         dah_console_god_set(!g_dah_console_god_enabled);
+        return;
+    }
+    if (tokens == 1 && !_stricmp(command, "infinite_ammo")) {
+        dah_console_infinite_ammo_toggle();
         return;
     }
     if (tokens == 2 && !_stricmp(command, "load_level")) {
@@ -3346,7 +3363,7 @@ loc_0009D1B3: ;
     PUSH32(esp, 0x0009D1BCu); sub_0007A130(); /* call 0x0007A130 */
 
 loc_0009D1BC: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     POP32(esp, edi);

@@ -21301,7 +21301,7 @@ loc_000A5225: ;
     }
 
 loc_000A5247: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     POP32(esp, edi);

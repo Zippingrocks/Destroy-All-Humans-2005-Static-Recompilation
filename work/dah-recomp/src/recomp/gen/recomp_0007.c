@@ -13090,7 +13090,7 @@ loc_000A9273: ;
     PUSH32(esp, 0x000A9283u); sub_00094A90(); /* call 0x00094A90 */
 
 loc_000A9283: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_000A92A9; /* jne: not equal / not zero */
