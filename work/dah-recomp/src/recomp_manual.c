@@ -747,6 +747,9 @@ static unsigned g_dah_console_muted_ports;
 static int g_dah_console_god_enabled;
 static int g_dah_console_god_initialized;
 static uint32_t g_dah_console_god_actor;
+static uint32_t g_dah_console_god_previous_actor_gate;
+static uint8_t g_dah_console_god_previous_invulnerable;
+static int g_dah_console_god_actor_state_saved;
 static unsigned g_dah_console_god_blocks;
 static unsigned g_dah_console_god_damage_blocks;
 static uint8_t g_dah_console_god_previous_global_gate;
@@ -786,22 +789,29 @@ void dah_console_god_enforce(void)
     if (!g_dah_console_god_enabled) return;
     MEM8(0x002867ACu) = 1u;
     crypto = dah_console_god_crypto();
-    if (!crypto) {
-        g_dah_console_god_actor = 0u;
-        return;
-    }
+    if (!crypto) return;
     damage_gate = MEM32(crypto + 0x378u);
+    if (crypto != g_dah_console_god_actor) {
+        g_dah_console_god_actor = crypto;
+        g_dah_console_god_previous_actor_gate = damage_gate;
+        g_dah_console_god_previous_invulnerable = MEM8(crypto + 0x142u);
+        g_dah_console_god_actor_state_saved = 1;
+        fprintf(stderr,
+                "[DAH-GOD] attached crypto=%08X health=%g max=%g damage_gate=%08X invulnerable=%u\n",
+                crypto, (double)MEMF(crypto + 0x370u),
+                (double)MEMF(crypto + 0x374u), damage_gate,
+                (unsigned)g_dah_console_god_previous_invulnerable);
+        fflush(stderr);
+    }
+    /* Retail's SetInvulnerable/IsInvulnerable property is actor byte +0x142.
+     * Keep the original character flag asserted in addition to the lower-level
+     * damage gate so ordinary hits never enter Crypto's damage/death path. */
+    MEM8(crypto + 0x142u) = 1u;
     MEM32(crypto + 0x378u) = damage_gate | 1u;
     current = MEMF(crypto + 0x370u);
     maximum = MEMF(crypto + 0x374u);
     if (!isfinite(current) || !isfinite(maximum) || maximum <= 0.0f ||
         maximum > 1000000.0f) return;
-    if (crypto != g_dah_console_god_actor) {
-        fprintf(stderr,
-                "[DAH-GOD] attached crypto=%08X health=%g max=%g damage_gate=%08X\n",
-                crypto, (double)current, (double)maximum, damage_gate);
-        g_dah_console_god_actor = crypto;
-    }
     if (current < maximum) {
         MEMF(crypto + 0x370u) = maximum;
         fprintf(stderr,
@@ -817,8 +827,19 @@ int dah_console_god_blocks_invulnerability_clear(uint32_t actor)
     if (!g_dah_console_god_enabled) return 0;
     crypto = dah_console_god_crypto();
     if (!crypto || actor != crypto) return 0;
+    MEM8(crypto + 0x142u) = 1u;
     MEM32(crypto + 0x378u) |= 1u;
     return 1;
+}
+
+uint8_t dah_console_god_actor_invulnerable_value(uint32_t actor,
+                                                  uint8_t requested)
+{
+    uint32_t crypto;
+    if (requested || !g_dah_console_god_enabled) return requested;
+    crypto = dah_console_god_crypto();
+    if (!crypto || actor != crypto) return requested;
+    return 1u;
 }
 
 int dah_console_god_blocks_health_write(uint32_t health, uint32_t requested_bits)
@@ -871,12 +892,17 @@ static void dah_console_god_set(int enabled)
     uint32_t crypto = dah_console_god_crypto();
     if (!enabled && g_dah_console_god_enabled) {
         MEM8(0x002867ACu) = g_dah_console_god_previous_global_gate;
-        if (crypto) MEM32(crypto + 0x378u) &= 0xFFFFFFFEu;
+        if (crypto && crypto == g_dah_console_god_actor &&
+            g_dah_console_god_actor_state_saved) {
+            MEM8(crypto + 0x142u) = g_dah_console_god_previous_invulnerable;
+            MEM32(crypto + 0x378u) = g_dah_console_god_previous_actor_gate;
+        }
     }
     if (enabled && !g_dah_console_god_enabled)
         g_dah_console_god_previous_global_gate = MEM8(0x002867ACu);
     g_dah_console_god_enabled = enabled != 0;
     g_dah_console_god_actor = 0u;
+    g_dah_console_god_actor_state_saved = 0;
     if (g_dah_console_god_enabled) dah_console_god_enforce();
     fprintf(stderr, "[DAH-GOD] enabled=%d\n", g_dah_console_god_enabled);
     fflush(stderr);

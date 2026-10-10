@@ -20177,7 +20177,7 @@ loc_00081FE4: ;
     SET_LO8(eax, _cf ? 0xFFFFFFFF : 0); /* sbb self (CF extend) */
     SET_LO8(eax, LO8(eax) + 1);
     POP32(esp, ebp);
-    MEM8(edi + 0x142) = LO8(eax);
+    MEM8(edi + 0x142) = dah_console_god_actor_invulnerable_value(edi, LO8(eax));
     POP32(esp, edi);
     POP32(esp, esi);
     eax = 0; /* xor self */
@@ -26981,9 +26981,9 @@ loc_00084BF9: ;
     eax = MEM32(0x286880);
     MEM32(eax + 0x24) = 1;
     ecx = MEM32(esi + 0x34);
-    MEM8(ecx + 0x142) = 0;
+    MEM8(ecx + 0x142) = dah_console_god_actor_invulnerable_value(ecx, 0);
     edx = MEM32(esi + 0x38);
-    MEM8(edx + 0x142) = 0;
+    MEM8(edx + 0x142) = dah_console_god_actor_invulnerable_value(edx, 0);
     ecx = MEM32(esi + 0x38);
     PUSH32(esp, 1);
     PUSH32(esp, 0x00084C23u); sub_000817E0(); /* call 0x000817E0 */
@@ -27064,9 +27064,9 @@ loc_00084C7D: ;
 
 loc_00084C8A: ;
     ecx = MEM32(esi + 0x34);
-    MEM8(ecx + 0x142) = 0;
+    MEM8(ecx + 0x142) = dah_console_god_actor_invulnerable_value(ecx, 0);
     edx = MEM32(esi + 0x38);
-    MEM8(edx + 0x142) = 0;
+    MEM8(edx + 0x142) = dah_console_god_actor_invulnerable_value(edx, 0);
     ecx = MEM32(esi + 0x34);
     PUSH32(esp, 1);
     PUSH32(esp, 0x00084CA8u); sub_000817E0(); /* call 0x000817E0 */
