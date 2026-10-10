@@ -748,6 +748,7 @@ static int g_dah_console_god_enabled;
 static int g_dah_console_god_initialized;
 static uint32_t g_dah_console_god_actor;
 static unsigned g_dah_console_god_blocks;
+static unsigned g_dah_console_god_damage_blocks;
 extern int dah_console_is_open(void);
 extern int dah_console_key_blocked(int virtual_key);
 extern int dah_host_has_input_focus(void);
@@ -821,6 +822,29 @@ int dah_console_god_blocks_health_write(uint32_t health, uint32_t requested_bits
                 "[DAH-GOD-BLOCK] crypto=%08X current=%g requested=%g max=%g count=%u\n",
                 crypto, (double)current, (double)requested, (double)maximum,
                 g_dah_console_god_blocks);
+        fflush(stderr);
+    }
+    return 1;
+}
+
+/* Retail damage reactions can bypass the bounded health setter when their
+ * actor state already carries a damage/death gate.  Stop the reaction at its
+ * common class entry for the current Crypto actor so God mode also prevents
+ * hit state, scripted lethal damage, and the death callback itself. */
+int dah_console_god_blocks_damage_reaction(uint32_t reaction)
+{
+    uint32_t crypto, target;
+    if (!g_dah_console_god_enabled || !dah_dev_npc_guest_ptr(reaction) ||
+        reaction > 0x07FFFF9Fu) return 0;
+    crypto = dah_console_god_crypto();
+    if (!crypto) return 0;
+    target = MEM32(reaction + 0x20u);
+    if (target != crypto) return 0;
+    dah_console_god_enforce();
+    if (g_dah_console_god_damage_blocks++ < 256u) {
+        fprintf(stderr,
+                "[DAH-GOD-DAMAGE-BLOCK] crypto=%08X reaction=%08X count=%u\n",
+                crypto, reaction, g_dah_console_god_damage_blocks);
         fflush(stderr);
     }
     return 1;

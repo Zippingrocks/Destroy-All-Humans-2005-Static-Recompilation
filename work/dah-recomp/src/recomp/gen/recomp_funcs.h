@@ -8,6 +8,9 @@
 
 #include "recomp_types.h"
 
+/* Host developer guard used by the translated retail damage reactions. */
+int dah_console_god_blocks_damage_reaction(uint32_t reaction);
+
 void sub_00011000(void);
 void sub_00011030(void);
 void sub_00011060(void);

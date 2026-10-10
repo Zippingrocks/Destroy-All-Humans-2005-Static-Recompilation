@@ -145,6 +145,9 @@ void sub_000A3900(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000A3900: ;
+    if (dah_console_god_blocks_damage_reaction(ecx)) {
+        esp += 12; return; /* retail ret 8; ignore Crypto damage reaction */
+    }
     eax = MEM32(esp + 4);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x9E7EDF34u) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0x9E7EDF34u (32-bit) */
