@@ -10,7 +10,7 @@ enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
 enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
        DAH_EVENT_ABILITY_FLAG = 3, DAH_EVENT_TAG_ABILITY = 4,
        DAH_EVENT_PHYSICS_BODY_COMMAND = 5,
-       DAH_EVENT_PLAYER_RENDER = 6 };
+       DAH_EVENT_PLAYER_RENDER = 6, DAH_EVENT_SCENE_FLASH = 7 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -56,6 +56,12 @@ typedef struct DahTraceEvent {
             uint32_t previous_global_damage_disable;
             uint32_t previous_scene, previous_scene_flags, changes;
         } player_render;
+        struct {
+            uint32_t frame, object, model, object_flags;
+            uint32_t model_type, model_flags;
+            uint32_t visible, previous_visible, transition_gap;
+            float x, y, z;
+        } scene_flash;
     } payload;
 } DahTraceEvent;
 
@@ -225,6 +231,27 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.player_render.previous_scene,
                     event->payload.player_render.previous_scene_flags,
                     event->payload.player_render.changes);
+            else if (event->type == DAH_EVENT_SCENE_FLASH) fprintf(output,
+                    "{\"event\":\"scene-cull-flash\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"frame\":%u,"
+                    "\"object\":\"%08X\",\"model\":\"%08X\","
+                    "\"objectFlags\":\"%08X\",\"modelType\":%u,"
+                    "\"modelFlags\":\"%08X\",\"visible\":%u,"
+                    "\"previousVisible\":%u,\"transitionGap\":%u,"
+                    "\"position\":[%.9g,%.9g,%.9g]}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.scene_flash.frame,
+                    event->payload.scene_flash.object,
+                    event->payload.scene_flash.model,
+                    event->payload.scene_flash.object_flags,
+                    event->payload.scene_flash.model_type,
+                    event->payload.scene_flash.model_flags,
+                    event->payload.scene_flash.visible,
+                    event->payload.scene_flash.previous_visible,
+                    event->payload.scene_flash.transition_gap,
+                    event->payload.scene_flash.x,
+                    event->payload.scene_flash.y,
+                    event->payload.scene_flash.z);
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -535,6 +562,45 @@ void dah_event_trace_physics_body_command(uint32_t tag_hash,
     event->payload.physics_body_command.forceable = forceable;
     event->payload.physics_body_command.requested_enable = requested_enable;
     event->payload.physics_body_command.caller = caller;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_scene_flash(uint32_t frame, uint32_t object,
+                                 uint32_t model, uint32_t object_flags,
+                                 uint32_t model_type, uint32_t model_flags,
+                                 uint32_t visible, uint32_t previous_visible,
+                                 uint32_t transition_gap,
+                                 float x, float y, float z)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_SCENE_FLASH;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event->payload.scene_flash.frame = frame;
+    event->payload.scene_flash.object = object;
+    event->payload.scene_flash.model = model;
+    event->payload.scene_flash.object_flags = object_flags;
+    event->payload.scene_flash.model_type = model_type;
+    event->payload.scene_flash.model_flags = model_flags;
+    event->payload.scene_flash.visible = visible;
+    event->payload.scene_flash.previous_visible = previous_visible;
+    event->payload.scene_flash.transition_gap = transition_gap;
+    event->payload.scene_flash.x = x;
+    event->payload.scene_flash.y = y;
+    event->payload.scene_flash.z = z;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);
 }

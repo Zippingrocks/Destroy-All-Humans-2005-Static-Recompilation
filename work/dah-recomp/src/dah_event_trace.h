@@ -30,5 +30,11 @@ void dah_event_trace_physics_body_command(uint32_t tag_hash,
                                           uint32_t forceable,
                                           uint32_t requested_enable,
                                           uint32_t caller);
+void dah_event_trace_scene_flash(uint32_t frame, uint32_t object,
+                                 uint32_t model, uint32_t object_flags,
+                                 uint32_t model_type, uint32_t model_flags,
+                                 uint32_t visible, uint32_t previous_visible,
+                                 uint32_t transition_gap,
+                                 float x, float y, float z);
 
 #endif

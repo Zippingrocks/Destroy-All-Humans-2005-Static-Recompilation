@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_event_trace.h"
 #include "dah_frame.h"
 #include <math.h>
 #include <stdio.h>
@@ -1765,30 +1766,37 @@ loc_000F696C: ;
             }
         }
     }
-    /* Internal diagnostic: report only rapid visible/culled/visible oscillation
-     * for the same scene object. Ordinary camera-edge transitions are quiet. */
-    if (getenv("DAH_SCENE_FLIP_TRACE")) {
+    /* Record rapid visible/culled/visible oscillation for dynamic world-model
+     * objects in the always-on event trace. A direct-mapped table keeps this
+     * constant-time in the render loop; collisions merely discard history.
+     * Ordinary camera-edge transitions remain quiet. */
+    if (MEM32(MEM32(esi + 0x18) + 0x10) == 7u) {
         typedef struct { uint32_t object, frame, transition_frame; unsigned char visible, used; } DahSceneFlip;
         static DahSceneFlip flips[8192];
         uint32_t frame = (uint32_t)dah_frame_serial();
         uint32_t slot = (esi >> 4) & 8191u;
-        unsigned probe;
-        for (probe = 0; probe < 8192u; ++probe, slot = (slot + 1u) & 8191u) {
-            DahSceneFlip *entry = &flips[slot];
-            unsigned visible = LO8(eax) != 0;
-            if (!entry->used || entry->object == esi) {
-                if (entry->used && entry->frame + 1u == frame && entry->visible != visible) {
-                    if (entry->transition_frame && frame - entry->transition_frame <= 3u)
+        DahSceneFlip *entry = &flips[slot];
+        unsigned visible = LO8(eax) != 0;
+        if (entry->object != esi) {
+            entry->used = 0;
+            entry->transition_frame = 0;
+        }
+        if (entry->used && entry->frame + 1u == frame && entry->visible != visible) {
+            if (entry->transition_frame && frame - entry->transition_frame <= 3u) {
+                if (getenv("DAH_SCENE_FLIP_TRACE"))
                         fprintf(stderr,"[DAH-SCENE-FLASH] frame=%u object=%08X model=%08X object-flags=%08X model-type=%u model-flags=%08X visible=%u previous=%u transition-gap=%u position=%g,%g,%g viewpos=%g,%g,%g\n",
                                 frame,esi,MEM32(esi+0x18),MEM32(esi+0x2C),MEM32(MEM32(esi+0x18)+0x10),MEM32(MEM32(esi+0x18)+0x18),visible,entry->visible,
                                 frame-entry->transition_frame,MEMF(esi+0x80),MEMF(esi+0x84),MEMF(esi+0x88),
                                 MEMF(esp+0xC0),MEMF(esp+0xC4),MEMF(esp+0xC8));
-                    entry->transition_frame = frame;
-                }
-                entry->used = 1; entry->object = esi; entry->frame = frame; entry->visible = (unsigned char)visible;
-                break;
+                dah_event_trace_scene_flash(frame, esi, MEM32(esi + 0x18),
+                                MEM32(esi + 0x2C), MEM32(MEM32(esi + 0x18) + 0x10),
+                                MEM32(MEM32(esi + 0x18) + 0x18), visible,
+                                entry->visible, frame - entry->transition_frame,
+                                MEMF(esi + 0x80), MEMF(esi + 0x84), MEMF(esi + 0x88));
             }
+            entry->transition_frame = frame;
         }
+        entry->used = 1; entry->object = esi; entry->frame = frame; entry->visible = (unsigned char)visible;
     }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
