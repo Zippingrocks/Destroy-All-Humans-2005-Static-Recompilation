@@ -150,7 +150,19 @@ static HRESULT __stdcall buf_GetCurrentPosition(IDirectSoundBuffer8 *self, DWORD
 
 static HRESULT __stdcall buf_GetStatus(IDirectSoundBuffer8 *self, DWORD *pdwStatus)
 {
-    if (pdwStatus) *pdwStatus = buf_from_iface(self)->status;
+    DSoundBuffer *buf = buf_from_iface(self);
+
+    /* The mixer owns completion of a one-shot voice.  Keeping the cached
+     * DirectSound PLAYING bit after mixer_render reaches the end makes retail
+     * Sound::IsPlaying stay true forever.  Mission notifications wait on that
+     * query before firing their completion objective, so one stale bit can
+     * strand the mission after its final VO. */
+    if ((buf->status & DSBSTATUS_PLAYING) && buf->mixer_slot >= 0) {
+        APUMixerVoice *voice = apu_mixer_get_voice(buf->mixer_slot);
+        if (!voice || !voice->active)
+            buf->status &= ~(DSBSTATUS_PLAYING | DSBSTATUS_LOOPING);
+    }
+    if (pdwStatus) *pdwStatus = buf->status;
     return S_OK;
 }
 
@@ -164,6 +176,14 @@ static HRESULT __stdcall buf_Play(IDirectSoundBuffer8 *self, DWORD r1, DWORD r2,
     /* Start playback through APU mixer */
     if (buf->mixer_slot >= 0) {
         apu_mixer_play(buf->mixer_slot, (dwFlags & DSBPLAY_LOOPING) ? 1 : 0);
+        /* Muted output, an empty/missing cue, or an unavailable mixer voice
+         * cannot become an active Xbox buffer.  Report it stopped instead of
+         * manufacturing an indefinitely playing handle. */
+        APUMixerVoice *voice = apu_mixer_get_voice(buf->mixer_slot);
+        if (!voice || !voice->active)
+            buf->status &= ~(DSBSTATUS_PLAYING | DSBSTATUS_LOOPING);
+    } else {
+        buf->status &= ~(DSBSTATUS_PLAYING | DSBSTATUS_LOOPING);
     }
     return S_OK;
 }
