@@ -14978,7 +14978,8 @@ loc_0007FDD7: ;
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_0007FDFB; /* jp: parity */
 
 loc_0007FDF4: ;
-    MEM32(esi + 0x378) = MEM32(esi + 0x378) & 0xFFFFFFFEu;
+    if (!dah_console_god_blocks_invulnerability_clear(esi))
+        MEM32(esi + 0x378) = MEM32(esi + 0x378) & 0xFFFFFFFEu;
 
 loc_0007FDFB: ;
     fp_push(MEMF(esi + 0x358)); /* fld float */

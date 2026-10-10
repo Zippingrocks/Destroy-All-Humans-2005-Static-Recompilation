@@ -761,9 +761,9 @@ static int dah_dev_npc_guest_ptr(uint32_t pointer);
 
 /* Developer-only invulnerability. Retail health storage is a bounded scalar
  * at Crypto+368: +8 is current health and +C is the maximum used by retail's
- * setter 00059560. The setter hook below rejects only downward writes for the
- * current, class-checked Crypto actor; healing, initialization, NPC damage,
- * saucer damage and every write while disabled retain retail behavior. */
+ * setter 00059560. Crypto+378 is the retail damage gate checked by every
+ * recovered damage-reaction variant; bit zero expires in the actor update.
+ * God mode owns that bit while enabled and returns it to retail on disable. */
 static uint32_t dah_console_god_crypto(void)
 {
     uint32_t system = MEM32(0x0025FCECu), player, crypto;
@@ -779,6 +779,7 @@ static uint32_t dah_console_god_crypto(void)
 void dah_console_god_enforce(void)
 {
     uint32_t crypto;
+    uint32_t damage_gate;
     float current, maximum;
     if (!g_dah_console_god_enabled) return;
     crypto = dah_console_god_crypto();
@@ -786,14 +787,16 @@ void dah_console_god_enforce(void)
         g_dah_console_god_actor = 0u;
         return;
     }
+    damage_gate = MEM32(crypto + 0x378u);
+    MEM32(crypto + 0x378u) = damage_gate | 1u;
     current = MEMF(crypto + 0x370u);
     maximum = MEMF(crypto + 0x374u);
     if (!isfinite(current) || !isfinite(maximum) || maximum <= 0.0f ||
         maximum > 1000000.0f) return;
     if (crypto != g_dah_console_god_actor) {
         fprintf(stderr,
-                "[DAH-GOD] attached crypto=%08X health=%g max=%g\n",
-                crypto, (double)current, (double)maximum);
+                "[DAH-GOD] attached crypto=%08X health=%g max=%g damage_gate=%08X\n",
+                crypto, (double)current, (double)maximum, damage_gate);
         g_dah_console_god_actor = crypto;
     }
     if (current < maximum) {
@@ -803,6 +806,16 @@ void dah_console_god_enforce(void)
                 crypto, (double)current, (double)maximum);
         fflush(stderr);
     }
+}
+
+int dah_console_god_blocks_invulnerability_clear(uint32_t actor)
+{
+    uint32_t crypto;
+    if (!g_dah_console_god_enabled) return 0;
+    crypto = dah_console_god_crypto();
+    if (!crypto || actor != crypto) return 0;
+    MEM32(crypto + 0x378u) |= 1u;
+    return 1;
 }
 
 int dah_console_god_blocks_health_write(uint32_t health, uint32_t requested_bits)
@@ -852,14 +865,16 @@ int dah_console_god_blocks_damage_reaction(uint32_t reaction)
 
 static void dah_console_god_set(int enabled)
 {
+    uint32_t crypto = dah_console_god_crypto();
+    if (!enabled && g_dah_console_god_enabled && crypto)
+        MEM32(crypto + 0x378u) &= 0xFFFFFFFEu;
     g_dah_console_god_enabled = enabled != 0;
     g_dah_console_god_actor = 0u;
     if (g_dah_console_god_enabled) dah_console_god_enforce();
     fprintf(stderr, "[DAH-GOD] enabled=%d\n", g_dah_console_god_enabled);
     fflush(stderr);
-    dah_console_write("God mode %s. Crypto health damage is %s.",
-                      g_dah_console_god_enabled ? "ON" : "OFF",
-                      g_dah_console_god_enabled ? "blocked" : "retail-controlled");
+    dah_console_write("God mode %s.",
+                      g_dah_console_god_enabled ? "ON" : "OFF");
 }
 
 static void dah_console_god_initialize(void)
@@ -1468,14 +1483,6 @@ static void dah_console_poll(void)
     }
     if (tokens == 1 && !_stricmp(command, "god")) {
         dah_console_god_set(!g_dah_console_god_enabled);
-        return;
-    }
-    if (tokens == 2 && !_stricmp(command, "god")) {
-        if (!_stricmp(arg, "on")) dah_console_god_set(1);
-        else if (!_stricmp(arg, "off")) dah_console_god_set(0);
-        else if (!_stricmp(arg, "status"))
-            dah_console_write("God mode: %s.", g_dah_console_god_enabled ? "ON" : "OFF");
-        else dah_console_write("Usage: god [on|off|status]");
         return;
     }
     if (tokens == 2 && !_stricmp(command, "load_level")) {
