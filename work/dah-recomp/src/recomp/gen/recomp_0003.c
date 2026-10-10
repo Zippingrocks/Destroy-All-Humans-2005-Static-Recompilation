@@ -17,6 +17,8 @@ extern uint32_t dah_unreg_8d8_oldcount[32];
 extern void dah_velocity_source_trace(uint32_t object, uint32_t input,
                                       uint32_t guest_return);
 extern void dah_velocity_stage_trace(unsigned stage, uint32_t input);
+extern int dah_console_god_blocks_health_write(uint32_t health,
+                                                uint32_t requested_bits);
 
 /**
  * sub_0004DB40
@@ -25965,6 +25967,9 @@ void sub_00059560(void)
     #define fp_st1() fp_st(1)
 
 loc_00059560: ;
+    if (dah_console_god_blocks_health_write(ecx, MEM32(esp + 4u))) {
+        esp += 8; return; /* retail ret 4; preserve current health */
+    }
     PUSH32(esp, ecx);
     eax = MEM32(ecx + 0x10);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;

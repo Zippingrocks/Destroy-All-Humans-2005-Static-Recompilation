@@ -30,6 +30,7 @@ uint64_t dah_read_tsc(void)
 extern ptrdiff_t g_xbox_mem_offset;
 extern void dah_host_set_render_activity(int real_draw);
 extern void dah_console_poll_game_thread(void);
+extern void dah_console_god_enforce(void);
 extern void d3d8_ClearFrameDiagnostic(void);
 extern int d3d8_DrawHostFrameBgra(const void *pixels, UINT width, UINT height,
                                   UINT pitch);
@@ -501,6 +502,7 @@ void dah_frame_begin(void)
     frame.active = 1;
     dah_renderdoc_begin(dah_frame_serial()+1u,guest_u32(0x0025B1DCu));
     dah_console_poll_game_thread();
+    dah_console_god_enforce();
 }
 
 static DahRetailRingCursor dah_retail_cursor;
@@ -568,6 +570,11 @@ void dah_frame_end(void)
     int host_draw = 0;
     int real_draw;
     if (!frame.active || GetCurrentThreadId() != frame.thread_id) return;
+
+    /* Backstop the retail health-setter hook before presentation and before
+     * the next simulation tick. This also fills health immediately after a
+     * level creates a fresh Crypto object while god mode remains enabled. */
+    dah_console_god_enforce();
 
     phase_start=clock_seconds();
     frame_logic_ms = (phase_start-frame.frame_start)*1000.0;

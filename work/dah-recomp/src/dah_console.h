@@ -81,7 +81,8 @@ int dah_console_take_command(char *line, size_t capacity)
 static void dah_console_help(void)
 {
     dah_console_write("Commands: help, clear, status, capture, capture_console");
-    dah_console_write("Game commands: load_level <map>, spawn <npc>, give_weapon <name>, giveallweapons");
+    dah_console_write("Game commands: god [on|off|status], load_level <map>, spawn <npc>");
+    dah_console_write("  give_weapon <name>, giveallweapons");
     dah_console_write("Maps: farm rockwell santa area42 union capitol cptlboss");
     dah_console_write("Weapons: cortex brainextractor zapomatic analprobe mattermove abducto");
     dah_console_write("  holobob holobobhelper hypnoray deathray destructoray iondetonator");
@@ -130,7 +131,7 @@ static void dah_console_submit(void)
 static void dah_console_complete(void)
 {
     static const char *const commands[] = {
-        "help", "clear", "status", "capture", "capture_console", "load_level farm", "load_level rockwell",
+        "help", "clear", "status", "capture", "capture_console", "god", "god on", "god off", "god status", "load_level farm", "load_level rockwell",
         "load_level santa", "load_level area42", "load_level union",
         "load_level capitol", "load_level cptlboss", "spawn npc_cow",
         "spawn npc_farmer", "spawn npc_cop", "spawn npc_soldier",

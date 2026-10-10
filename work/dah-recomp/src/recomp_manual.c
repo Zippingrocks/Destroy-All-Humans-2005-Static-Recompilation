@@ -744,6 +744,10 @@ static unsigned g_dah_dev_npc_sequence;
 static unsigned g_dah_dev_npc_count;
 static uint32_t g_dah_console_npc_hash;
 static unsigned g_dah_console_muted_ports;
+static int g_dah_console_god_enabled;
+static int g_dah_console_god_initialized;
+static uint32_t g_dah_console_god_actor;
+static unsigned g_dah_console_god_blocks;
 extern int dah_console_is_open(void);
 extern int dah_console_key_blocked(int virtual_key);
 extern int dah_host_has_input_focus(void);
@@ -752,6 +756,100 @@ extern int dah_console_take_command(char *line, size_t capacity);
 extern int dah_request_frame_capture(void);
 /* Implemented using the original game's level request API. */
 static int dah_console_load_level(const char *alias);
+static int dah_dev_npc_guest_ptr(uint32_t pointer);
+
+/* Developer-only invulnerability. Retail health storage is a bounded scalar
+ * at Crypto+368: +8 is current health and +C is the maximum used by retail's
+ * setter 00059560. The setter hook below rejects only downward writes for the
+ * current, class-checked Crypto actor; healing, initialization, NPC damage,
+ * saucer damage and every write while disabled retain retail behavior. */
+static uint32_t dah_console_god_crypto(void)
+{
+    uint32_t system = MEM32(0x0025FCECu), player, crypto;
+    if (!dah_dev_npc_guest_ptr(system)) return 0u;
+    player = MEM32(system + 0x38u);
+    if (!dah_dev_npc_guest_ptr(player)) return 0u;
+    crypto = MEM32(player + 0x38u);
+    if (!dah_dev_npc_guest_ptr(crypto) || MEM32(crypto) != 0x0022C9F8u)
+        return 0u;
+    return crypto;
+}
+
+void dah_console_god_enforce(void)
+{
+    uint32_t crypto;
+    float current, maximum;
+    if (!g_dah_console_god_enabled) return;
+    crypto = dah_console_god_crypto();
+    if (!crypto) {
+        g_dah_console_god_actor = 0u;
+        return;
+    }
+    current = MEMF(crypto + 0x370u);
+    maximum = MEMF(crypto + 0x374u);
+    if (!isfinite(current) || !isfinite(maximum) || maximum <= 0.0f ||
+        maximum > 1000000.0f) return;
+    if (crypto != g_dah_console_god_actor) {
+        fprintf(stderr,
+                "[DAH-GOD] attached crypto=%08X health=%g max=%g\n",
+                crypto, (double)current, (double)maximum);
+        g_dah_console_god_actor = crypto;
+    }
+    if (current < maximum) {
+        MEMF(crypto + 0x370u) = maximum;
+        fprintf(stderr,
+                "[DAH-GOD-REFILL] crypto=%08X health=%g max=%g\n",
+                crypto, (double)current, (double)maximum);
+        fflush(stderr);
+    }
+}
+
+int dah_console_god_blocks_health_write(uint32_t health, uint32_t requested_bits)
+{
+    uint32_t crypto;
+    float current, requested, maximum;
+    if (!g_dah_console_god_enabled) return 0;
+    crypto = dah_console_god_crypto();
+    if (!crypto || health != crypto + 0x368u) return 0;
+    current = MEMF(health + 8u);
+    maximum = MEMF(health + 0xCu);
+    memcpy(&requested, &requested_bits, sizeof(requested));
+    if (!isfinite(current) || !isfinite(requested) || !isfinite(maximum) ||
+        maximum <= 0.0f || requested >= current) return 0;
+    if (g_dah_console_god_blocks++ < 256u) {
+        fprintf(stderr,
+                "[DAH-GOD-BLOCK] crypto=%08X current=%g requested=%g max=%g count=%u\n",
+                crypto, (double)current, (double)requested, (double)maximum,
+                g_dah_console_god_blocks);
+        fflush(stderr);
+    }
+    return 1;
+}
+
+static void dah_console_god_set(int enabled)
+{
+    g_dah_console_god_enabled = enabled != 0;
+    g_dah_console_god_actor = 0u;
+    if (g_dah_console_god_enabled) dah_console_god_enforce();
+    fprintf(stderr, "[DAH-GOD] enabled=%d\n", g_dah_console_god_enabled);
+    fflush(stderr);
+    dah_console_write("God mode %s. Crypto health damage is %s.",
+                      g_dah_console_god_enabled ? "ON" : "OFF",
+                      g_dah_console_god_enabled ? "blocked" : "retail-controlled");
+}
+
+static void dah_console_god_initialize(void)
+{
+    const char *setting;
+    if (g_dah_console_god_initialized) return;
+    g_dah_console_god_initialized = 1;
+    setting = getenv("DAH_GOD_MODE");
+    if (setting && (!strcmp(setting, "1") || !_stricmp(setting, "on"))) {
+        g_dah_console_god_enabled = 1;
+        fprintf(stderr, "[DAH-GOD] enabled=1 source=environment\n");
+        fflush(stderr);
+    }
+}
 
 int dah_dev_npc_accept_spawn(uint32_t resource_hash, uint32_t actor)
 {
@@ -1322,10 +1420,12 @@ static void dah_console_poll(void)
     unsigned i;
     int tokens;
     float x, y, z;
+    dah_console_god_initialize();
     dah_console_level_poll_switch();
     dah_console_autounlock_poll();
     dah_console_autoload_poll();
     dah_console_autoweapons_poll();
+    dah_console_god_enforce();
     if (!dah_console_take_command(line, sizeof(line))) return;
     tokens = sscanf(line, "%31s %63s %c", command, arg, &extra);
     if (tokens == 1 && !_stricmp(command, "capture")) {
@@ -1339,6 +1439,19 @@ static void dah_console_poll(void)
         else if (dah_dev_npc_player_position(&x, &y, &z))
             dah_console_write("Crypto at %.1f, %.1f, %.1f. Original gameplay is active.", x-2.5f, y-2.5f, z);
         else dah_console_write("Frontend or level transition; Crypto is not currently available.");
+        dah_console_write("God mode: %s.", g_dah_console_god_enabled ? "ON" : "OFF");
+        return;
+    }
+    if (tokens == 1 && !_stricmp(command, "god")) {
+        dah_console_god_set(!g_dah_console_god_enabled);
+        return;
+    }
+    if (tokens == 2 && !_stricmp(command, "god")) {
+        if (!_stricmp(arg, "on")) dah_console_god_set(1);
+        else if (!_stricmp(arg, "off")) dah_console_god_set(0);
+        else if (!_stricmp(arg, "status"))
+            dah_console_write("God mode: %s.", g_dah_console_god_enabled ? "ON" : "OFF");
+        else dah_console_write("Usage: god [on|off|status]");
         return;
     }
     if (tokens == 2 && !_stricmp(command, "load_level")) {
