@@ -818,6 +818,27 @@ int dah_console_god_blocks_invulnerability_clear(uint32_t actor)
     return 1;
 }
 
+int dah_console_god_blocks_crypto_deactivation(uint32_t actor, uint32_t caller)
+{
+    uint32_t crypto;
+    float maximum;
+    static unsigned blocks;
+    if (!g_dah_console_god_enabled) return 0;
+    crypto = dah_console_god_crypto();
+    if (!crypto || actor != crypto || !MEM8(actor + 0x140u)) return 0;
+    maximum = MEMF(crypto + 0x374u);
+    if (isfinite(maximum) && maximum > 0.0f && maximum <= 1000000.0f)
+        MEMF(crypto + 0x370u) = maximum;
+    MEM32(crypto + 0x378u) |= 1u;
+    if (blocks++ < 64u) {
+        fprintf(stderr,
+                "[DAH-GOD-DEATH-BLOCK] crypto=%08X caller=%08X count=%u\n",
+                crypto, caller, blocks);
+        fflush(stderr);
+    }
+    return 1;
+}
+
 int dah_console_god_blocks_health_write(uint32_t health, uint32_t requested_bits)
 {
     uint32_t crypto;

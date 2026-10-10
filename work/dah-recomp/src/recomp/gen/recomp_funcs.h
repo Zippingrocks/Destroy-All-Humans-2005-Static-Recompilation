@@ -11,6 +11,8 @@
 /* Host developer guard used by the translated retail damage reactions. */
 int dah_console_god_blocks_damage_reaction(uint32_t reaction);
 int dah_console_god_blocks_invulnerability_clear(uint32_t actor);
+int dah_console_god_blocks_crypto_deactivation(uint32_t actor,
+                                                uint32_t caller);
 
 void sub_00011000(void);
 void sub_00011030(void);
