@@ -48,8 +48,12 @@ typedef struct DahTraceEvent {
         } physics_body_command;
         struct {
             uint32_t control, player, crypto, render, gate140;
+            uint32_t health_bits, maximum_health_bits, damage_gate;
+            uint32_t global_damage_disable;
             uint32_t scene, scene_flags;
             uint32_t previous_crypto, previous_render, previous_gate140;
+            uint32_t previous_health_bits, previous_damage_gate;
+            uint32_t previous_global_damage_disable;
             uint32_t previous_scene, previous_scene_flags, changes;
         } player_render;
     } payload;
@@ -188,10 +192,15 @@ static DWORD WINAPI writer_main(void *unused)
                     "\"worldTick\":%u,\"control\":\"%08X\","
                     "\"player\":\"%08X\",\"crypto\":\"%08X\","
                     "\"render\":\"%08X\",\"stateByte140\":%u,"
+                    "\"healthBits\":\"%08X\",\"maximumHealthBits\":\"%08X\","
+                    "\"damageGate\":\"%08X\",\"globalDamageDisable\":%u,"
                     "\"scene\":\"%08X\",\"sceneFlags\":\"%08X\","
                     "\"previousCrypto\":\"%08X\","
                     "\"previousRender\":\"%08X\","
                     "\"previousStateByte140\":%u,"
+                    "\"previousHealthBits\":\"%08X\","
+                    "\"previousDamageGate\":\"%08X\","
+                    "\"previousGlobalDamageDisable\":%u,"
                     "\"previousScene\":\"%08X\","
                     "\"previousSceneFlags\":\"%08X\","
                     "\"changes\":%u}\n",
@@ -201,11 +210,18 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.player_render.crypto,
                     event->payload.player_render.render,
                     event->payload.player_render.gate140,
+                    event->payload.player_render.health_bits,
+                    event->payload.player_render.maximum_health_bits,
+                    event->payload.player_render.damage_gate,
+                    event->payload.player_render.global_damage_disable,
                     event->payload.player_render.scene,
                     event->payload.player_render.scene_flags,
                     event->payload.player_render.previous_crypto,
                     event->payload.player_render.previous_render,
                     event->payload.player_render.previous_gate140,
+                    event->payload.player_render.previous_health_bits,
+                    event->payload.player_render.previous_damage_gate,
+                    event->payload.player_render.previous_global_damage_disable,
                     event->payload.player_render.previous_scene,
                     event->payload.player_render.previous_scene_flags,
                     event->payload.player_render.changes);
@@ -339,11 +355,15 @@ void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
 void dah_event_trace_player_render_sample(void)
 {
     static uint32_t previous_crypto, previous_render, previous_gate140;
+    static uint32_t previous_health_bits, previous_damage_gate;
+    static uint32_t previous_global_damage_disable;
     static uint32_t previous_scene, previous_scene_flags, previous_world;
     static int sampled;
     LONG write, read;
     DahTraceEvent *event;
     uint32_t world, world_tick, control, player, crypto, render, gate140;
+    uint32_t health_bits, maximum_health_bits, damage_gate;
+    uint32_t global_damage_disable;
     uint32_t scene, scene_flags, changes = 0u;
 
     if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
@@ -357,6 +377,11 @@ void dah_event_trace_player_render_sample(void)
     render = crypto ? guest_u32(crypto + 0x144u) : 0u;
     gate140 = crypto ? *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() +
                                            crypto + 0x140u) : 0u;
+    health_bits = crypto ? guest_u32(crypto + 0x370u) : 0u;
+    maximum_health_bits = crypto ? guest_u32(crypto + 0x374u) : 0u;
+    damage_gate = crypto ? guest_u32(crypto + 0x378u) : 0u;
+    global_damage_disable = *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() +
+                                               0x002867ACu);
     scene = crypto ? guest_u32(crypto + 0x28u) : 0u;
     scene_flags = guest_range(scene, 0x50u) ? guest_u32(scene + 0x4Cu) : 0u;
 
@@ -367,6 +392,9 @@ void dah_event_trace_player_render_sample(void)
     if (scene != previous_scene) changes |= 16u;
     if (scene_flags != previous_scene_flags) changes |= 32u;
     if (sampled && world_tick < previous_world) changes |= 64u;
+    if (health_bits != previous_health_bits) changes |= 128u;
+    if (damage_gate != previous_damage_gate) changes |= 256u;
+    if (global_damage_disable != previous_global_damage_disable) changes |= 512u;
     if (!changes) {
         previous_world = world_tick;
         return;
@@ -388,17 +416,28 @@ void dah_event_trace_player_render_sample(void)
     event->payload.player_render.crypto = crypto;
     event->payload.player_render.render = render;
     event->payload.player_render.gate140 = gate140;
+    event->payload.player_render.health_bits = health_bits;
+    event->payload.player_render.maximum_health_bits = maximum_health_bits;
+    event->payload.player_render.damage_gate = damage_gate;
+    event->payload.player_render.global_damage_disable = global_damage_disable;
     event->payload.player_render.scene = scene;
     event->payload.player_render.scene_flags = scene_flags;
     event->payload.player_render.previous_crypto = previous_crypto;
     event->payload.player_render.previous_render = previous_render;
     event->payload.player_render.previous_gate140 = previous_gate140;
+    event->payload.player_render.previous_health_bits = previous_health_bits;
+    event->payload.player_render.previous_damage_gate = previous_damage_gate;
+    event->payload.player_render.previous_global_damage_disable =
+        previous_global_damage_disable;
     event->payload.player_render.previous_scene = previous_scene;
     event->payload.player_render.previous_scene_flags = previous_scene_flags;
     event->payload.player_render.changes = changes;
     previous_crypto = crypto;
     previous_render = render;
     previous_gate140 = gate140;
+    previous_health_bits = health_bits;
+    previous_damage_gate = damage_gate;
+    previous_global_damage_disable = global_damage_disable;
     previous_scene = scene;
     previous_scene_flags = scene_flags;
     previous_world = world_tick;

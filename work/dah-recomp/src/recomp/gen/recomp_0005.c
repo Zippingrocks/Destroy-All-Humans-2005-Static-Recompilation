@@ -10753,9 +10753,6 @@ void sub_0007E1B0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_0007E1B0: ;
-    if (dah_console_god_blocks_crypto_deactivation(ecx, MEM32(esp))) {
-        esp += 4; return;
-    }
     SET_LO8(eax, MEM8(ecx + 0x140));
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */

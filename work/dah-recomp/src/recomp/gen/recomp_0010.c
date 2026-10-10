@@ -359,6 +359,13 @@ loc_000DDC10: ;
     PUSH32(esp, 0x000DDC1Bu); sub_00139580(); /* call 0x00139580 */
 
 loc_000DDC1B: ;
+    if (eax == 0xCCB3995Fu) {
+        fprintf(stderr,
+                "[DAH-GOD-TRANSITION-SCRIPT] owner=%08X owner0=%08X owner4=%08X "
+                "owner8=%08X ownerC=%08X arg=%08X:%08X\n",
+                esi, MEM32(esi), MEM32(esi + 4u), MEM32(esi + 8u),
+                MEM32(esi + 0xCu), MEM32(esi + 0x10u), MEM32(esi + 0x14u));
+    }
     if (esi >= 0x01458000u && esi < 0x01459000u && script_native_detail_count < 32u) {
         fprintf(stderr,
                 "[DAH-SCRIPT-NATIVE-ARGS] owner=%08X resolved=%08X owner10=%08X owner14=%08X owner18=%08X\n",

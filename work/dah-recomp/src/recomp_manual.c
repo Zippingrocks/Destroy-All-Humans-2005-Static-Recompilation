@@ -749,6 +749,7 @@ static int g_dah_console_god_initialized;
 static uint32_t g_dah_console_god_actor;
 static unsigned g_dah_console_god_blocks;
 static unsigned g_dah_console_god_damage_blocks;
+static uint8_t g_dah_console_god_previous_global_gate;
 extern int dah_console_is_open(void);
 extern int dah_console_key_blocked(int virtual_key);
 extern int dah_host_has_input_focus(void);
@@ -761,9 +762,10 @@ static int dah_dev_npc_guest_ptr(uint32_t pointer);
 
 /* Developer-only invulnerability. Retail health storage is a bounded scalar
  * at Crypto+368: +8 is current health and +C is the maximum used by retail's
- * setter 00059560. Crypto+378 is the retail damage gate checked by every
- * recovered damage-reaction variant; bit zero expires in the actor update.
- * God mode owns that bit while enabled and returns it to retail on disable. */
+ * setter 00059560. Crypto+378 is the actor-local damage gate. The retail
+ * damage implementations also share the global byte at 002867AC: health
+ * drain (0007E880) and the recovered damage classes all bypass damage while
+ * it is set. God mode owns both retail gates while enabled. */
 static uint32_t dah_console_god_crypto(void)
 {
     uint32_t system = MEM32(0x0025FCECu), player, crypto;
@@ -782,6 +784,7 @@ void dah_console_god_enforce(void)
     uint32_t damage_gate;
     float current, maximum;
     if (!g_dah_console_god_enabled) return;
+    MEM8(0x002867ACu) = 1u;
     crypto = dah_console_god_crypto();
     if (!crypto) {
         g_dah_console_god_actor = 0u;
@@ -815,27 +818,6 @@ int dah_console_god_blocks_invulnerability_clear(uint32_t actor)
     crypto = dah_console_god_crypto();
     if (!crypto || actor != crypto) return 0;
     MEM32(crypto + 0x378u) |= 1u;
-    return 1;
-}
-
-int dah_console_god_blocks_crypto_deactivation(uint32_t actor, uint32_t caller)
-{
-    uint32_t crypto;
-    float maximum;
-    static unsigned blocks;
-    if (!g_dah_console_god_enabled) return 0;
-    crypto = dah_console_god_crypto();
-    if (!crypto || actor != crypto || !MEM8(actor + 0x140u)) return 0;
-    maximum = MEMF(crypto + 0x374u);
-    if (isfinite(maximum) && maximum > 0.0f && maximum <= 1000000.0f)
-        MEMF(crypto + 0x370u) = maximum;
-    MEM32(crypto + 0x378u) |= 1u;
-    if (blocks++ < 64u) {
-        fprintf(stderr,
-                "[DAH-GOD-DEATH-BLOCK] crypto=%08X caller=%08X count=%u\n",
-                crypto, caller, blocks);
-        fflush(stderr);
-    }
     return 1;
 }
 
@@ -887,8 +869,12 @@ int dah_console_god_blocks_damage_reaction(uint32_t reaction)
 static void dah_console_god_set(int enabled)
 {
     uint32_t crypto = dah_console_god_crypto();
-    if (!enabled && g_dah_console_god_enabled && crypto)
-        MEM32(crypto + 0x378u) &= 0xFFFFFFFEu;
+    if (!enabled && g_dah_console_god_enabled) {
+        MEM8(0x002867ACu) = g_dah_console_god_previous_global_gate;
+        if (crypto) MEM32(crypto + 0x378u) &= 0xFFFFFFFEu;
+    }
+    if (enabled && !g_dah_console_god_enabled)
+        g_dah_console_god_previous_global_gate = MEM8(0x002867ACu);
     g_dah_console_god_enabled = enabled != 0;
     g_dah_console_god_actor = 0u;
     if (g_dah_console_god_enabled) dah_console_god_enforce();
@@ -905,6 +891,7 @@ static void dah_console_god_initialize(void)
     g_dah_console_god_initialized = 1;
     setting = getenv("DAH_GOD_MODE");
     if (setting && (!strcmp(setting, "1") || !_stricmp(setting, "on"))) {
+        g_dah_console_god_previous_global_gate = MEM8(0x002867ACu);
         g_dah_console_god_enabled = 1;
         fprintf(stderr, "[DAH-GOD] enabled=1 source=environment\n");
         fflush(stderr);
