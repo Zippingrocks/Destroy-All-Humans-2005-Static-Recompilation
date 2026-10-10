@@ -28,6 +28,7 @@ CALLBACKS = (
     (0x00075780, "ion-detonator-retail", "sub_00075780"),
     (0x00075800, "ion-detonator-retail", "sub_00075800"),
     (0x00075A10, "ion-detonator-retail", "sub_00075A10"),
+    (0x000A6AF0, "sonic-boom-retail", "sub_000A6AF0"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),

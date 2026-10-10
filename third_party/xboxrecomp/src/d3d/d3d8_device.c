@@ -99,9 +99,16 @@ static PgraphRenderTarget g_pgraph_rt[PGRAPH_RT_COUNT];
 static ULONGLONG g_pgraph_rt_use_serial;
 static ID3D11RenderTargetView *g_current_rtv;
 static ID3D11DepthStencilView *g_current_dsv;
-typedef struct { UINT offset,width,height,format; ID3D11Texture2D *texture; ID3D11DepthStencilView *dsv; } PgraphDepth;
+typedef struct {
+    UINT offset, width, height, format;
+    ULONGLONG last_used;
+    ID3D11Texture2D *texture;
+    ID3D11DepthStencilView *dsv;
+} PgraphDepth;
 static PgraphDepth g_pgraph_depth[PGRAPH_RT_COUNT];
+static ULONGLONG g_pgraph_depth_use_serial;
 static PgraphRenderTarget *g_current_pgraph_rt;
+static PgraphDepth *g_current_pgraph_depth;
 static BOOL g_current_pgraph_presentable;
 
 /* Forward declarations */
@@ -550,6 +557,14 @@ static void pgraph_release_rt(PgraphRenderTarget *rt)
     if (rt->texture) ID3D11Texture2D_Release(rt->texture);
     memset(rt, 0, sizeof(*rt));
 }
+
+static void pgraph_release_depth(PgraphDepth *depth)
+{
+    if (!depth) return;
+    if (depth->dsv) ID3D11DepthStencilView_Release(depth->dsv);
+    if (depth->texture) ID3D11Texture2D_Release(depth->texture);
+    memset(depth, 0, sizeof(*depth));
+}
 BOOL d3d8_PgraphHasRenderTarget(UINT offset)
 {
     return pgraph_find_rt(offset) != NULL;
@@ -672,27 +687,76 @@ HRESULT d3d8_PgraphPreserveCurrentRenderTarget(void)
 
 HRESULT d3d8_PgraphBindDepthSurface(UINT offset, UINT format)
 {
-    PgraphDepth *d=NULL; HRESULT hr=S_OK;
-    UINT w=g_current_pgraph_rt?g_current_pgraph_rt->width:g_device_state.width;
-    UINT h=g_current_pgraph_rt?g_current_pgraph_rt->height:g_device_state.height;
-    if(offset && (format==1u || format==2u)) {
-        for(unsigned i=0;i<PGRAPH_RT_COUNT;++i)if(g_pgraph_depth[i].texture && g_pgraph_depth[i].offset==offset){d=&g_pgraph_depth[i];break;}
-        if(d && (d->width!=w||d->height!=h||d->format!=format)) {
-            ID3D11DepthStencilView_Release(d->dsv);ID3D11Texture2D_Release(d->texture);memset(d,0,sizeof(*d));d=NULL;
+    PgraphDepth *d = NULL;
+    HRESULT hr = S_OK;
+    UINT w = g_current_pgraph_rt ? g_current_pgraph_rt->width : g_device_state.width;
+    UINT h = g_current_pgraph_rt ? g_current_pgraph_rt->height : g_device_state.height;
+    if (offset && (format == 1u || format == 2u)) {
+        for (unsigned i = 0; i < PGRAPH_RT_COUNT; ++i)
+            if (g_pgraph_depth[i].texture && g_pgraph_depth[i].offset == offset) {
+                d = &g_pgraph_depth[i];
+                break;
+            }
+        if (d && (d->width != w || d->height != h || d->format != format)) {
+            if (d == g_current_pgraph_depth) g_current_pgraph_depth = NULL;
+            pgraph_release_depth(d);
+            d = NULL;
         }
-        if(!d) {
-            for(unsigned i=0;i<PGRAPH_RT_COUNT;++i)if(!g_pgraph_depth[i].texture){d=&g_pgraph_depth[i];break;}
-            if(!d) return E_OUTOFMEMORY;
-            D3D11_TEXTURE2D_DESC td={0};td.Width=w;td.Height=h;td.MipLevels=1;td.ArraySize=1;
-            td.Format=format==1u?DXGI_FORMAT_D16_UNORM:DXGI_FORMAT_D24_UNORM_S8_UINT;
-            td.SampleDesc.Count=1;td.BindFlags=D3D11_BIND_DEPTH_STENCIL;
-            hr=ID3D11Device_CreateTexture2D(g_device_state.d3d11_device,&td,NULL,&d->texture);
-            if(FAILED(hr))return hr;
-            hr=ID3D11Device_CreateDepthStencilView(g_device_state.d3d11_device,(ID3D11Resource*)d->texture,NULL,&d->dsv);
-            if(FAILED(hr)){ID3D11Texture2D_Release(d->texture);memset(d,0,sizeof(*d));return hr;}
-            d->offset=offset;d->width=w;d->height=h;d->format=format;
+        if (!d) {
+            for (unsigned i = 0; i < PGRAPH_RT_COUNT; ++i)
+                if (!g_pgraph_depth[i].texture) {
+                    d = &g_pgraph_depth[i];
+                    break;
+                }
+            /* Site loads and checkpoint restores use new guest depth offsets.
+             * Unlike the color-target cache, the old implementation never
+             * evicted depth surfaces and silently returned E_OUTOFMEMORY after
+             * eight distinct offsets. The caller then kept the previous DSV,
+             * producing history-dependent missing or incorrectly occluded
+             * geometry. Mirror the color-target LRU and never evict the DSV
+             * currently bound to the context. */
+            if (!d) {
+                PgraphDepth *oldest = NULL;
+                for (unsigned i = 0; i < PGRAPH_RT_COUNT; ++i) {
+                    PgraphDepth *candidate = &g_pgraph_depth[i];
+                    if (candidate == g_current_pgraph_depth) continue;
+                    if (!oldest || candidate->last_used < oldest->last_used)
+                        oldest = candidate;
+                }
+                if (!oldest) return E_OUTOFMEMORY;
+                fprintf(stderr, "[PGRAPH-DEPTH-EVICT] old=%08X new=%08X age=%llu\n",
+                        oldest->offset, offset,
+                        (unsigned long long)(g_pgraph_depth_use_serial - oldest->last_used));
+                pgraph_release_depth(oldest);
+                d = oldest;
+            }
+            D3D11_TEXTURE2D_DESC td = {0};
+            td.Width = w;
+            td.Height = h;
+            td.MipLevels = 1;
+            td.ArraySize = 1;
+            td.Format = format == 1u ? DXGI_FORMAT_D16_UNORM : DXGI_FORMAT_D24_UNORM_S8_UINT;
+            td.SampleDesc.Count = 1;
+            td.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+            hr = ID3D11Device_CreateTexture2D(g_device_state.d3d11_device, &td, NULL, &d->texture);
+            if (FAILED(hr)) return hr;
+            hr = ID3D11Device_CreateDepthStencilView(g_device_state.d3d11_device,
+                    (ID3D11Resource *)d->texture, NULL, &d->dsv);
+            if (FAILED(hr)) {
+                pgraph_release_depth(d);
+                return hr;
+            }
+            d->offset = offset;
+            d->width = w;
+            d->height = h;
+            d->format = format;
+            fprintf(stderr, "[PGRAPH-DEPTH] created offset=%08X size=%ux%u format=%u\n",
+                    offset, w, h, format);
+            fflush(stderr);
         }
+        d->last_used = ++g_pgraph_depth_use_serial;
     }
+    g_current_pgraph_depth = d;
     g_current_dsv=d?d->dsv:NULL;
     ID3D11DeviceContext_OMSetRenderTargets(g_device_state.d3d11_context,1,&g_current_rtv,g_current_dsv);
     return hr;
@@ -1128,7 +1192,10 @@ static ULONG __stdcall dev_Release(IDirect3DDevice8 *self)
 
         /* Cleanup D3D11 resources */
         D3D8DeviceState *s = &g_device_state;
-        for(unsigned i=0;i<PGRAPH_RT_COUNT;++i){if(g_pgraph_depth[i].dsv)ID3D11DepthStencilView_Release(g_pgraph_depth[i].dsv);if(g_pgraph_depth[i].texture)ID3D11Texture2D_Release(g_pgraph_depth[i].texture);memset(&g_pgraph_depth[i],0,sizeof(g_pgraph_depth[i]));}g_current_dsv=NULL;
+        for (unsigned i = 0; i < PGRAPH_RT_COUNT; ++i)
+            pgraph_release_depth(&g_pgraph_depth[i]);
+        g_current_pgraph_depth = NULL;
+        g_current_dsv = NULL;
         if (s->default_dsv) { ID3D11DepthStencilView_Release(s->default_dsv); s->default_dsv = NULL; }
         if (s->default_depth) { ID3D11Texture2D_Release(s->default_depth); s->default_depth = NULL; }
         for (UINT i = 0; i < PGRAPH_RT_COUNT; ++i) {

@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callback": {
+    "start": "000A6AF0",
+    "end": "000A6B59",
+    "bytes": 105,
+    "instructions": 37,
+    "tableSlot": "0x00230124",
+    "codeBytesSha256": "6EC815C16B857ABBAE86E620CD3B9FC79CFF732452A15D4E38E2CC1246CEB943",
+    "observation": "retail vtable slot +0x5C; advances and resets the observed Sonic Boom weapon state sequence"
+  }
+}

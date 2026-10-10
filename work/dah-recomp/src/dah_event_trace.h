@@ -17,6 +17,7 @@ void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
                            uint32_t present_us, uint32_t total_us,
                            uint32_t draw_count, uint32_t draw_delta,
                            uint32_t present_result, uint32_t flags);
+void dah_event_trace_player_render_sample(void);
 void dah_event_trace_ability_flag(uint32_t command, uint32_t owner,
                                   uint32_t offset, uint32_t old_value,
                                   uint32_t new_value, uint32_t caller);

@@ -611,6 +611,11 @@ void dah_frame_end(void)
      * faster than target, so single-frame hitches cannot disappear inside a
      * five-second aggregate. flags: bit0 late, bit1 real draw, bit2 occluded,
      * bit3 presentation held, bit4 variable timestep. */
+    /* Record player render/scene transitions before the frame row so a death
+     * or checkpoint reload has an exact first-bad boundary even when the
+     * external observer was not running. This is read-only and emits only on
+     * change. */
+    dah_event_trace_player_render_sample();
     dah_event_trace_frame(g_dah_frame_serial, guest_u32(0x0025B1DCu),
         (uint32_t)(frame.current_interval * 1000000.0 + 0.5),
         (uint32_t)(frame.period * 1000000.0 + 0.5),

@@ -9,7 +9,8 @@
 enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
 enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
        DAH_EVENT_ABILITY_FLAG = 3, DAH_EVENT_TAG_ABILITY = 4,
-       DAH_EVENT_PHYSICS_BODY_COMMAND = 5 };
+       DAH_EVENT_PHYSICS_BODY_COMMAND = 5,
+       DAH_EVENT_PLAYER_RENDER = 6 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -45,6 +46,12 @@ typedef struct DahTraceEvent {
             uint32_t tag_hash, filter_hash, actor, forceable;
             uint32_t requested_enable, caller;
         } physics_body_command;
+        struct {
+            uint32_t control, player, crypto, render, gate140;
+            uint32_t scene, scene_flags;
+            uint32_t previous_crypto, previous_render, previous_gate140;
+            uint32_t previous_scene, previous_scene_flags, changes;
+        } player_render;
     } payload;
 } DahTraceEvent;
 
@@ -176,6 +183,32 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.physics_body_command.forceable,
                     event->payload.physics_body_command.requested_enable,
                     event->payload.physics_body_command.caller);
+            else if (event->type == DAH_EVENT_PLAYER_RENDER) fprintf(output,
+                    "{\"event\":\"player-render-state\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"control\":\"%08X\","
+                    "\"player\":\"%08X\",\"crypto\":\"%08X\","
+                    "\"render\":\"%08X\",\"stateByte140\":%u,"
+                    "\"scene\":\"%08X\",\"sceneFlags\":\"%08X\","
+                    "\"previousCrypto\":\"%08X\","
+                    "\"previousRender\":\"%08X\","
+                    "\"previousStateByte140\":%u,"
+                    "\"previousScene\":\"%08X\","
+                    "\"previousSceneFlags\":\"%08X\","
+                    "\"changes\":%u}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.player_render.control,
+                    event->payload.player_render.player,
+                    event->payload.player_render.crypto,
+                    event->payload.player_render.render,
+                    event->payload.player_render.gate140,
+                    event->payload.player_render.scene,
+                    event->payload.player_render.scene_flags,
+                    event->payload.player_render.previous_crypto,
+                    event->payload.player_render.previous_render,
+                    event->payload.player_render.previous_gate140,
+                    event->payload.player_render.previous_scene,
+                    event->payload.player_render.previous_scene_flags,
+                    event->payload.player_render.changes);
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -299,6 +332,77 @@ void dah_event_trace_frame(uint64_t host_frame, uint32_t loop,
     event->payload.frame.draw_delta = draw_delta;
     event->payload.frame.present_result = present_result;
     event->payload.frame.flags = flags;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+void dah_event_trace_player_render_sample(void)
+{
+    static uint32_t previous_crypto, previous_render, previous_gate140;
+    static uint32_t previous_scene, previous_scene_flags, previous_world;
+    static int sampled;
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world, world_tick, control, player, crypto, render, gate140;
+    uint32_t scene, scene_flags, changes = 0u;
+
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    world = guest_u32(0x00286768u);
+    world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    control = guest_u32(0x0025FCECu);
+    player = guest_range(control, 0x3Cu) ? guest_u32(control + 0x38u) : 0u;
+    crypto = guest_range(player, 0x3Cu) ? guest_u32(player + 0x38u) : 0u;
+    if (!guest_range(crypto, 0x148u) || guest_u32(crypto) != 0x0022C9F8u)
+        crypto = 0u;
+    render = crypto ? guest_u32(crypto + 0x144u) : 0u;
+    gate140 = crypto ? *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() +
+                                           crypto + 0x140u) : 0u;
+    scene = crypto ? guest_u32(crypto + 0x28u) : 0u;
+    scene_flags = guest_range(scene, 0x50u) ? guest_u32(scene + 0x4Cu) : 0u;
+
+    if (!sampled) changes |= 1u;
+    if (crypto != previous_crypto) changes |= 2u;
+    if (render != previous_render) changes |= 4u;
+    if (gate140 != previous_gate140) changes |= 8u;
+    if (scene != previous_scene) changes |= 16u;
+    if (scene_flags != previous_scene_flags) changes |= 32u;
+    if (sampled && world_tick < previous_world) changes |= 64u;
+    if (!changes) {
+        previous_world = world_tick;
+        return;
+    }
+
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->world_tick = world_tick;
+    event->type = DAH_EVENT_PLAYER_RENDER;
+    event->payload.player_render.control = control;
+    event->payload.player_render.player = player;
+    event->payload.player_render.crypto = crypto;
+    event->payload.player_render.render = render;
+    event->payload.player_render.gate140 = gate140;
+    event->payload.player_render.scene = scene;
+    event->payload.player_render.scene_flags = scene_flags;
+    event->payload.player_render.previous_crypto = previous_crypto;
+    event->payload.player_render.previous_render = previous_render;
+    event->payload.player_render.previous_gate140 = previous_gate140;
+    event->payload.player_render.previous_scene = previous_scene;
+    event->payload.player_render.previous_scene_flags = previous_scene_flags;
+    event->payload.player_render.changes = changes;
+    previous_crypto = crypto;
+    previous_render = render;
+    previous_gate140 = gate140;
+    previous_scene = scene;
+    previous_scene_flags = scene_flags;
+    previous_world = world_tick;
+    sampled = 1;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);
 }
