@@ -1,0 +1,35 @@
+# Internal-only analog response probe.  Frontend/profile inputs reach Farm;
+# the gameplay-relative section samples partial stick magnitudes without host
+# deadzone/curve shaping.  Each plateau is followed by neutral so retail's
+# acceleration and decay can be measured independently.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+# Movement plateaus: 25%, 50%, 75%, 100% forward.
+540 120 0 0 0 0 8192 0 0
+720 120 0 0 0 0 16384 0 0
+900 120 0 0 0 0 24576 0 0
+1080 120 0 0 0 0 32767 0 0
+
+# Continuous ramp up and down, one second per step.
+1260 30 0 0 0 0 8192 0 0
+1290 30 0 0 0 0 16384 0 0
+1320 30 0 0 0 0 24576 0 0
+1350 30 0 0 0 0 32767 0 0
+1380 30 0 0 0 0 24576 0 0
+1410 30 0 0 0 0 16384 0 0
+1440 30 0 0 0 0 8192 0 0
+
+# Partial right-stick pitch and yaw in both directions.
+1530 60 0 0 0 0 0 0 8192
+1620 60 0 0 0 0 0 0 -8192
+1710 60 0 0 0 0 0 8192 0
+1800 60 0 0 0 0 0 -8192 0

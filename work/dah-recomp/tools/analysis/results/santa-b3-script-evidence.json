@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "title": "Santa Modesta b3 retail Lua evidence",
+  "mission": "Aliens Stole My Brainstem",
+  "assetRoot": "blocks/sites/santa",
+  "resourceType": "0x42EF1FD7",
+  "claims": [
+    "The mission starts the b3_base and b3_emp layers.",
+    "The b3_empVo objective is a TagDistance test between b3_emp and player_alien with the less-than threshold 21.",
+    "Crossing that objective threshold queues the EMP tutorial notification and voice line.",
+    "The mission-specific b3 scripts do not call SetJetPackEnable; the shared site movement script is the observed retail caller surface for that command.",
+    "The b3 start removes the ability.land progress key with false, but that is a separate saucer-landing ability key and must not be relabeled as EMP jetpack behavior."
+  ],
+  "resources": [
+    {
+      "index": 10,
+      "nameHash": "0x104ED341",
+      "size": 4420,
+      "sha256": "AB96ECEDDCE011DB0768F2896263A4CA18177488AF4AC4908CAEF5FF0219B38A",
+      "source": "input\\blocks\\sites\\santa\\scripts\\missions\\b3\\b3_functions.lua",
+      "evidence": [
+        "BrainOnCrateDeath",
+        "b3_overloadedpu",
+        "CreateObject",
+        "pu_brainstem_overloaded"
+      ]
+    },
+    {
+      "index": 11,
+      "nameHash": "0x849A0E3E",
+      "size": 3154,
+      "sha256": "4F42D1C5092B2C6CC45C3A6731062EC910B0885FA264F3A18309967C1E7E9C96",
+      "source": "input\\blocks\\sites\\santa\\scripts\\missions\\b3\\b3_ignition.lua",
+      "prototype": "0.0",
+      "sourceLine": 55,
+      "evidence": [
+        "instance.StartLayer('b3_base')",
+        "instance.StartLayer('b3_emp')",
+        "mission.StartObjective('b3_empVo')",
+        "progress.RemoveKey('ability.land', false)"
+      ]
+    },
+    {
+      "index": 12,
+      "nameHash": "0xB11FA933",
+      "size": 10207,
+      "sha256": "7C39B7FA71421080396CE5E6237DCCDBD6725A7700E17B6D4E3F7FFFF868DE84",
+      "source": "input\\blocks\\sites\\santa\\scripts\\missions\\b3\\b3_objectives.lua",
+      "evidence": [
+        "b3_empVo.type = 'TagDistance'",
+        "b3_empVo.tag = 'b3_emp'",
+        "b3_empVo.tag2 = 'player_alien'",
+        "b3_empVo.Init configures the '<' test with threshold 21",
+        "b3_empVo.StopTrue queues #site.santa.b3.furocom.emp.001 and site_santa_b3_furocom_emp_001"
+      ]
+    },
+    {
+      "index": 347,
+      "nameHash": "0xA39E4841",
+      "size": 3720,
+      "sha256": "B2340028B67D7847B762FD0682EF3719938861E218D70FC9CD94211602DE50D3",
+      "source": "input\\shared\\scripts\\site\\site_movement.lua",
+      "prototype": "0.2",
+      "sourceLine": 32,
+      "evidence": [
+        "progress.FindKey('ability.jetpack') selects player.SetJetPackEnable(true or false)",
+        "The same routine then sets MoveState.TAKEOFF"
+      ]
+    }
+  ],
+  "limits": [
+    "Lua evidence proves mission and shared-script intent, not that the native command handler or actor pulse executes correctly.",
+    "TagDistance supplies the tutorial trigger; it does not implement the EMP pulse, weapon lockout, damage handling, or visual effects.",
+    "The expected EMP pulse still needs an aligned xemu/native capture of radius entry, warning, discharge, disable, recovery, and destruction."
+  ]
+}

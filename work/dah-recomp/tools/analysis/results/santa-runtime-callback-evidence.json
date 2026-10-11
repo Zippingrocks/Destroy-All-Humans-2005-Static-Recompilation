@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "title": "Santa current-run unresolved callback evidence",
+  "run": {
+    "runId": "20261007T064831185Z-p48988-9470C2DDEE4F43E3",
+    "pid": 48988,
+    "executableSha256": "901E64782833D3C4A7DE2D1F4EA2CA24332074562B69E35EA60163614E800AAD",
+    "log": "furonlog.log"
+  },
+  "callbacks": [
+    {
+      "target": "0x0003CD20",
+      "end": "0x0003CDF6",
+      "size": 214,
+      "instructionCount": 66,
+      "codeBytesSha256": "225D9D49244DE7CF7A952EEF814FCD073E3F2C6848CC2641A6A3607D4EB3BD33",
+      "vtable": "0x00228C48",
+      "slot": "0x18",
+      "callerReturn": "0x0003CC2F",
+      "observedCount": 13,
+      "runtimeClue": "One recorded call carried edi=0x02E66090, the address independently joined to an m_emp_mine instance.",
+      "retailBehavior": "Checks three state timers, creates resource hash 0xEBEB1BE9 (retail fire actor), attaches it, and refreshes the timer.",
+      "alphaComparison": {
+        "topCandidate": "Traffic::ActorSamSite::Update",
+        "score": 0.55282,
+        "decision": "rejected-name",
+        "reason": "The score is weak, the retail class ID is 0x91816FD9 rather than the alpha ActorSamSite ID, and the control flow does not establish the alpha method identity."
+      },
+      "status": "restored-original-bytes-runtime-validation-open"
+    },
+    {
+      "target": "0x0003E2E0",
+      "end": "0x0003E301",
+      "size": 33,
+      "instructionCount": 14,
+      "codeBytesSha256": "2A09788C2D6AC82BBDF5828C206FD1DDD0B58E2782E46486C601BA0616C47AE2",
+      "vtable": "0x00228D68",
+      "slot": "0x0C",
+      "callerReturn": "0x0003F5F5",
+      "observedCount": 6,
+      "retailBehavior": "Queries the supplied object's slot 0x44 handle and stores it at this+0x20, or stores -1 for null.",
+      "classId": "0x4A0548A5",
+      "alphaComparison": {
+        "topCandidate": "UFO::OrdnanceDiscrete::SetTarget",
+        "alphaAddress": "0x000611B0",
+        "score": 0.727389,
+        "decision": "alias-only",
+        "reason": "The target-handle behavior matches, but the retail class ID is absent from the alpha and the containing class is not proven. SetTarget is a useful semantic alias, not an accepted fully qualified retail name."
+      },
+      "status": "restored-original-bytes-runtime-validation-open"
+    },
+    {
+      "target": "0x0004ACC0",
+      "end": "0x0004ADB7",
+      "size": 247,
+      "instructionCount": 90,
+      "codeBytesSha256": "22A4BC87F3F6D602CC712A026CE173B456B452E26920B2EC50ED6DC5BEB58CC0",
+      "vtable": "0x002297C0",
+      "slot": "0x0C",
+      "callerReturn": "0x0004ADEB",
+      "observedCount": 4,
+      "retailBehavior": "Creates and configures the runtime physics object used by a building fixture, copies its transform/configuration fields, and enables it.",
+      "classId": "0x6FC7A9F5",
+      "className": "UFO::BuildingFixture",
+      "classEvidenceLevel": "B",
+      "alphaComparison": {
+        "alphaVtable": "0x001EAE44",
+        "retailVtable": "0x002297C0",
+        "decision": "accepted-class-only",
+        "reason": "Retail DerivedFrom and VirtualClassId use the same 0x6FC7A9F5 class ID as alpha BuildingFixture, and the vtable prefix and neighboring ApplyDamage slot align after retail layout evolution. The alpha has no proven name for this added retail virtual."
+      },
+      "empRelationship": "not-a-direct-EMP-callback",
+      "status": "restored-original-bytes-runtime-validation-open"
+    }
+  ],
+  "implementation": {
+    "boundaryTool": "tools/lift_santa_runtime_callbacks.py",
+    "compiledSource": "src/recomp/gen/recomp_santa_callbacks.c",
+    "dispatch": "src/recomp_manual.c"
+  },
+  "limits": [
+    "The callbacks were observed during the same long-running process, but not every call was inside an aligned EMP pulse window.",
+    "The m_emp_mine address join is a causal clue for 0x0003CD20, not proof that it implements the EMP pulse.",
+    "The exact BuildingFixture class match rules out 0x0004ACC0 as a direct EMP-device callback even though it appeared in the same long-running process.",
+    "A new executable must reproduce the mission and show that these targets no longer fall through unresolved dispatch before the gameplay behavior can be accepted."
+  ]
+}

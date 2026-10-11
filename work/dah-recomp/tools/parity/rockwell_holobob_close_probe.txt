@@ -1,0 +1,34 @@
+# Rockwell Holobob close-range probe.  This follows the stable retail-path
+# landing/tutorial sequence, equips Holobob after the landing state settles,
+# then closes the remaining distance to the first fairground humans before
+# pressing B on a positively acquired target.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+2800 10 0 255 0 0 0 0 0
+3100 10 0 255 0 0 0 0 0
+3400 10 0 255 0 0 0 0 0
+
+# Reach the Holobob tutorial trigger and dismiss it.
+3500 192 0 0 0 16000 28000 0 0
+3720 10 0 255 0 0 0 0 0
+
+# Keep the visible human centered while closing to reliable disguise range.
+3750 18 0 0 0 0 0 12000 0
+3780 120 0 0 0 0 30000 0 0
+# Holobob is the B action shown by the tutorial.  Do not pre-fire RT: it
+# alarms/displaces the civilian before the disguise request is evaluated.
+# Let one press establish the weapon's target query, release it, then hold B
+# after the highlighted civilian has entered the Holobob target list.
+3910 5 0 0 255 0 0 0 0
+3930 120 0 0 255 0 0 0 0
+4070 12 0 0 0 0 0 18000 0
+4090 5 0 0 255 0 0 0 0
+4110 16 0 0 0 0 18000 0 0
+4135 5 0 0 255 0 0 0 0

@@ -1,0 +1,32 @@
+@frame
+# Fresh profile -> mothership hub. Rockwell is made visible by the internal
+# progression setup, but every UI transition and the invasion launch below is
+# performed by the original game from logical controller input.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+
+# The hub begins on slot2 (Hangar). Enter navicom, select the next unlocked
+# destination (Rockwell), then confirm the real invasion route.
+3600 6 0 255 0 0 0 0 0
+4200 6 4 0 0 0 0 0 0
+4700 6 0 255 0 0 0 0 0
+
+# Dismiss the first mandatory Alert Levels tutorial panel; subsequent
+# cinematics remain unskipped for timing and visual comparison.
+6700 6 0 255 0 0 0 0 0
+6800 300 0 0 0 0 32767 0 0
+# Equipping Holobob raises its own retail tutorial after control resumes.
+7200 6 0 255 0 0 0 0 0
+7300 240 0 0 0 0 32767 0 0
+7580 24 0 0 255 0 0 0 0
+8000 24 0 0 255 0 0 0 0
+
+@gameplay
+# Exercise locomotion and Holobob after Rockwell hands control to Crypto.
+120 240 0 0 0 0 32767 0 0
+400 12 0 0 0 0 0 0 0 255
+430 12 0 255 0 0 0 0 0
+520 180 0 0 0 0 32767 0 0

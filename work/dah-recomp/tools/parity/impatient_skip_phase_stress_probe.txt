@@ -1,0 +1,51 @@
+# Phase-aware impatient-player route. All actions are normal controller input.
+# Startup presses use poll time, menu/load presses use absolute retail loops,
+# and gameplay actions wait for each engine's independently observed idle Farm.
+300 4 10 0 0 0 0 0 0
+420 4 0 255 0 0 0 0 0
+540 4 10 0 0 0 0 0 0
+660 4 0 255 0 0 0 0 0
+780 4 10 0 0 0 0 0 0
+900 4 0 255 0 0 0 0 0
+
+@frame
+1200 5 10 0 0 0 0 0 0
+1240 5 0 255 0 0 0 0 0
+1280 5 10 0 0 0 0 0 0
+1320 5 0 255 0 0 0 0 0
+1400 5 0 255 0 0 0 0 0
+1440 5 10 0 0 0 0 0 0
+1480 5 0 255 0 0 0 0 0
+1560 5 10 0 0 0 0 0 0
+1640 5 0 255 0 0 0 0 0
+1700 5 0 255 0 0 0 0 0
+
+@gameplay
+# Hammer pause/resume and back-out paths before touching movement.
+0 3 10 0 0 0 0 0 0
+8 3 10 0 0 0 0 0 0
+20 3 0 255 0 0 0 0 0
+32 3 0 0 255 0 0 0 0
+48 3 10 0 0 0 0 0 0
+54 3 0 255 0 0 0 0 0
+66 3 0 0 255 0 0 0 0
+80 3 10 0 0 0 0 0 0
+92 3 10 0 0 0 0 0 0
+
+# Move, spin the camera, use face/black/white buttons, and fire both triggers.
+140 30 0 0 0 0 32767 0 0
+190 30 0 0 0 32767 0 0 0
+240 30 0 0 0 0 -32768 0 0
+290 30 0 0 0 -32768 0 0 0
+340 30 0 0 0 0 0 32767 0
+390 30 0 0 0 0 0 -32768 0
+440 5 0 0 0 0 0 0 0 255 0 0 0 0 0
+470 5 0 0 0 0 0 0 0 0 255 0 0 0 0
+500 5 0 0 0 0 0 0 0 0 0 255 0 0 0
+530 5 0 0 0 0 0 0 0 0 0 0 255 0 0
+560 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+610 20 0 0 0 0 0 0 0 0 0 0 0 0 255
+660 3 10 0 0 0 0 0 0
+670 3 0 255 0 0 0 0 0
+690 3 0 0 255 0 0 0 0
+720 3 10 0 0 0 0 0 0

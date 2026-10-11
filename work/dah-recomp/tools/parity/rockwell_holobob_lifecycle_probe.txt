@@ -1,0 +1,57 @@
+# Stable Rockwell Holobob lifecycle route.  It uses the measured civilian ray,
+# dismisses the retail concentration tutorial after the first disguise, waits
+# for natural depletion, then attempts a second disguise without test-only
+# gameplay mutation.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2800 10 0 255 0 0 0 0 0
+3100 10 0 255 0 0 0 0 0
+3400 10 0 255 0 0 0 0 0
+3500 192 0 0 0 16000 28000 0 0
+3720 10 0 255 0 0 0 0 0
+3750 18 0 0 0 0 0 12000 0
+3780 110 0 0 0 0 30000 0 0
+3890 48 0 0 0 0 0 24000 0
+3945 22 0 0 0 0 0 0 -24000
+3975 100 0 0 255 0 0 0 0
+
+# Rockwell civilian positions vary with the retail RNG. Retry adjacent rays
+# only if the first press did not leave idle state. Once any attempt succeeds,
+# the remaining gated camera and B rows are suppressed.
+@holobob-idle
+4085 8 0 0 0 0 0 18000 0
+4100 60 0 0 255 0 0 0 0
+4175 8 0 0 0 0 0 18000 0
+4190 60 0 0 255 0 0 0 0
+4265 8 0 0 0 0 0 18000 0
+4280 60 0 0 255 0 0 0 0
+@always
+
+# The tutorial arrives after concentration has begun draining and pauses the
+# world. Repeated natural A presses cover its animation/acceptance window.
+4450 10 0 255 0 0 0 0 0
+4500 10 0 255 0 0 0 0 0
+4550 10 0 255 0 0 0 0 0
+4650 10 0 255 0 0 0 0 0
+4750 10 0 255 0 0 0 0 0
+
+# Restore concentration exactly as the retail tutorial instructs: hold left
+# trigger on the highlighted human and press A to cortex scan.  Reacquire only
+# after that natural recovery, then exercise the full transition again.
+# Establish the LT target state first, as on the verified Farm cow scan, then
+# press A without releasing LT.
+5530 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+5550 160 0 255 0 0 0 0 0 0 0 0 0 255 0
+@holobob-idle
+5730 5 0 0 255 0 0 0 0
+5760 120 0 0 255 0 0 0 0
+# A later single edge also lets a hot-reloaded diagnostic recover from an
+# earlier canceled transition without affecting an already active disguise.
+6200 5 0 0 255 0 0 0 0
+@always

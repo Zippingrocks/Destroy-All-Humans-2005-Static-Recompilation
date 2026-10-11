@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/security
+    about: Report security-sensitive problems privately when private vulnerability reporting is enabled.

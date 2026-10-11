@@ -1,0 +1,4 @@
+@frame
+# Continue from xemu_live_cortex_cow_probe after the jetpack has landed.
+60 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+80 180 0 255 0 0 0 0 0 0 0 0 0 255 0

@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
 
@@ -157,48 +158,7 @@ loc_00195BA6: ;
  * CC: thiscall, 0 params, returns int_or_void
  * Frame: fpo_leaf
  */
-void sub_00195BB0(void)
-{
-    uint32_t ebp;
-    ebp = g_ebp;  /* frameless: caller's frame */
-    int _flags = 0; /* fallback flag var */
-    uint32_t _fa = 0, _fb = 0;
-    int32_t _fas = 0, _fbs = 0;
-    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-    ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
-
-loc_00195BB0: ;
-    eax = MEM32(ecx);
-    PUSH32(esp, esi);
-    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(MEM32(edx)) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, MEM32(edx) (32-bit) */
-    if (CMP_EQ(_fa, _fb)) goto loc_00195BBB; /* je: equal / zero */
-
-loc_00195BB7: ;
-    eax = 0; /* xor self */
-    POP32(esp, esi);
-    esp += 4; return; /* ret */
-
-loc_00195BBB: ;
-    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(5) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 5 (32-bit) */
-    if (CMP_A(_fa, _fb)) goto loc_00195BD6; /* ja: above (unsigned >) */
-
-loc_00195BC0: ;
-    g_seh_ebp = ebp; RECOMP_ITAIL(MEM32(eax * 4 + 0x195BEC)); return; /* indirect tail jmp */
-
-    xmm0 = XMM_SCALAR(MEMF(ecx + 4)); /* movss */
-    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm0.f[0], MEMF(edx + 4))); /* UCOMISS/LAHF 0x00195BD0 */
-    _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
-    _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
-    if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_00195BB7; /* jp: parity */
-
-loc_00195BD6: ;
-    eax = 1;
-    POP32(esp, esi);
-    esp += 4; return; /* ret */
-
-}
+/* Full original switch recovered in recomp_observed_callbacks.c. */
 
 /**
  * sub_00195C10
@@ -8761,92 +8721,7 @@ loc_00199716: ;
  * CC: cdecl, 1 params, returns int_or_void
  * Frame: standard_frame
  */
-void sub_00199720(void)
-{
-    uint32_t ebp;
-    ebp = g_ebp;  /* frameless: caller's frame */
-    int _flags = 0; /* fallback flag var */
-    uint32_t _fa = 0, _fb = 0;
-    int32_t _fas = 0, _fbs = 0;
-    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-
-loc_00199720: ;
-    PUSH32(esp, ebp);
-    ebp = MEM32(esp + 8);
-    PUSH32(esp, esi);
-    PUSH32(esp, edi);
-    edi = eax;
-    eax = MEM32(ebp);
-    _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(3) & 0xFFFFFFFFu;
-    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 3 (32-bit) */
-    if (CMP_A(_fa, _fb)) goto loc_001997A9; /* ja: above (unsigned >) */
-
-loc_00199731: ;
-    g_seh_ebp = ebp; RECOMP_ITAIL(MEM32(eax * 4 + 0x199900)); return; /* indirect tail jmp */
-
-    esi = MEM32(ebp + 4);
-    MEM16(edi + 0x1C) = MEM16(edi + 0x1C) + 1;
-    SET_LO16(eax, MEM16(edi + 0x1C));
-    ecx = MEM32(edi);
-    _fa = (uint32_t)(LO16(eax)) & 0xFFFFu; _fb = (uint32_t)(MEM16(ecx + 0x24)) & 0xFFFFu;
-    _fas = (int32_t)(int16_t)(_fa); _fbs = (int32_t)(int16_t)(_fb); /* cmp LO16(eax), MEM16(ecx + 0x24) (16-bit) */
-    if (CMP_LE(_fas, _fbs)) goto loc_0019976C; /* jle: less or equal (signed <=) */
-
-loc_0019974B: ;
-    _fa = (uint32_t)(LO16(eax)) & 0xFFFFu; _fb = (uint32_t)(0xFA) & 0xFFFFu;
-    _fas = (int32_t)(int16_t)(_fa); _fbs = (int32_t)(int16_t)(_fb); /* cmp LO16(eax), 0xFA (16-bit) */
-    if (CMP_LE(_fas, _fbs)) goto loc_00199762; /* jle: less or equal (signed <=) */
-
-loc_00199751: ;
-    ecx = MEM32(edi + 8);
-    edx = MEM32(ecx + 4);
-    PUSH32(esp, edx);
-    edx = 0x23F808;
-    PUSH32(esp, 0x00199762u); sub_0019A3F0(); /* call 0x0019A3F0 */
-
-loc_00199762: ;
-    eax = MEM32(edi);
-    SET_LO16(ecx, MEM16(edi + 0x1C));
-    MEM16(eax + 0x24) = LO16(ecx);
-
-loc_0019976C: ;
-    esi = esi << 6;
-    esi = esi | 0xB;
-    PUSH32(esp, 0x00199777u); sub_00198EA0(); /* call 0x00198EA0 */
-
-loc_00199777: ;
-    edx = MEM32(edi + 0x10);
-    eax = MEM32(edi);
-    ecx = MEM32(edi + 0xC);
-    PUSH32(esp, 0x7FFFFFFD);
-    PUSH32(esp, 0x23F858);
-    PUSH32(esp, 4);
-    PUSH32(esp, 1);
-    PUSH32(esp, edx);
-    edx = MEM32(eax + 0x18);
-    PUSH32(esp, 0x00199796u); sub_00198020(); /* call 0x00198020 */
-
-loc_00199796: ;
-    ecx = MEM32(edi);
-    MEM32(ecx + 0x18) = eax;
-    eax = MEM32(edi);
-    edx = MEM32(edi + 0x10);
-    ecx = MEM32(eax + 0x18);
-    MEM32(ecx + edx * 4) = esi;
-    MEM32(edi + 0x10) = MEM32(edi + 0x10) + 1;
-
-loc_001997A9: ;
-    eax = eax | 0xFFFFFFFFu;
-    POP32(esp, edi);
-    MEM32(ebp + 8) = eax;
-    MEM32(ebp + 4) = eax;
-    POP32(esp, esi);
-    MEM32(ebp) = 3;
-    eax = 1;
-    POP32(esp, ebp);
-    esp += 8; return; /* ret 4 */
-
-}
+/* Full original switch recovered in recomp_observed_callbacks.c. */
 
 /**
  * sub_00199910
@@ -22004,6 +21879,9 @@ void sub_0019F250(void)
 {
 
 loc_0019F250: ;
+    /* pool trace loc_0019F250 */
+    if(getenv("DAH_PAIR_TRACE")){fprintf(stderr,"[DAH-STREAM-POOL-INIT] pool=%08X unit=%u base=%08X size=%u bitmap=%08X bitbytes=%u caller=%08X\n",ecx,MEM32(esp+4),MEM32(esp+8),MEM32(esp+12),MEM32(esp+16),MEM32(esp+20),MEM32(esp));fflush(stderr);}
+
     eax = MEM32(esp + 0xC);
     PUSH32(esp, esi);
     esi = ecx;
@@ -22053,6 +21931,9 @@ void sub_0019F2B0(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_0019F2B0: ;
+    /* pool trace loc_0019F2B0 */
+    if(getenv("DAH_PAIR_TRACE")){fprintf(stderr,"[DAH-STREAM-POOL-FREE] pool=%08X base=%08X address=%08X size=%u caller=%08X\n",ecx,MEM32(ecx+8),MEM32(esp+4),MEM32(esp+8),MEM32(esp));fflush(stderr);}
+
     eax = MEM32(esp + 8);
     PUSH32(esp, esi);
     esi = MEM32(esp + 8);
@@ -22224,6 +22105,9 @@ void sub_0019F390(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_0019F390: ;
+    /* pool trace loc_0019F390 */
+    if(getenv("DAH_PAIR_TRACE")){fprintf(stderr,"[DAH-STREAM-POOL-ALLOC] pool=%08X unit=%u base=%08X units=%u request=%u caller=%08X\n",ecx,MEM32(ecx),MEM32(ecx+8),MEM32(ecx+4),MEM32(esp+4),MEM32(esp));fflush(stderr);}
+
     edx = MEM32(esp + 8);
     PUSH32(esp, ebx);
     PUSH32(esp, ebp);
@@ -26496,8 +26380,29 @@ loc_001A1802: ;
  * CC: thiscall, 2 params, returns int_or_void
  * Frame: fpo_leaf
  */
+extern size_t g_xbox_contiguous_limit;
+extern uint32_t xbox_HeapAvailableBytes(uint32_t budget);
+extern uint32_t xbox_HeapAllocationSize(uint32_t xbox_va);
+static int dah_font_resource_trace_enabled = -1;
+static unsigned dah_font_resource_constructors;
+static unsigned dah_font_resource_destructors;
+static unsigned dah_font_resource_missing;
+
+static int dah_font_resource_trace(void)
+{
+    if (dah_font_resource_trace_enabled < 0)
+        dah_font_resource_trace_enabled =
+            getenv("DAH_FONT_RESOURCE_TRACE") || getenv("DAH_HUB_RENDER_TRACE") ? 1 : 0;
+    return dah_font_resource_trace_enabled;
+}
+
 void sub_001A1820(void)
 {
+    uint32_t dah_font_constructed = ecx;
+    int dah_font_trace = dah_font_resource_trace() && dah_font_resource_constructors++ < 32u;
+    if (dah_font_trace)
+        fprintf(stderr, "[DAH-FONT-ALLOC-BEGIN] font=%08X data=%08X capacity=%08X stack=%08X\n",
+                ecx, MEM32(esp + 4u), MEM32(esp + 8u), esp);
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -26530,22 +26435,39 @@ loc_001A1837: ;
     /* nop */
 
 loc_001A1860: ;
+    if (dah_font_trace)
+        fprintf(stderr, "[DAH-FONT-ALLOC-PAGE] font=%08X remaining=%u target=%08X vertex_bytes=%u index_bytes=%u available=%u budget=%u\n",
+                dah_font_constructed, ebx, esi, ebp, MEM32(esp + 0x18u),
+                xbox_HeapAvailableBytes((uint32_t)g_xbox_contiguous_limit), (uint32_t)g_xbox_contiguous_limit);
     PUSH32(esp, ebp);
     PUSH32(esp, 0x001A1866u); sub_001DD670(); /* call 0x001DD670 */
 
 loc_001A1866: ;
+    if (dah_font_trace)
+        fprintf(stderr, "[DAH-FONT-ALLOC-VERTEX] font=%08X remaining=%u target=%08X result=%08X descriptor_bytes=%u data_bytes=%u available=%u\n",
+                dah_font_constructed, ebx, esi, eax, xbox_HeapAllocationSize(eax),
+                eax ? xbox_HeapAllocationSize(MEM32(eax + 4u)) : 0u,
+                xbox_HeapAvailableBytes((uint32_t)g_xbox_contiguous_limit));
     MEM32(esi + -8) = eax;
     eax = MEM32(esp + 0x18);
     PUSH32(esp, eax);
     PUSH32(esp, 0x001A1873u); sub_001DD630(); /* call 0x001DD630 */
 
 loc_001A1873: ;
+    if (dah_font_trace)
+        fprintf(stderr, "[DAH-FONT-ALLOC-INDEX] font=%08X remaining=%u target=%08X result=%08X actual_bytes=%u available=%u\n",
+                dah_font_constructed, ebx, esi, eax, xbox_HeapAllocationSize(eax),
+                xbox_HeapAvailableBytes((uint32_t)g_xbox_contiguous_limit));
     MEM32(esi) = eax;
     esi = esi + 4;
     ebx--;
     if ((ebx != 0)) goto loc_001A1860; /* jne: not equal / not zero */
 
 loc_001A187B: ;
+    if (dah_font_trace)
+        fprintf(stderr, "[DAH-FONT-ALLOC-END] font=%08X actual=%08X pages=%08X,%08X,%08X,%08X capacity=%u\n",
+                dah_font_constructed, edi, MEM32(edi + 0xCu), MEM32(edi + 0x10u),
+                MEM32(edi + 0x14u), MEM32(edi + 0x18u), MEM32(edi + 8u));
     eax = edi;
     POP32(esp, edi);
     POP32(esp, esi);
@@ -26564,6 +26486,9 @@ loc_001A187B: ;
  */
 void sub_001A1890(void)
 {
+    if (dah_font_resource_trace() && dah_font_resource_destructors++ < 32u)
+        fprintf(stderr, "[DAH-FONT-DESTROY] font=%08X pages=%08X,%08X,%08X,%08X\n",
+                ecx, MEM32(ecx + 0xCu), MEM32(ecx + 0x10u), MEM32(ecx + 0x14u), MEM32(ecx + 0x18u));
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -29532,7 +29457,7 @@ loc_001A3666: ;
 
 loc_001A366E: ;
     /* ucomiss xmm2.f[0], MEMF(esp + 0x24) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm2.f[0], MEMF(esp + 0x24))); /* UCOMISS/LAHF 0x001A366E */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     if (RECOMP_PARITY8((_fa) & (_fb))) goto loc_001A3680; /* jp: parity */
@@ -29670,6 +29595,12 @@ loc_001A3727: ;
  */
 void sub_001A3740(void)
 {
+    if (dah_font_resource_trace() &&
+        (!MEM32(ecx + 0xCu) || !MEM32(ecx + 0x10u) || !MEM32(ecx + 0x14u) || !MEM32(ecx + 0x18u)) &&
+        dah_font_resource_missing++ < 48u)
+        fprintf(stderr, "[DAH-FONT-DRAW-MISSING] font=%08X pages=%08X,%08X,%08X,%08X bit=%u capacity=%u count=%08X\n",
+                ecx, MEM32(ecx + 0xCu), MEM32(ecx + 0x10u), MEM32(ecx + 0x14u), MEM32(ecx + 0x18u),
+                MEM32(MEM32(0x250E60u) + 0xD4u) & 1u, MEM32(ecx + 8u), MEM32(ecx + 0x1Cu));
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */

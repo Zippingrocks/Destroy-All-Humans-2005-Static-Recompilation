@@ -1,0 +1,28 @@
+# Menu/profile route used by the isolated internal build.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Skip the in-engine opening sequence, then dismiss the pause screen with B.
+3500 30 10 0 0 0 0 0 0
+3700 30 0 0 255 0 0 0 0
+
+# Host-forward semantic. The final retail mapping converts this to -LY.
+4200 300 0 0 0 0 32767 0 0
+
+# Opposite sign for downstream movement-path comparison.
+4600 300 0 0 0 0 -32768 0 0
+
+# Exercise both horizontal signs to recover the complete movement transform.
+5000 300 0 0 0 32767 0 0 0
+5400 300 0 0 0 -32768 0 0 0
+
+# Exercise both camera-pitch signs after the movement probes.
+5800 120 0 0 0 0 0 0 32767
+5980 120 0 0 0 0 0 0 -32768

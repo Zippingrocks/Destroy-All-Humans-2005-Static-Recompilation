@@ -1,0 +1,15 @@
+@frame
+# Normal fresh-profile retail route. Keep the complete Farm entry cinematic,
+# then walk straight toward the cow paddock for ten seconds. This schedule can
+# be replayed unchanged by the recomp and xemu logical-pad adapters.
+# start duration hex_buttons A B LX LY RX RY
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+# The established paired Farm route first grants gameplay input by loop 7200.
+# Hold forward long enough to approach the fence and enlarge nearby cow meshes.
+7200 300 0 0 0 0 32767 0 0

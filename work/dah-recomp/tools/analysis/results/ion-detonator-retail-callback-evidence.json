@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "00075660",
+      "end": "00075681",
+      "bytes": 33,
+      "instructions": 8,
+      "tableSlot": "0x0022C1FC",
+      "codeBytesSha256": "7D7F7417420973593FA1D16819708B2582127D83A85151B90EF8FB716C0506B8",
+      "observation": "retail table slot +0x50; copies three object-state words"
+    },
+    {
+      "start": "00075780",
+      "end": "000757A1",
+      "bytes": 33,
+      "instructions": 12,
+      "tableSlot": "0x0022C1AC",
+      "codeBytesSha256": "76CF990E4F9518E8B7C158EC5B16BCE1CC87CB4CD2032572469A7A940444FD8D",
+      "observation": "retail primary table slot +0x00; returns the live payload view"
+    },
+    {
+      "start": "00075800",
+      "end": "00075815",
+      "bytes": 21,
+      "instructions": 7,
+      "tableSlot": "0x0022C218",
+      "codeBytesSha256": "54179B8F3AE746023096F3553F0F1FCE4576349E255479A6DE0128B3A06329D6",
+      "observation": "retail table slot +0x6C; returns the active or embedded payload"
+    },
+    {
+      "start": "00075A10",
+      "end": "00075C52",
+      "bytes": 578,
+      "instructions": 183,
+      "tableSlot": "0x0022C1E8",
+      "codeBytesSha256": "891C13A60C8F3D249687918094484D066CF82E68D499A0B4D5B4713F166803C1",
+      "observation": "retail table slot +0x3C; advances object state and presentation"
+    }
+  ]
+}

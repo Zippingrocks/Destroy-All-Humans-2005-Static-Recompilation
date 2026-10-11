@@ -1,0 +1,28 @@
+# start duration hex_buttons A B LX LY RX RY
+# Organic profile/Farm navigation used by the verified player-state harness.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+2050 25 2 0 0 0 0 0 0
+2090 25 0 255 0 0 0 0 0
+2350 25 2 0 0 0 0 0 0
+2390 25 0 255 0 0 0 0 0
+2650 20 2 0 0 0 0 0 0
+2685 20 1 0 0 0 0 0 0
+2720 200 0 255 0 0 0 0 0
+3050 20 2 0 0 0 0 0 0
+3085 20 1 0 0 0 0 0 0
+3120 200 0 255 0 0 0 0 0
+3450 20 2 0 0 0 0 0 0
+3485 20 1 0 0 0 0 0 0
+3520 200 0 255 0 0 0 0 0
+
+# Prove whether negative pitch works from the neutral starting pose before
+# any positive input can touch the upper clamp, then test the opposite sign.
+3900 300 0 0 0 0 0 0 -32768
+4300 300 0 0 0 0 0 0 32767

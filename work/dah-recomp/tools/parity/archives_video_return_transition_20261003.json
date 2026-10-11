@@ -1,0 +1,271 @@
+{
+  "frames": [
+    {
+      "frame": 1484,
+      "file": "dah_frame_11084_0000001484.bmp",
+      "class": "content",
+      "blackFraction": 0.918144531,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        4.5818,
+        4.3366,
+        4.3461
+      ],
+      "rgbSha256": "05a852a9eddd9729650fcab8823327285fc7a321d080f03b6ceb61a40cbdf63d"
+    },
+    {
+      "frame": 1485,
+      "file": "dah_frame_11084_0000001485.bmp",
+      "class": "content",
+      "blackFraction": 0.920595703,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        3.6986,
+        3.4998,
+        3.5114
+      ],
+      "rgbSha256": "ab9a393fb1e6e712b774a8f838dca1b7a49d11e1e5f27b0d600aeb0db7a3fa34"
+    },
+    {
+      "frame": 1486,
+      "file": "dah_frame_11084_0000001486.bmp",
+      "class": "content",
+      "blackFraction": 0.921920573,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        2.9266,
+        2.7699,
+        2.7801
+      ],
+      "rgbSha256": "73d35053bb82953c68d3d5ac413cb871f218a01bbffb7ddaf8959e170107e3a2"
+    },
+    {
+      "frame": 1487,
+      "file": "dah_frame_11084_0000001487.bmp",
+      "class": "content",
+      "blackFraction": 0.925738932,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        1.251,
+        1.1859,
+        1.1961
+      ],
+      "rgbSha256": "223350cfd9d30b4675520d15ac8eac1c97bcd55911b11e1851dde292af3bc9f7"
+    },
+    {
+      "frame": 1488,
+      "file": "dah_frame_11084_0000001488.bmp",
+      "class": "content",
+      "blackFraction": 0.934430339,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        0.3742,
+        0.3553,
+        0.3601
+      ],
+      "rgbSha256": "b121d6a5bd34259af6b4d3b3fe7a42e328321846f5f889ff16eb0c6ef73c086d"
+    },
+    {
+      "frame": 1489,
+      "file": "dah_frame_11084_0000001489.bmp",
+      "class": "content",
+      "blackFraction": 0.012486979,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        10.8313,
+        29.3252,
+        45.7567
+      ],
+      "rgbSha256": "1b3320664971ddf9a250424f06226c022d5ab8f9685df1cb0d80c9198792768e"
+    },
+    {
+      "frame": 1490,
+      "file": "dah_frame_11084_0000001490.bmp",
+      "class": "content",
+      "blackFraction": 0.931754557,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        3.947,
+        6.9299,
+        6.9134
+      ],
+      "rgbSha256": "b0628aa9ad221055282721e4aa472a2c6823bac74262f29c4ac0e13b284767ef"
+    },
+    {
+      "frame": 1491,
+      "file": "dah_frame_11084_0000001491.bmp",
+      "class": "content",
+      "blackFraction": 0.931754557,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        3.947,
+        6.9299,
+        6.9134
+      ],
+      "rgbSha256": "b0628aa9ad221055282721e4aa472a2c6823bac74262f29c4ac0e13b284767ef"
+    },
+    {
+      "frame": 1492,
+      "file": "dah_frame_11084_0000001492.bmp",
+      "class": "content",
+      "blackFraction": 0.273665365,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        5.2624,
+        9.3404,
+        10.4742
+      ],
+      "rgbSha256": "620990e7ce87bf3a9425c2ac0144c0377be34a8b75b0cbb9ba6091eaf22d41fd"
+    },
+    {
+      "frame": 1493,
+      "file": "dah_frame_11084_0000001493.bmp",
+      "class": "content",
+      "blackFraction": 0.042171224,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        6.4831,
+        11.6042,
+        13.7354
+      ],
+      "rgbSha256": "b5fe53bad3293476c4eaf29ecd9eefc48e33cfcee2ee3f952e326f140fee8023"
+    },
+    {
+      "frame": 1494,
+      "file": "dah_frame_11084_0000001494.bmp",
+      "class": "content",
+      "blackFraction": 0.03016276,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        7.6609,
+        13.7543,
+        16.9481
+      ],
+      "rgbSha256": "0ca88dbd5649d2bff05296155c9ff9a92d06ccdfcbaff3051641d380d7084183"
+    },
+    {
+      "frame": 1495,
+      "file": "dah_frame_11084_0000001495.bmp",
+      "class": "content",
+      "blackFraction": 0.024785156,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        8.8979,
+        15.9808,
+        20.2091
+      ],
+      "rgbSha256": "6a87bde40f62624e46e94294d47437f71f6230c37b01225cab4c0eca82c6b8b0"
+    },
+    {
+      "frame": 1496,
+      "file": "dah_frame_11084_0000001496.bmp",
+      "class": "content",
+      "blackFraction": 0.02171224,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        10.0917,
+        18.2221,
+        23.4564
+      ],
+      "rgbSha256": "27fc3f2b38023497b41feb34d65ba763425ee2e38dfabdd25ecf5ab2c270fcaf"
+    },
+    {
+      "frame": 1497,
+      "file": "dah_frame_11084_0000001497.bmp",
+      "class": "content",
+      "blackFraction": 0.012776693,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        11.4274,
+        20.649,
+        27.0347
+      ],
+      "rgbSha256": "2b98e6d78ee9a8ca8b06dc5fae8696e7968f627d011a46afa8ec45791ce9968b"
+    },
+    {
+      "frame": 1498,
+      "file": "dah_frame_11084_0000001498.bmp",
+      "class": "content",
+      "blackFraction": 0.012177734,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        12.6272,
+        22.8729,
+        30.2811
+      ],
+      "rgbSha256": "de867f0e7794e6821cb8ed33dbf2b519cba9add943990a168704206e4c09fadd"
+    },
+    {
+      "frame": 1499,
+      "file": "dah_frame_11084_0000001499.bmp",
+      "class": "content",
+      "blackFraction": 0.011780599,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        13.8598,
+        25.0789,
+        33.5323
+      ],
+      "rgbSha256": "9807b05459b668a7d0abc0f13cb47504bfabd49345e06f4112f016d2a2cf2a45"
+    },
+    {
+      "frame": 1500,
+      "file": "dah_frame_11084_0000001500.bmp",
+      "class": "content",
+      "blackFraction": 0.011429036,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        15.0523,
+        27.2777,
+        36.7724
+      ],
+      "rgbSha256": "ee7fbfbf8277e8c4a6e2f4d582f440e9107c284fe98076cdb7221a4eb4a4896c"
+    },
+    {
+      "frame": 1501,
+      "file": "dah_frame_11084_0000001501.bmp",
+      "class": "content",
+      "blackFraction": 0.011429036,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        16.2506,
+        29.5055,
+        40.0181
+      ],
+      "rgbSha256": "139aabf6bf539eb9653ab4b11246086944baab69b69b6f634d8cba0f574eb9e2"
+    },
+    {
+      "frame": 1502,
+      "file": "dah_frame_11084_0000001502.bmp",
+      "class": "content",
+      "blackFraction": 0.01117513,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        17.5933,
+        31.9412,
+        43.5936
+      ],
+      "rgbSha256": "e92b7c623b9a50bbd6f6372767fe9058b0d779cc34748b6332babee1dfe3f996"
+    },
+    {
+      "frame": 1503,
+      "file": "dah_frame_11084_0000001503.bmp",
+      "class": "content",
+      "blackFraction": 0.01117513,
+      "whiteFraction": 0.0,
+      "meanRgb": [
+        18.7717,
+        34.1182,
+        46.8377
+      ],
+      "rgbSha256": "5abbbae1144fccaaf2214c65d6a01d0a0189cbe991f8adf58d53aab7562d4ebd"
+    }
+  ],
+  "longestBlackRun": {
+    "count": 0,
+    "first": null,
+    "last": null
+  },
+  "whiteFrames": [],
+  "transitions": []
+}

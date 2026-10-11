@@ -1,0 +1,22 @@
+# Survey a Farm endurance corridor without bypassing retail collision.
+# First follow the cow-paddock fence toward its opening, then rotate the
+# gameplay camera slightly toward the long negative-X axis before holding the
+# unchanged user-forward semantic for thirty seconds.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+# Raw host +LX becomes retail user-right after the established bridge mirror.
+60 450 0 0 0 32767 0 0 0
+570 60 0 0 0 0 0 0 0
+# A short camera-turn pulse, followed by a complete neutral settling window.
+630 10 0 0 0 0 0 32767 0
+700 60 0 0 0 0 0 0 0
+760 900 0 0 0 0 32767 0 0

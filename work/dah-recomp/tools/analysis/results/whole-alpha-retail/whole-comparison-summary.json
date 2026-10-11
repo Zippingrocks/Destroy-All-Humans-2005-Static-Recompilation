@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "warning": "Function matches are candidates until class/caller/vtable/runtime evidence accepts them.",
+  "inputs": {
+    "retailFunctions": {
+      "path": "functions.json",
+      "sha256": "5f5ab37805eb45b607752c924c62095fb14982cdfc95df31701650f8a7147e7b"
+    },
+    "retailAsm": {
+      "path": "asm",
+      "sha256": "54077090c43da4b0c379cd10fde92d0d827bb03cb5a6a17d97f5b2908872b613"
+    },
+    "retailXbe": {
+      "path": "default.xbe",
+      "sha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb"
+    },
+    "alphaFunctions": {
+      "path": "functions.json",
+      "sha256": "19df6a0fd84c109accb207642909f003fbfbb3b38e192ff0c2a0f58a41708c20"
+    },
+    "alphaAsm": {
+      "path": "asm",
+      "sha256": "33b6eb0c53393fcff6fdbb5c6f58e533e3824b1875512237b6f3dbfdb1816cfc"
+    },
+    "alphaSymbols": {
+      "path": "sf-symbols.json",
+      "sha256": "2ddc12e60c78662f26e86925f5b63357ee67d964e2bb829a8ccde50de3f5c3e7"
+    },
+    "alphaXbe": {
+      "path": "ufo-dev.xbe",
+      "sha256": "cd1ebc185bb9ab9207971e6bd21fb434511db29471080dce85a08b21d514acc8"
+    }
+  },
+  "functions": {
+    "retailDiscovered": 10828,
+    "alphaDiscoveredRaw": 8943,
+    "alphaDiscovered": 9860,
+    "alphaNamedFunctionStarts": 9652,
+    "pdbCodeSymbolAddresses": 9652,
+    "pdbStartsAlreadyDiscovered": 8735,
+    "pdbAddedStarts": 917,
+    "retailUnparsed": 27,
+    "alphaUnparsed": 59,
+    "retailBySection": {
+      ".text": {
+        "discovered": 9677,
+        "parsed": 9669
+      },
+      "BINK": {
+        "discovered": 114,
+        "parsed": 114
+      },
+      "BINK16": {
+        "discovered": 16,
+        "parsed": 16
+      },
+      "BINK32": {
+        "discovered": 17,
+        "parsed": 17
+      },
+      "BINK32A": {
+        "discovered": 17,
+        "parsed": 17
+      },
+      "BINK4444": {
+        "discovered": 17,
+        "parsed": 17
+      },
+      "BINK5551": {
+        "discovered": 16,
+        "parsed": 16
+      },
+      "BINKYUY2": {
+        "discovered": 18,
+        "parsed": 0
+      },
+      "D3D": {
+        "discovered": 269,
+        "parsed": 268
+      },
+      "DSOUND": {
+        "discovered": 417,
+        "parsed": 417
+      },
+      "XGRPH": {
+        "discovered": 25,
+        "parsed": 25
+      },
+      "XMV": {
+        "discovered": 64,
+        "parsed": 64
+      },
+      "XPP": {
+        "discovered": 161,
+        "parsed": 161
+      }
+    },
+    "alphaBySection": {
+      ".text": {
+        "discovered": 8249,
+        "parsed": 8249
+      },
+      "D3D": {
+        "discovered": 328,
+        "parsed": 291
+      },
+      "DSOUND": {
+        "discovered": 502,
+        "parsed": 484
+      },
+      "XGRPH": {
+        "discovered": 24,
+        "parsed": 24
+      },
+      "XMV": {
+        "discovered": 225,
+        "parsed": 223
+      },
+      "XNET": {
+        "discovered": 305,
+        "parsed": 305
+      },
+      "XPP": {
+        "discovered": 227,
+        "parsed": 225
+      }
+    },
+    "statusCounts": {
+      "medium-candidate": 2200,
+      "exact-structural-candidate": 2364,
+      "weak-or-ambiguous": 4828,
+      "high-confidence-candidate": 650,
+      "no-named-alpha-candidate": 786
+    },
+    "strongCandidateSystems": {
+      "renderingGraphics": 409,
+      "physicsHavok": 305,
+      "audioMovie": 425,
+      "uiHudMenu": 128,
+      "missionScript": 215,
+      "aiTraffic": 63,
+      "weaponsOrdnance": 185,
+      "playerCharacterShip": 77
+    },
+    "database": "whole-function-map.csv"
+  },
+  "classIds": {
+    "alphaNamed": 64,
+    "retailReturnImmediateCandidates": 218,
+    "statusCounts": {
+      "retail-only": 160,
+      "shared": 58,
+      "alpha-only": 6
+    },
+    "database": "whole-class-id-map.csv"
+  },
+  "strings": {
+    "alphaUnique": 4042,
+    "retailUnique": 2245,
+    "statusCounts": {
+      "alpha-only": 2957,
+      "shared": 1085,
+      "retail-only": 1160
+    },
+    "database": "whole-string-map.csv"
+  },
+  "content": {
+    "alphaFiles": 109,
+    "retailFiles": 46,
+    "alphaBytes": 317306406,
+    "retailBytes": 768532836,
+    "statusCounts": {
+      "retail-only": 21,
+      "changed": 25,
+      "alpha-only": 84
+    },
+    "gamePayloadStatusCounts": {
+      "retail-only": 21,
+      "changed": 25,
+      "alpha-only": 24
+    },
+    "buildReportStatusCounts": {
+      "alpha-only": 60
+    },
+    "database": "whole-content-map.csv"
+  },
+  "callbackTables": {
+    "scannedSections": [
+      ".rdata",
+      ".data"
+    ],
+    "candidateTables": 567,
+    "uniqueTargets": 3575,
+    "functionStartTargets": 2895,
+    "coveredFunctionStarts": 2895,
+    "missingFunctionStarts": 0,
+    "internalTargets": 680,
+    "coveredInternalTargets": 312,
+    "internalTargetCandidates": 368,
+    "statusCounts": {
+      "covered-function-start": 2895,
+      "internal-target-covered": 312,
+      "internal-target-candidate": 368
+    },
+    "database": "whole-callback-target-map.csv"
+  }
+}

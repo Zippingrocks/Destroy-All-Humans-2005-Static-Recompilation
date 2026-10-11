@@ -6,6 +6,8 @@
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /**
  * sub_000B93D0
@@ -11031,6 +11033,19 @@ loc_000BD877: ;
     }
 
 loc_000BD888: ;
+    if (getenv("DAH_PAIR_TRACE")) {
+        uint32_t pair_base = MEM32(esp + 0xC), pair_count = MEM32(esp + 0x10);
+        fprintf(stderr,"[DAH-PAIR-gathered] owner=%08X item=%08X base=%08X count=%u caller=%08X\n",esi,edi,pair_base,pair_count,MEM32(esp+0x2C));
+        if(pair_base>=0x10000u && pair_count<=512u && (uint64_t)pair_base+pair_count*8u<=0x08000000u) {
+            for(uint32_t pair_i=0;pair_i<pair_count;pair_i++) {
+                uint32_t pair_a=MEM32(pair_base+pair_i*8u),pair_b=MEM32(pair_base+pair_i*8u+4u);
+                if(pair_i<32u || pair_a<0x10000u || pair_a>=0x08000000u || pair_b<0x10000u || pair_b>=0x08000000u)
+                    fprintf(stderr,"[DAH-PAIR-gathered-ITEM] i=%u a=%08X b=%08X\n",pair_i,pair_a,pair_b);
+            }
+        }
+        fflush(stderr);
+    }
+
     eax = MEM32(esp + 0x10);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
@@ -11057,6 +11072,19 @@ loc_000BD8AD: ;
     eax = 0; /* xor self */
 
 loc_000BD8AF: ;
+    if (getenv("DAH_PAIR_TRACE")) {
+        uint32_t pair_base = MEM32(esp + 0xC), pair_count = MEM32(esp + 0x10);
+        fprintf(stderr,"[DAH-PAIR-sorted] owner=%08X item=%08X base=%08X count=%u caller=%08X\n",esi,edi,pair_base,pair_count,MEM32(esp+0x2C));
+        if(pair_base>=0x10000u && pair_count<=512u && (uint64_t)pair_base+pair_count*8u<=0x08000000u) {
+            for(uint32_t pair_i=0;pair_i<pair_count;pair_i++) {
+                uint32_t pair_a=MEM32(pair_base+pair_i*8u),pair_b=MEM32(pair_base+pair_i*8u+4u);
+                if(pair_i<32u || pair_a<0x10000u || pair_a>=0x08000000u || pair_b<0x10000u || pair_b>=0x08000000u)
+                    fprintf(stderr,"[DAH-PAIR-sorted-ITEM] i=%u a=%08X b=%08X\n",pair_i,pair_a,pair_b);
+            }
+        }
+        fflush(stderr);
+    }
+
     ecx = MEM32(esp + 0x10);
     edx = MEM32(esp + 0xC);
     PUSH32(esp, eax);
@@ -42842,7 +42870,7 @@ loc_000CCBAD: ;
     edx = MEM32(esi);
     xmm1 = XMM_SCALAR(MEMF(edx + 0x30)); /* movss */
     /* ucomiss xmm1.f[0], MEMF(0x225C20) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm1.f[0], MEMF(0x225C20))); /* UCOMISS/LAHF 0x000CCBB4 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     MEMF(esp + 0x28) = xmm1.f[0]; /* movss */
@@ -43298,7 +43326,7 @@ loc_000CCFF0: ;
     edx = 0; /* xor self */
     SET_LO16(edx, MEM16(ecx + 6));
     SET_LO16(esi, LO16(esi) << 4);
-    SET_LO16(esi, (uint32_t)((int32_t)LO16(esi) >> 4));
+    SET_LO16(esi, (uint32_t)((int32_t)(int16_t)LO16(esi) >> 4));
     edx = edx >> 4;
     eax = eax ^ edx;
     SET_LO8(edx, MEM8(ecx + 5));
@@ -43309,7 +43337,7 @@ loc_000CCFF0: ;
     edx = edx | edi;
     eax = eax ^ edx;
     SET_LO16(eax, LO16(eax) << 4);
-    SET_LO16(eax, (uint32_t)((int32_t)LO16(eax) >> 4));
+    SET_LO16(eax, (uint32_t)((int32_t)(int16_t)LO16(eax) >> 4));
     edx = SX16(LO16(esi));
     eax = SX16(LO16(eax));
     xmm1.f[0] = (float)(int32_t)edx; /* cvtsi2ss */
@@ -43321,14 +43349,14 @@ loc_000CCFF0: ;
     MEMF(edx + 4) = xmm1.f[0]; /* movss */
     SET_LO16(eax, MEM16(ecx + 4));
     SET_LO16(eax, LO16(eax) << 4);
-    SET_LO16(eax, (uint32_t)((int32_t)LO16(eax) >> 4));
+    SET_LO16(eax, (uint32_t)((int32_t)(int16_t)LO16(eax) >> 4));
     eax = SX16(LO16(eax));
     xmm1.f[0] = (float)(int32_t)eax; /* cvtsi2ss */
     xmm1.f[0] = xmm1.f[0] * xmm0.f[0]; /* mulss */
     MEMF(edx + 8) = xmm1.f[0]; /* movss */
     SET_LO16(ecx, MEM16(ecx + 6));
     SET_LO16(ecx, LO16(ecx) << 4);
-    SET_LO16(ecx, (uint32_t)((int32_t)LO16(ecx) >> 4));
+    SET_LO16(ecx, (uint32_t)((int32_t)(int16_t)LO16(ecx) >> 4));
     eax = SX16(LO16(ecx));
     xmm1.f[0] = (float)(int32_t)eax; /* cvtsi2ss */
     POP32(esp, edi);
@@ -46993,7 +47021,7 @@ loc_000CEDCE: ;
 
 loc_000CEDD2: ;
     /* ucomiss xmm2.f[0], MEMF(esp + 0x1C) - sets EFLAGS */
-    /* lahf - load AH from flags (used in FPU compare idiom) */
+    SET_HI8(eax, RECOMP_COMISS_LAHF(xmm2.f[0], MEMF(esp + 0x1C))); /* UCOMISS/LAHF 0x000CEDD2 */
     _fa = (uint32_t)(HI8(eax)) & 0xFFu; _fb = (uint32_t)(0x44) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test HI8(eax), 0x44 (8-bit) */
     eax = ecx + -1;

@@ -1,0 +1,3 @@
+@frame
+# Reverse the preceding upward probe and continue below the baseline pitch.
+0 28 0 0 0 0 0 0 -12000

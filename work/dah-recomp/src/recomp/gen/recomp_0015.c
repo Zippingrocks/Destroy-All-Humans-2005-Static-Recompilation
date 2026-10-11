@@ -7,6 +7,8 @@
 #include "recomp_funcs.h"
 #include "dah_timing.h"
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /**
  * sub_0013F89A
@@ -11523,6 +11525,16 @@ void sub_0014358B(void)
 {
 
 loc_0014358B: ;
+    if (MEM32(esp+4)==0x01F9A220u) {
+        static unsigned trace_count;
+        if(trace_count++<8) {
+            fprintf(stderr,"[DAH-MUL-INPUT] lhs=");
+            for(unsigned i=0;i<16;i++)fprintf(stderr,"%.9g,",(double)MEMF(MEM32(esp+8)+i*4));
+            fprintf(stderr," rhs=");
+            for(unsigned i=0;i<16;i++)fprintf(stderr,"%.9g,",(double)MEMF(MEM32(esp+12)+i*4));
+            fprintf(stderr,"\n");
+        }
+    }
     eax = MEM32(esp + 8);
     ecx = MEM32(esp + 0xC);
     xmm2 = XMM_MEM(eax); /* movaps */
@@ -13763,6 +13775,12 @@ loc_00144528: ;
  * CC: cdecl, 3 params, returns int_or_void
  * Frame: standard_frame
  */
+/**
+ * sub_00144530
+ * Original: 0x00144530 - 0x00144629 (249 bytes, 71 insns)
+ * CC: cdecl, 0 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
 void sub_00144530(void)
 {
     uint32_t ebp;
@@ -13812,10 +13830,10 @@ loc_00144530: ;
     if (CMP_AE(_fa, _fb)) goto loc_00144621; /* jae: above or equal (unsigned >=) */
 
 loc_001445B0: ;
-    /* SSE: movq mm2, qword ptr [esp + 0x18] */
-    /* SSE: movq mm3, qword ptr [esp + 0x10] */
-    /* SSE: movq mm4, qword ptr [esp + 0x28] */
-    /* SSE: movq mm5, qword ptr [esp + 0x20] */
+    mm2 = ((uint64_t)MEM32(esp + 0x18) | ((uint64_t)MEM32((esp + 0x18) + 4) << 32)); /* movq */
+    mm3 = ((uint64_t)MEM32(esp + 0x10) | ((uint64_t)MEM32((esp + 0x10) + 4) << 32)); /* movq */
+    mm4 = ((uint64_t)MEM32(esp + 0x28) | ((uint64_t)MEM32((esp + 0x28) + 4) << 32)); /* movq */
+    mm5 = ((uint64_t)MEM32(esp + 0x20) | ((uint64_t)MEM32((esp + 0x20) + 4) << 32)); /* movq */
     edx = 0xFFFF;
     MEM16(esp) = LO16(edx);
     MEM16(esp + 2) = LO16(edx);
@@ -13825,24 +13843,24 @@ loc_001445B0: ;
     edi = edi;
 
 loc_001445E0: ;
-    /* SSE: movq mm0, qword ptr [ecx + 8] */
-    /* SSE: movq mm1, mm0 */
-    /* TODO: pcmpgtw mm1, mm4 */
-    /* TODO: pcmpgtw mm0, mm2 */
-    /* TODO: paddw mm0, mm1 */
-    /* SSE: movq mm1, mm0 */
-    /* pand mm1, qword ptr [esp] (MMX/SIMD integer) */
-    /* SSE: movq mm0, qword ptr [ecx] */
-    /* SSE: movq mm6, mm0 */
-    /* SSE: movq mm7, mm0 */
-    /* TODO: pcmpgtw mm6, mm5 */
-    /* TODO: pcmpgtw mm7, mm3 */
-    /* TODO: paddw mm7, mm6 */
-    /* TODO: psubw mm0, mm7 */
-    /* SSE: movq qword ptr [ecx], mm0 */
-    /* SSE: movq mm0, qword ptr [ecx + 8] */
-    /* TODO: psubw mm0, mm1 */
-    /* SSE: movq qword ptr [ecx + 8], mm0 */
+    mm0 = ((uint64_t)MEM32(ecx + 8) | ((uint64_t)MEM32((ecx + 8) + 4) << 32)); /* movq */
+    mm1 = mm0; /* movq */
+    { uint64_t _ma = mm1, _mb = mm4, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm1 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm0, _mb = mm2, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm0 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm0, _mb = mm1, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm0 = _mr; } /* paddw */
+    mm1 = mm0; /* movq */
+    mm1 &= ((uint64_t)MEM32(esp) | ((uint64_t)MEM32((esp) + 4) << 32)); /* pand */
+    mm0 = ((uint64_t)MEM32(ecx) | ((uint64_t)MEM32((ecx) + 4) << 32)); /* movq */
+    mm6 = mm0; /* movq */
+    mm7 = mm0; /* movq */
+    { uint64_t _ma = mm6, _mb = mm5, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm6 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm7, _mb = mm3, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm7 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm7, _mb = mm6, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm7 = _mr; } /* paddw */
+    { uint64_t _ma = mm0, _mb = mm7, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a - _b)) << (_lane * 16); } mm0 = _mr; } /* psubw */
+    { uint64_t _mq = mm0; MEM32(ecx) = (uint32_t)_mq; MEM32((ecx) + 4) = (uint32_t)(_mq >> 32); } /* movq */
+    mm0 = ((uint64_t)MEM32(ecx + 8) | ((uint64_t)MEM32((ecx + 8) + 4) << 32)); /* movq */
+    { uint64_t _ma = mm0, _mb = mm1, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a - _b)) << (_lane * 16); } mm0 = _mr; } /* psubw */
+    { uint64_t _mq = mm0; MEM32(ecx + 8) = (uint32_t)_mq; MEM32((ecx + 8) + 4) = (uint32_t)(_mq >> 32); } /* movq */
     ecx = ecx + 0x10;
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, eax (32-bit) */
@@ -13856,11 +13874,18 @@ loc_00144621: ;
 
 }
 
+
 /**
  * sub_00144630
  * Original: 0x00144630 - 0x00144729 (249 bytes, 69 insns)
  * CC: cdecl, 3 params, returns int_or_void
  * Frame: standard_frame
+ */
+/**
+ * sub_00144630
+ * Original: 0x00144630 - 0x00144729 (249 bytes, 69 insns)
+ * CC: cdecl, 0 params, returns int_or_void
+ * Frame: fpo_leaf
  */
 void sub_00144630(void)
 {
@@ -13908,10 +13933,10 @@ loc_00144630: ;
     if (CMP_AE(_fa, _fb)) goto loc_00144721; /* jae: above or equal (unsigned >=) */
 
 loc_001446A9: ;
-    /* SSE: movq mm2, qword ptr [esp + 0x18] */
-    /* SSE: movq mm3, qword ptr [esp + 0x10] */
-    /* SSE: movq mm4, qword ptr [esp + 0x28] */
-    /* SSE: movq mm5, qword ptr [esp + 0x20] */
+    mm2 = ((uint64_t)MEM32(esp + 0x18) | ((uint64_t)MEM32((esp + 0x18) + 4) << 32)); /* movq */
+    mm3 = ((uint64_t)MEM32(esp + 0x10) | ((uint64_t)MEM32((esp + 0x10) + 4) << 32)); /* movq */
+    mm4 = ((uint64_t)MEM32(esp + 0x28) | ((uint64_t)MEM32((esp + 0x28) + 4) << 32)); /* movq */
+    mm5 = ((uint64_t)MEM32(esp + 0x20) | ((uint64_t)MEM32((esp + 0x20) + 4) << 32)); /* movq */
     edx = 0xFFFF;
     MEM16(esp) = LO16(edx);
     MEM16(esp + 2) = LO16(edx);
@@ -13923,24 +13948,24 @@ loc_001446A9: ;
     /* nop */
 
 loc_001446E0: ;
-    /* SSE: movq mm0, qword ptr [ecx + 8] */
-    /* SSE: movq mm1, mm0 */
-    /* TODO: pcmpgtw mm1, mm4 */
-    /* TODO: pcmpgtw mm0, mm2 */
-    /* TODO: paddw mm0, mm1 */
-    /* SSE: movq mm1, mm0 */
-    /* pand mm1, qword ptr [esp] (MMX/SIMD integer) */
-    /* SSE: movq mm0, qword ptr [ecx] */
-    /* SSE: movq mm6, mm0 */
-    /* SSE: movq mm7, mm0 */
-    /* TODO: pcmpgtw mm6, mm5 */
-    /* TODO: pcmpgtw mm7, mm3 */
-    /* TODO: paddw mm7, mm6 */
-    /* TODO: paddw mm0, mm7 */
-    /* SSE: movq qword ptr [ecx], mm0 */
-    /* SSE: movq mm0, qword ptr [ecx + 8] */
-    /* TODO: paddw mm0, mm1 */
-    /* SSE: movq qword ptr [ecx + 8], mm0 */
+    mm0 = ((uint64_t)MEM32(ecx + 8) | ((uint64_t)MEM32((ecx + 8) + 4) << 32)); /* movq */
+    mm1 = mm0; /* movq */
+    { uint64_t _ma = mm1, _mb = mm4, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm1 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm0, _mb = mm2, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm0 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm0, _mb = mm1, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm0 = _mr; } /* paddw */
+    mm1 = mm0; /* movq */
+    mm1 &= ((uint64_t)MEM32(esp) | ((uint64_t)MEM32((esp) + 4) << 32)); /* pand */
+    mm0 = ((uint64_t)MEM32(ecx) | ((uint64_t)MEM32((ecx) + 4) << 32)); /* movq */
+    mm6 = mm0; /* movq */
+    mm7 = mm0; /* movq */
+    { uint64_t _ma = mm6, _mb = mm5, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm6 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm7, _mb = mm3, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)(((int16_t)_a > (int16_t)_b ? 0xFFFFu : 0u)) << (_lane * 16); } mm7 = _mr; } /* pcmpgtw */
+    { uint64_t _ma = mm7, _mb = mm6, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm7 = _mr; } /* paddw */
+    { uint64_t _ma = mm0, _mb = mm7, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm0 = _mr; } /* paddw */
+    { uint64_t _mq = mm0; MEM32(ecx) = (uint32_t)_mq; MEM32((ecx) + 4) = (uint32_t)(_mq >> 32); } /* movq */
+    mm0 = ((uint64_t)MEM32(ecx + 8) | ((uint64_t)MEM32((ecx + 8) + 4) << 32)); /* movq */
+    { uint64_t _ma = mm0, _mb = mm1, _mr = 0; for (unsigned _lane = 0; _lane < 4; ++_lane) { uint16_t _a = (uint16_t)(_ma >> (_lane * 16)), _b = (uint16_t)(_mb >> (_lane * 16)); _mr |= (uint64_t)((uint16_t)(_a + _b)) << (_lane * 16); } mm0 = _mr; } /* paddw */
+    { uint64_t _mq = mm0; MEM32(ecx + 8) = (uint32_t)_mq; MEM32((ecx + 8) + 4) = (uint32_t)(_mq >> 32); } /* movq */
     ecx = ecx + 0x10;
     _fa = (uint32_t)(ecx) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp ecx, eax (32-bit) */
@@ -13953,6 +13978,7 @@ loc_00144721: ;
     esp += 16; return; /* ret 12 */
 
 }
+
 
 /**
  * sub_00144730
@@ -14158,6 +14184,8 @@ void sub_00144810(void)
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
 
 loc_00144810: ;
+    if(getenv("DAH_PAIR_TRACE")) {fprintf(stderr,"[DAH-ENDPOINT-ERASE] array=%08X buffer=%08X count=%u first=%u second=%u caller=%08X\n",ecx,MEM32(ecx),MEM32(ecx+4),MEM32(esp+4),MEM32(esp+8),MEM32(esp));fflush(stderr);}
+
     eax = MEM32(esp + 4);
     edx = ecx;
     ecx = MEM32(edx);
@@ -19515,6 +19543,10 @@ loc_001471F0: ;
     PUSH32(esp, 0x00147246u); sub_001464C0(); /* call 0x001464C0 */
 
 loc_00147246: ;
+    if(getenv("DAH_PAIR_TRACE")) {
+        fprintf(stderr,"[DAH-ENDPOINT-loc_00147246] manager=%08X metadata=%08X id=%u xyz=%u,%u,%u,%u,%u,%u counts=%u,%u,%u buffers=%08X,%08X,%08X\n",esi,edi,MEM32(esp+0x24),MEM16(edi),MEM16(edi+2),MEM16(edi+4),MEM16(edi+6),MEM16(edi+8),MEM16(edi+10),MEM32(esi+0x50),MEM32(esi+0x5C),MEM32(esi+0x68),MEM32(esi+0x4C),MEM32(esi+0x58),MEM32(esi+0x64));fflush(stderr);
+    }
+
     ecx = ZX16(MEM16(edi + 0xA));
     ebx = ZX16(MEM16(edi + 8));
     edx = MEM32(esi + 0x4C);
@@ -19900,6 +19932,10 @@ loc_00147590: ;
     PUSH32(esp, 0x001475A1u); sub_001461C0(); /* call 0x001461C0 */
 
 loc_001475A1: ;
+    if(getenv("DAH_PAIR_TRACE")) {
+        fprintf(stderr,"[DAH-ENDPOINT-loc_001475A1] manager=%08X metadata=%08X id=%u xyz=%u,%u,%u,%u,%u,%u counts=%u,%u,%u buffers=%08X,%08X,%08X\n",esi,edi,MEM32(esp+0x24),MEM16(edi),MEM16(edi+2),MEM16(edi+4),MEM16(edi+6),MEM16(edi+8),MEM16(edi+10),MEM32(esi+0x50),MEM32(esi+0x5C),MEM32(esi+0x68),MEM32(esi+0x4C),MEM32(esi+0x58),MEM32(esi+0x64));fflush(stderr);
+    }
+
     edx = MEM32(esp + 0x18);
     ecx = ZX16(MEM16(edi + 0xA));
     eax = MEM32(edx);

@@ -1,0 +1,14 @@
+# Internal-only Rockwell forward-corridor survey.  The front-end sequence
+# selects a profile; DAH_CONSOLE_AUTOLOAD_LEVEL=rockwell performs the retail
+# site handoff.  The forward hold begins only after verified active control.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+540 900 0 0 0 0 32767 0 0

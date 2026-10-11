@@ -1,0 +1,51 @@
+# Deterministic Farm route through Pause -> Options -> Controls.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+@gameplay
+30 2 10 0 0 0 0 0 0
+750 2 10 0 0 0 0 0 0
+1050 2 10 0 0 0 0 0 0
+1080 2 2 0 0 0 0 0 0
+1095 2 2 0 0 0 0 0 0
+1110 2 2 0 0 0 0 0 0
+1140 2 0 255 0 0 0 0 0
+
+# Controls is initially selected in Options.
+1170 2 0 255 0 0 0 0 0
+
+# Exercise every Controls row in both directions, restoring the defaults.
+1200 2 8 0 0 0 0 0 0
+1215 2 4 0 0 0 0 0 0
+1230 2 2 0 0 0 0 0 0
+1245 2 8 0 0 0 0 0 0
+1260 2 4 0 0 0 0 0 0
+1275 2 2 0 0 0 0 0 0
+1290 2 8 0 0 0 0 0 0
+1305 2 4 0 0 0 0 0 0
+
+# Return to Options, discover Audio, then return and discover Display.
+1350 2 0 0 255 0 0 0 0
+1365 2 2 0 0 0 0 0 0
+1380 2 0 255 0 0 0 0 0
+# Exercise all three volume rows in both directions, then Display/Subtitles.
+1410 2 8 0 0 0 0 0 0
+1425 2 4 0 0 0 0 0 0
+1440 2 2 0 0 0 0 0 0
+1455 2 8 0 0 0 0 0 0
+1470 2 4 0 0 0 0 0 0
+1485 2 2 0 0 0 0 0 0
+1500 2 8 0 0 0 0 0 0
+1515 2 4 0 0 0 0 0 0
+1545 2 0 0 255 0 0 0 0
+1560 2 2 0 0 0 0 0 0
+1575 2 0 255 0 0 0 0 0
+1605 2 8 0 0 0 0 0 0
+1620 2 4 0 0 0 0 0 0
+1650 2 0 0 255 0 0 0 0

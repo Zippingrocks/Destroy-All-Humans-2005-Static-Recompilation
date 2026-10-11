@@ -1,0 +1,54 @@
+# intro.bik blocks the retail frame clock while controller polling continues.
+# A single call-clock A pulse skips it without touching any later menu state.
+3600 6 0 255 0 0 0 0 0
+
+@frame
+# Fresh-profile retail route into Turnipseed Farm.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+3400 6 0 255 0 0 0 0 0
+4300 6 0 255 0 0 0 0 0
+4700 6 0 255 0 0 0 0 0
+
+@gameplay
+# Move to the cows, acquire the same camera heading used by the scan probe,
+# complete both scans, then fire the Zap-O-Matic with the retail LT binding.
+0 600 0 0 0 0 32767 0 0
+620 2 0 255 0 0 0 0 0
+624 96 0 255 0 0 32767 0 0
+720 220 0 0 0 0 32767 0 0
+960 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+980 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+1200 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1220 180 0 255 0 0 0 0 0 0 0 0 0 255 0
+1500 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1540 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1580 20 0 0 0 0 0 0 0 0 0 0 0 255 0
+1640 240 0 0 0 0 0 0 0 0 0 0 0 255 0
+1920 120 0 255 0 0 0 0 0
+
+# Retrace the straight approach to Crypto's saucer. A is the retail land /
+# take-off binding and also advances context actions. Repeated separated
+# presses cover the mission prompt without holding through a transition.
+2100 700 0 0 0 0 -32768 0 0
+2840 6 0 255 0 0 0 0 0
+2960 6 0 255 0 0 0 0 0
+3080 6 0 255 0 0 0 0 0
+3200 6 0 255 0 0 0 0 0
+
+# Once focus switches to the ship: RT primary fire, X weapon cycle, B/Y
+# secondary slots, left stick flight, and A land/take-off. If story gating
+# has not switched focus, the parity state trace proves that explicitly.
+3440 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+3540 6 0 0 0 0 0 0 0 255 0 0 0 0 0
+3600 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+3700 6 0 0 255 0 0 0 0 0 0 0 0 0 0
+3800 6 0 0 0 0 0 0 0 0 255 0 0 0 0
+3920 240 0 0 0 0 32767 0 0 0 0 0 0 0 255
+4240 6 0 255 0 0 0 0 0
+4460 6 0 255 0 0 0 0 0

@@ -1,0 +1,38 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source-hygiene:
+    name: Source hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject accidentally committed game and runtime data
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E -i '(^|/)(default\.xbe|.*\.iso|.*\.xiso|furonlog\.log|recomp_crash\.log|xbox_kernel\.log|dah_event_trace\.jsonl|.*\.dmp)$'; then
+            echo "Prohibited game or generated runtime data is tracked."
+            exit 1
+          fi
+      - name: Validate issue forms and project metadata
+        shell: python
+        run: |
+          from pathlib import Path
+          required = [
+              Path("README.md"), Path("CONTRIBUTING.md"),
+              Path("CODE_OF_CONDUCT.md"), Path("SECURITY.md"),
+              Path("NOTICE.md"), Path("ACCESSIBILITY.md"),
+              Path("CHANGELOG.md"),
+              Path(".github/ISSUE_TEMPLATE/bug_report.yml"),
+              Path(".github/ISSUE_TEMPLATE/accuracy_report.yml"),
+          ]
+          missing = [str(path) for path in required if not path.is_file()]
+          if missing:
+              raise SystemExit("Missing public project files: " + ", ".join(missing))

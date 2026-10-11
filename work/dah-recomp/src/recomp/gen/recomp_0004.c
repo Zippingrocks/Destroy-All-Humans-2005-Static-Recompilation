@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_event_trace.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -15148,8 +15149,11 @@ loc_0006BF4A: ;
  */
 void sub_0006BF60(void)
 {
-    fprintf(stderr, "[DAH-OBJECTIVE-START] manager=%08X mission=%08X\n",
-            MEM32(0x24883C), MEM32(MEM32(0x24883C) + 0x34));
+    const int objective_trace = getenv("DAH_OBJECTIVE_TRACE") != NULL;
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-START] manager=%08X mission=%08X\n",
+                MEM32(0x24883C), MEM32(MEM32(0x24883C) + 0x34));
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -15168,7 +15172,18 @@ loc_0006BF6F: ;
     PUSH32(esp, 0x0006BF76u); sub_00139520(); /* call 0x00139520 */
 
 loc_0006BF76: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-NAME] ptr=%08X words=%08X %08X\n", eax, MEM32(eax), MEM32(eax + 4));
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-NAME] ptr=%08X words=%08X %08X\n", eax, MEM32(eax), MEM32(eax + 4));
+    }
+    if (getenv("DAH_OBJECTIVE_TEXT_TRACE")) {
+        fprintf(stderr, "[DAH-OBJECTIVE-TEXT] ptr=%08X text=", eax);
+        for (unsigned i = 0; i < 64u; ++i) {
+            unsigned ch = MEM8(eax + i);
+            if (!ch) break;
+            fputc(ch >= 32u && ch <= 126u ? (int)ch : '?', stderr);
+        }
+        fputc('\n', stderr);
+    }
     PUSH32(esp, 0x40);
     edx = eax;
     ecx = esp + 4;
@@ -15189,7 +15204,9 @@ loc_0006BF8D: ;
     PUSH32(esp, 0x0006BFA6u); sub_00070840(); /* call 0x00070840 */
 
 loc_0006BFA6: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-LOOKUP] result=%08X status=%u\n", eax, eax ? MEM32(eax + 0x48) : 0);
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-LOOKUP] result=%08X status=%u\n", eax, eax ? MEM32(eax + 0x48) : 0);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0006BFC0; /* je: equal / zero */
@@ -19947,8 +19964,11 @@ loc_0006DEFC: ;
 void sub_0006DF10(void)
 {
     uint32_t objective_activate_target;
-    fprintf(stderr, "[DAH-OBJECTIVE-ACTIVATE] object=%08X vt=%08X status=%u arg=%u\n",
-            ecx, MEM32(ecx), MEM32(ecx + 0x48), MEM32(esp + 4));
+    const int objective_trace = getenv("DAH_OBJECTIVE_TRACE") != NULL;
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-ACTIVATE] object=%08X vt=%08X status=%u arg=%u\n",
+                ecx, MEM32(ecx), MEM32(ecx + 0x48), MEM32(esp + 4));
+    }
 
 loc_0006DF10: ;
     PUSH32(esp, esi);
@@ -19966,18 +19986,22 @@ loc_0006DF1B: ;
     PUSH32(esp, 0x0006DF35u); sub_0006DD60(); /* call 0x0006DD60 */
 
 loc_0006DF35: ;
-    fprintf(stderr, "[DAH-OBJECTIVE-STARTED] object=%08X status=%u interval=%f last=%f\n",
-            esi, MEM32(esi + 0x48), MEMF(esi + 0x54), MEMF(esi + 0x58));
+    if (objective_trace) {
+        fprintf(stderr, "[DAH-OBJECTIVE-STARTED] object=%08X status=%u interval=%f last=%f\n",
+                esi, MEM32(esi + 0x48), MEMF(esi + 0x54), MEMF(esi + 0x58));
+    }
     edx = MEM32(esi);
     { uint32_t _icall_esp = g_esp;
     PUSH32(esp, 0x84EBAEEDu);
     ecx = esi;
     objective_activate_target = MEM32(edx + 4);
-    fprintf(stderr,
-            "[DAH-OBJECTIVE-VTABLE] object=%08X vt=%08X e0=%08X e4=%08X e8=%08X eC=%08X e10=%08X e14=%08X target=%08X fields50=%08X 54=%08X 58=%08X 5C=%08X\n",
-            esi, edx, MEM32(edx), MEM32(edx + 4u), MEM32(edx + 8u), MEM32(edx + 0xCu),
-            MEM32(edx + 0x10u), MEM32(edx + 0x14u), objective_activate_target,
-            MEM32(esi + 0x50u), MEM32(esi + 0x54u), MEM32(esi + 0x58u), MEM32(esi + 0x5Cu));
+    if (objective_trace) {
+        fprintf(stderr,
+                "[DAH-OBJECTIVE-VTABLE] object=%08X vt=%08X e0=%08X e4=%08X e8=%08X eC=%08X e10=%08X e14=%08X target=%08X fields50=%08X 54=%08X 58=%08X 5C=%08X\n",
+                esi, edx, MEM32(edx), MEM32(edx + 4u), MEM32(edx + 8u), MEM32(edx + 0xCu),
+                MEM32(edx + 0x10u), MEM32(edx + 0x14u), objective_activate_target,
+                MEM32(esi + 0x50u), MEM32(esi + 0x54u), MEM32(esi + 0x58u), MEM32(esi + 0x5Cu));
+    }
     { uint32_t _icall_target = objective_activate_target; PUSH32(esp, 0x0006DF41u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
 
@@ -23840,6 +23864,26 @@ loc_0006F6A6: ;
     PUSH32(esp, 0x0006F6ACu); sub_00119470(); /* call 0x00119470 */
 
 loc_0006F6AC: ;
+    if (MEM32(ebx) == 0x0022BA64u && getenv("DAH_OBJECTIVE_COUNT_TRACE")) {
+        static unsigned dah_volume_trace_calls;
+        if (dah_volume_trace_calls < 128u) {
+            const uint32_t region = MEM32(esi);
+            const int valid_actor = ebp >= 0x10000u && ebp <= 0x07FFFFF0u;
+            const int valid_region = region >= 0x10000u && region <= 0x07FFFFB8u;
+            fprintf(stderr,
+                    "[DAH-OBJECTIVE-VOLUME] call=%u object=%08X index=%u "
+                    "region=%08X origin=%f,%f,%f actor=%08X xyz=%f,%f,%f inside=%u mode=%u\n",
+                    ++dah_volume_trace_calls, ebx, edi, region,
+                    valid_region ? (double)MEMF(region + 0x30u) : -99999.0,
+                    valid_region ? (double)MEMF(region + 0x34u) : -99999.0,
+                    valid_region ? (double)MEMF(region + 0x38u) : -99999.0,
+                    ebp,
+                    valid_actor ? (double)MEMF(ebp) : -99999.0,
+                    valid_actor ? (double)MEMF(ebp + 4u) : -99999.0,
+                    valid_actor ? (double)MEMF(ebp + 8u) : -99999.0,
+                    LO8(eax), MEM32(ebx + 0x64u));
+        }
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0006F6BC; /* je: equal / zero */
@@ -25153,6 +25197,7 @@ loc_0006FF12: ;
  */
 void sub_0006FF20(void)
 {
+    uint32_t dah_count_candidate = 0;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -25222,11 +25267,32 @@ loc_0006FF7F: ;
     if (TEST_Z(_fa, _fb)) goto loc_0006FF90; /* je: equal / zero */
 
 loc_0006FF83: ;
+    dah_count_candidate = eax;
     PUSH32(esp, eax);
     ecx = esi;
     PUSH32(esp, 0x0006FF8Bu); sub_0006F690(); /* call 0x0006F690 */
 
 loc_0006FF8B: ;
+    if (MEM32(esi) == 0x0022BA64u && getenv("DAH_OBJECTIVE_COUNT_TRACE")) {
+        static unsigned dah_candidate_trace_calls;
+        if (dah_candidate_trace_calls < 128u) {
+            const uint32_t handle = MEM32(ebx);
+            const int valid = dah_count_candidate >= 0x10000u && dah_count_candidate <= 0x07FFFFF0u;
+            unsigned predicate_count = 0;
+            for (unsigned p = 0; p < 8u; ++p)
+                predicate_count += MEM32(esi + 0x68u + 4u * p) != 0u;
+            fprintf(stderr,
+                    "[DAH-OBJECTIVE-CANDIDATE] call=%u object=%08X event=%08X "
+                    "handle=%08X candidate=%08X xyz=%f,%f,%f matched=%u mode=%u "
+                    "first_predicate=%08X predicate_count=%u\n",
+                    ++dah_candidate_trace_calls, esi, MEM32(esi + 0x5C),
+                    handle, dah_count_candidate,
+                    valid ? (double)MEMF(dah_count_candidate) : -99999.0,
+                    valid ? (double)MEMF(dah_count_candidate + 4u) : -99999.0,
+                    valid ? (double)MEMF(dah_count_candidate + 8u) : -99999.0,
+                    LO8(eax), MEM32(esi + 0x64), MEM32(esi + 0x68), predicate_count);
+        }
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_0006FF90; /* je: equal / zero */
@@ -25283,6 +25349,27 @@ loc_0006FFDA: ;
     PUSH32(esp, 0x0006FFEAu); sub_0006E2F0(); /* call 0x0006E2F0 */
 
 loc_0006FFEA: ;
+    /* Internal, bounded trace of the original mission count comparison. */
+    if (MEM32(esi) == 0x0022BA64u) {
+        static int dah_objective_count_trace_enabled = -1;
+        static unsigned dah_objective_count_trace_calls;
+        if (dah_objective_count_trace_enabled < 0)
+            dah_objective_count_trace_enabled = getenv("DAH_OBJECTIVE_COUNT_TRACE") != NULL;
+        if (dah_objective_count_trace_enabled && dah_objective_count_trace_calls < 256u) {
+            const uint32_t manager = MEM32(0x24883C);
+            const uint32_t world = MEM32(0x286768);
+            fprintf(stderr,
+                    "[DAH-OBJECTIVE-COUNT] call=%u object=%08X status=%u mission=%08X "
+                    "event=%08X source=%08X hits=%u cached=%u compare=%u threshold=%d "
+                    "result=%u world_time=%f\n",
+                    ++dah_objective_count_trace_calls, esi, MEM32(esi + 0x48),
+                    manager ? MEM32(manager + 0x34) : 0u,
+                    MEM32(esi + 0x5C), MEM32(esi + 0x88), ebp,
+                    MEM32(esi + 0x60), MEM32(esi + 0x90),
+                    (int32_t)MEM32(esi + 0x8C), LO8(eax),
+                    world ? (double)MEMF(world + 0xC) : -1.0);
+        }
+    }
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     eax = 2;
@@ -29456,6 +29543,7 @@ void sub_000717D0(void)
     int32_t _fas = 0, _fbs = 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     int _cf = 0; /* carry flag */
+    uint32_t dah_tag_hash = 0;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000717D0: ;
@@ -29510,6 +29598,7 @@ loc_00071820: ;
     PUSH32(esp, 0x0007182Fu); sub_000D54A0(); /* call 0x000D54A0 */
 
 loc_0007182F: ;
+    dah_tag_hash = eax;
     PUSH32(esp, eax);
     ecx = esi;
     PUSH32(esp, 0x00071837u); sub_0010E3F0(); /* call 0x0010E3F0 */
@@ -29575,6 +29664,9 @@ loc_00071887: ;
     if (TEST_Z(_fa, _fb)) goto loc_00071913; /* je: equal / zero */
 
 loc_00071891: ;
+    dah_event_trace_physics_body_command(
+        dah_tag_hash, MEM32(esp + 0x10), esi, edi,
+        LO8(ebx) ? 0u : 1u, MEM32(esp + 0x1Cu));
     eax = MEM32(esp + 0x10);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
@@ -33552,10 +33644,14 @@ loc_00072E27: ;
 loc_00072E2F: ;
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(0xBAD7F988u) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0xBAD7F988u (32-bit) */
-    goto loc_00072E51;
+    if (CMP_NE(_fa, _fb)) goto loc_00072E8D; /* jne: not equal / not zero */
+    goto loc_00072E53;
 
 loc_00072E37: ;
     SET_LO8(eax, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D1u,
+                                MEM8(esi + 0x3D1), LO8(eax),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D1) = LO8(eax);
     goto loc_00072E75;
 
@@ -33569,20 +33665,29 @@ loc_00072E4B: ;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, 0xFA18544Du (32-bit) */
 
 loc_00072E51: ;
-    if (_flags /* jne: not equal / not zero */) goto loc_00072E8D;
+    if (CMP_NE(_fa, _fb)) goto loc_00072E8D; /* jne: not equal / not zero */
 
 loc_00072E53: ;
     SET_LO8(ecx, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D2u,
+                                MEM8(esi + 0x3D2), LO8(ecx),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D2) = LO8(ecx);
     goto loc_00072E75;
 
 loc_00072E5F: ;
     SET_LO8(edx, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0x3D0u,
+                                MEM8(esi + 0x3D0), LO8(edx),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0x3D0) = LO8(edx);
     goto loc_00072E75;
 
 loc_00072E6B: ;
     SET_LO8(eax, MEM8(esp + 0x13));
+    dah_event_trace_tag_ability(edi, esi, 0xC6u,
+                                MEM8(esi + 0xC6), LO8(eax),
+                                MEM32(esp + 0x14));
     MEM8(esi + 0xC6) = LO8(eax);
 
 loc_00072E75: ;
@@ -36401,6 +36506,9 @@ loc_00074023: ;
  */
 void sub_00074030(void)
 {
+    const uint32_t dah_resolve_caller = MEM32(esp);
+    const uint32_t dah_resolve_handle = ecx;
+    uint32_t dah_resolve_entity = 0;
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -36429,6 +36537,7 @@ loc_0007404B: ;
     PUSH32(esp, 0x00074053u); sub_00109F70(); /* call 0x00109F70 */
 
 loc_00074053: ;
+    dah_resolve_entity = eax;
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test eax, eax (32-bit) */
     if (TEST_Z(_fa, _fb)) goto loc_00074061; /* je: equal / zero */
@@ -36441,6 +36550,23 @@ loc_00074057: ;
     }
 
 loc_0007405F: ;
+    if (dah_resolve_caller == 0x0006FF7Fu && getenv("DAH_OBJECTIVE_COUNT_TRACE")) {
+        static unsigned dah_resolve_trace_calls;
+        if (dah_resolve_trace_calls < 128u) {
+            const int valid_entity = dah_resolve_entity >= 0x10000u && dah_resolve_entity <= 0x07FFFFDCu;
+            const int valid_position = eax >= 0x10000u && eax <= 0x07FFFFF0u;
+            fprintf(stderr,
+                    "[DAH-OBJECTIVE-ENTITY] call=%u handle=%08X entity=%08X "
+                    "vtable=%08X transform_vtable=%08X position=%08X xyz=%f,%f,%f\n",
+                    ++dah_resolve_trace_calls, dah_resolve_handle, dah_resolve_entity,
+                    valid_entity ? MEM32(dah_resolve_entity) : 0u,
+                    valid_entity ? MEM32(dah_resolve_entity + 0x18u) : 0u,
+                    eax,
+                    valid_position ? (double)MEMF(eax) : -99999.0,
+                    valid_position ? (double)MEMF(eax + 4u) : -99999.0,
+                    valid_position ? (double)MEMF(eax + 8u) : -99999.0);
+        }
+    }
     POP32(esp, ecx);
     esp += 4; return; /* ret */
 

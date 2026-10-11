@@ -1,0 +1,32 @@
+# Deterministic Farm route to Pause -> Options -> Audio. The final Left press
+# is intentionally not restored so a maximum-volume/raw-zero hypothesis can
+# be distinguished from genuinely dead menu input.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+# This isolated save currently resumes in the mothership with a retail
+# "researched a new upgrade" notification. Dismiss it before opening Pause.
+3900 2 0 255 0 0 0 0 0
+4800 2 10 0 0 0 0 0 0
+5200 2 2 0 0 0 0 0 0
+5260 2 2 0 0 0 0 0 0
+5320 2 2 0 0 0 0 0 0
+5600 2 0 255 0 0 0 0 0
+5900 2 2 0 0 0 0 0 0
+6200 2 0 255 0 0 0 0 0
+7400 2 0 255 0 0 0 0 0
+@gameplay
+30 2 10 0 0 0 0 0 0
+300 2 2 0 0 0 0 0 0
+360 2 2 0 0 0 0 0 0
+420 2 2 0 0 0 0 0 0
+600 2 0 255 0 0 0 0 0
+780 2 2 0 0 0 0 0 0
+960 2 0 255 0 0 0 0 0
+1140 2 4 0 0 0 0 0 0

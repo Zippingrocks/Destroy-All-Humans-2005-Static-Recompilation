@@ -1,0 +1,4 @@
+# start duration buttons A B LX LY RX RY
+# Distinct values make the retail conditioner input order unambiguous.
+30 20 0 0 0 4000 -8000 12000 -16000
+60 20 0 0 0 -4000 8000 -12000 16000

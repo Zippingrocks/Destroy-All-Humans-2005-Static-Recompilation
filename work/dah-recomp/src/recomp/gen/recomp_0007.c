@@ -8,6 +8,8 @@
 #include "xbox_memory_layout.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+extern uint32_t dah_xapi_get_last_error(void);
 
 /**
  * sub_000A3860
@@ -143,6 +145,9 @@ void sub_000A3900(void)
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
 loc_000A3900: ;
+    if (dah_console_god_blocks_damage_reaction(ecx)) {
+        esp += 12; return; /* retail ret 8; ignore Crypto damage reaction */
+    }
     eax = MEM32(esp + 4);
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0x9E7EDF34u) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0x9E7EDF34u (32-bit) */
@@ -6641,6 +6646,98 @@ loc_000A66F0: ;
 }
 
 /**
+ * sub_000A6700
+ * Original: 0x000A6700 - 0x000A672E (46 bytes, 17 insns)
+ * Category: game_vtable
+ * CC: thiscall, 2 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_000A6700(void)
+{
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+
+loc_000A6700: ;
+    _fa = (uint32_t)(MEM32(esp + 4)) & 0xFFFFFFFFu; _fb = (uint32_t)(0x9E7EDF34u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(esp + 4), 0x9E7EDF34u (32-bit) */
+    PUSH32(esp, esi);
+    esi = ecx;
+    if (CMP_NE(_fa, _fb)) goto loc_000A672C; /* jne: not equal / not zero */
+
+loc_000A670D: ;
+    ecx = esi + 0x2C;
+    PUSH32(esp, 0x000A6715u); sub_0010C270(); /* call 0x0010C270 */
+
+loc_000A6715: ;
+    eax = MEM32(esi + 0x14);
+    ecx = esi + 0x14;
+    { uint32_t _icall_esp = g_esp;
+    PUSH32(esp, 0);
+    { uint32_t _icall_target = MEM32(eax); PUSH32(esp, 0x000A671Fu); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
+    }
+
+loc_000A671F: ;
+    PUSH32(esp, 0);
+    ecx = esi + 0x17C;
+    PUSH32(esp, 0x000A672Cu); sub_00093CC0(); /* call 0x00093CC0 */
+
+loc_000A672C: ;
+    POP32(esp, esi);
+    esp += 12; return; /* ret 8 */
+
+}
+
+/**
+ * sub_000A6730
+ * Original: 0x000A6730 - 0x000A6761 (49 bytes, 20 insns)
+ * Category: game_vtable
+ * CC: thiscall, 2 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_000A6730(void)
+{
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+
+loc_000A6730: ;
+    _fa = (uint32_t)(MEM32(esp + 4)) & 0xFFFFFFFFu; _fb = (uint32_t)(0x9E7EDF34u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(esp + 4), 0x9E7EDF34u (32-bit) */
+    PUSH32(esp, esi);
+    esi = ecx;
+    if (CMP_NE(_fa, _fb)) goto loc_000A675D; /* jne: not equal / not zero */
+
+loc_000A673D: ;
+    eax = MEM32(esi + 0x14);
+    ecx = esi + 0x14;
+    { uint32_t _icall_esp = g_esp;
+    PUSH32(esp, 0);
+    { uint32_t _icall_target = MEM32(eax); PUSH32(esp, 0x000A6747u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
+    }
+
+loc_000A6747: ;
+    edx = MEM32(esi);
+    { uint32_t _icall_esp = g_esp;
+    PUSH32(esp, 0);
+    PUSH32(esp, 1);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0);
+    PUSH32(esp, 0xDE39DE43u);
+    ecx = esi;
+    { uint32_t _icall_target = MEM32(edx + 0x6C); PUSH32(esp, 0x000A675Du); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
+    }
+
+loc_000A675D: ;
+    POP32(esp, esi);
+    esp += 12; return; /* ret 8 */
+
+}
+
+/**
  * sub_000A6770
  * Original: 0x000A6770 - 0x000A6844 (212 bytes, 62 insns)
  * Category: game_vtable
@@ -6851,6 +6948,38 @@ loc_000A68D9: ;
     ecx = esi;
     POP32(esp, esi);
     g_seh_ebp = ebp; sub_0010B300(); return; /* tail jmp 0x0010B300 */
+
+}
+
+/**
+ * sub_000A68F0
+ * Original: 0x000A68F0 - 0x000A6913 (35 bytes, 11 insns)
+ * Category: game_vtable
+ * CC: thiscall, 1 params, returns int_or_void
+ * Frame: fpo_leaf
+ */
+void sub_000A68F0(void)
+{
+    int _flags = 0; /* fallback flag var */
+    uint32_t _fa = 0, _fb = 0;
+    int32_t _fas = 0, _fbs = 0;
+    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
+
+loc_000A68F0: ;
+    eax = MEM32(ecx + 0xC8);
+    _fa = (uint32_t)(MEM32(eax)) & 0xFFFFFFFFu; _fb = (uint32_t)(0xF0689A91u) & 0xFFFFFFFFu;
+    _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp MEM32(eax), 0xF0689A91u (32-bit) */
+    if (CMP_EQ(_fa, _fb)) goto loc_000A690F; /* je: equal / zero */
+
+loc_000A68FE: ;
+    edx = MEM32(esp + 4);
+    PUSH32(esp, edx);
+    PUSH32(esp, ecx);
+    ecx = ecx + 0xBC;
+    PUSH32(esp, 0x000A690Fu); sub_000991A0(); /* call 0x000991A0 */
+
+loc_000A690F: ;
+    esp += 8; return; /* ret 4 */
 
 }
 
@@ -12358,6 +12487,7 @@ loc_000A8E77: ;
  */
 void sub_000A8E80(void)
 {
+    static uint32_t rejected_candidate_count;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -12574,7 +12704,30 @@ loc_000A8FFB: ;
 loc_000A9000: ;
     eax = MEM32(esp + 0x6C);
     ecx = MEM32(eax + ebp * 4);
+    /* The spatial-query result owns actor/interface pointers.  A stale entry
+     * observed after a PK release contained 0x0001EA84 (guest .text), so the
+     * following virtual call interpreted instruction bytes as a vtable and
+     * faulted while reading slot +0x48.  Retail cannot dispatch that entry:
+     * live scene objects come from the game arena and their interface tables
+     * live in the XBE's read-only vtable region.  Skip only entries that fail
+     * both invariants, preserving the retail loop for every valid candidate. */
+    if (ecx < 0x00F80000u || ecx >= 0x08000000u) {
+        if (rejected_candidate_count++ < 32u) {
+            fprintf(stderr,
+                    "[DAH-SPATIAL-CANDIDATE-REJECT] object=%08X reason=address\n",
+                    ecx);
+        }
+        goto loc_000A90DC;
+    }
     edx = MEM32(ecx);
+    if (edx < 0x00225C00u || edx >= 0x00248000u) {
+        if (rejected_candidate_count++ < 32u) {
+            fprintf(stderr,
+                    "[DAH-SPATIAL-CANDIDATE-REJECT] object=%08X vtable=%08X reason=vtable\n",
+                    ecx, edx);
+        }
+        goto loc_000A90DC;
+    }
     { uint32_t _icall_esp = g_esp;
     { uint32_t _icall_target = MEM32(edx + 0x48); PUSH32(esp, 0x000A900Cu); RECOMP_ICALL_SAFE(_icall_target, _icall_esp); } /* indirect call */
     }
@@ -12937,7 +13090,7 @@ loc_000A9273: ;
     PUSH32(esp, 0x000A9283u); sub_00094A90(); /* call 0x00094A90 */
 
 loc_000A9283: ;
-    SET_LO8(eax, MEM8(0x2867AC));
+    SET_LO8(eax, (MEM8(0x2867AC) || dah_console_infinite_ammo_enabled()) ? 1u : 0u);
     _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(LO8(eax)) & 0xFFu;
     _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* test LO8(eax), LO8(eax) (8-bit) */
     if (TEST_NZ(_fa, _fb)) goto loc_000A92A9; /* jne: not equal / not zero */
@@ -32297,6 +32450,25 @@ void sub_000B21AB(void)
     int _cf = 0; /* carry flag */
 
 loc_000B21AB: ;
+    /* Generate the retail save-container name from its UTF-16 display name.
+     * This function is the title's base-65536 hash modulo 2^64-59, rendered
+     * as the low twelve uppercase hexadecimal digits. */
+    {
+        uint32_t source = MEM32(esp + 4), output = MEM32(esp + 8);
+        uint64_t hash = 0;
+        unsigned index;
+        for (index = 0; MEM16(source + index * 2u); ++index) {
+            hash = hash * 65536u + MEM16(source + index * 2u);
+            hash %= 0xFFFFFFFFFFFFFFC5ull;
+        }
+        for (index = 0; index < 12u; ++index) {
+            unsigned nibble = (unsigned)((hash >> (44u - index * 4u)) & 0xFu);
+            MEM8(output + index) = (uint8_t)(nibble < 10u ? '0' + nibble : 'A' + nibble - 10u);
+        }
+        MEM8(output + 12u) = 0;
+        esp += 16; return; /* ret 12 */
+    }
+
     PUSH32(esp, ebp);
     ebp = esp;
     g_ebp = ebp; /* publish frame for frameless callees */
@@ -32998,6 +33170,12 @@ loc_000B2591: ;
     PUSH32(esp, 0x000B2596u); sub_000B282D(); /* call 0x000B282D */
 
 loc_000B2596: ;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_collision_count;
+        if (dah_save_collision_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-CONTAINER-COLLISION] call=%u mode=%u dos_error=%08X\n",
+                    dah_save_collision_count, MEM32(ebp + 0x10), eax);
+    }
     _fa = (uint32_t)(eax) & 0xFFFFFFFFu; _fb = (uint32_t)(0xB7) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp eax, 0xB7 (32-bit) */
     MEM32(ebp + 0x14) = eax;
@@ -33026,6 +33204,12 @@ loc_000B25BF: ;
     PUSH32(esp, 0x000B25CEu); sub_000B2408(); /* call 0x000B2408 */
 
 loc_000B25CE: ;
+    if (getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_meta_count;
+        if (dah_save_meta_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-META-RESULT] call=%u mode=%u result=%08X\n",
+                    dah_save_meta_count, MEM32(ebp + 0x10), eax);
+    }
     ebx = eax;
     _fa = (uint32_t)(ebx) & 0xFFFFFFFFu; _fb = (uint32_t)(ebx) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* test ebx, ebx (32-bit) */
@@ -33052,6 +33236,12 @@ loc_000B25F1: ;
     eax = MEM32(ebp + 0x14);
 
 loc_000B25F4: ;
+    if (getenv("DAH_SAVE_TRACE") && MEM32(ebp + 0x10) != 3u) {
+        static unsigned dah_save_container_result_count;
+        if (dah_save_container_result_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-CONTAINER-RESULT] call=%u mode=%u result=%08X\n",
+                    dah_save_container_result_count, MEM32(ebp + 0x10), eax);
+    }
     POP32(esp, edi);
     POP32(esp, esi);
     POP32(esp, ebx);
@@ -33399,27 +33589,14 @@ loc_000B282A: ;
  */
 void sub_000B282D(void)
 {
-    int _flags = 0; /* fallback flag var */
-    uint32_t _fa = 0, _fb = 0;
-    int32_t _fas = 0, _fbs = 0;
-    (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
-
-loc_000B282D: ;
-    eax = ZX8(MEM8(0x24));
-    _fa = (uint32_t)(LO8(eax)) & 0xFFu; _fb = (uint32_t)(2) & 0xFFu;
-    _fas = (int32_t)(int8_t)(_fa); _fbs = (int32_t)(int8_t)(_fb); /* cmp LO8(eax), 2 (8-bit) */
-    if (CMP_AE(_fa, _fb)) goto loc_000B283F; /* jae: above or equal (unsigned >=) */
-
-loc_000B2839: ;
-    eax = MEM32(0x28);
-
-loc_000B283F: ;
-    eax = MEM32(0x270948);
-    ecx = MEM32(4);
-    eax = MEM32(ecx + eax * 4);
-    eax = MEM32(eax + 8);
-    esp += 4; return; /* ret */
-
+    eax = dah_xapi_get_last_error();
+    if (eax == 183u && getenv("DAH_SAVE_TRACE")) {
+        static unsigned dah_save_lasterror_count;
+        if (dah_save_lasterror_count++ < 16u)
+            fprintf(stderr, "[DAH-SAVE-LASTERROR] call=%u value=%08X\n",
+                    dah_save_lasterror_count, eax);
+    }
+    esp += 4u; /* ret */
 }
 
 /**

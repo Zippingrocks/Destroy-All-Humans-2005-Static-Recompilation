@@ -5,6 +5,7 @@
 
 #define RECOMP_GENERATED_CODE
 #include "recomp_funcs.h"
+#include "dah_event_trace.h"
 #include <math.h>
 
 /**
@@ -30544,6 +30545,12 @@ void sub_0001E870(void)
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
+    uint32_t dah_ai_manager = ecx;
+    uint32_t dah_ai_caller = MEM32(esp);
+    uint32_t dah_ai_old_state = MEM32(ecx + 0x18);
+    uint32_t dah_ai_old_descriptor = dah_ai_old_state ? MEM32(dah_ai_old_state + 8) : 0;
+    uint32_t dah_ai_old_id = dah_ai_old_descriptor ? MEM32(dah_ai_old_descriptor) : 0;
+    uint32_t dah_ai_old_name = dah_ai_old_descriptor ? MEM32(dah_ai_old_descriptor + 0xC) : 0;
     (void)_fa; (void)_fb; (void)_fas; (void)_fbs;
     ebp = g_seh_ebp; /* fpo_leaf: inherit caller's frame */
 
@@ -30693,6 +30700,15 @@ loc_0001E984: ;
     PUSH32(esp, 0x0001E99Cu); sub_000304D0(); /* call 0x000304D0 */
 
 loc_0001E99C: ;
+    {
+        uint32_t dah_ai_new_state = MEM32(esi + 0x18);
+        uint32_t dah_ai_new_descriptor = dah_ai_new_state ? MEM32(dah_ai_new_state + 8) : 0;
+        uint32_t dah_ai_new_id = dah_ai_new_descriptor ? MEM32(dah_ai_new_descriptor) : 0;
+        uint32_t dah_ai_new_name = dah_ai_new_descriptor ? MEM32(dah_ai_new_descriptor + 0xC) : 0;
+        dah_event_trace_ai_state(dah_ai_manager, MEM32(esi + 4),
+            dah_ai_old_state, dah_ai_new_state, dah_ai_old_id, dah_ai_new_id,
+            dah_ai_old_name, dah_ai_new_name, dah_ai_caller);
+    }
     POP32(esp, edi);
     MEM8(esi + 0x78) = 0;
     POP32(esp, esi);

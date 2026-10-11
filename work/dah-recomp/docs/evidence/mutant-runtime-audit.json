@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "address": "0x00130B20",
+      "end": "0x00130B3B",
+      "retailBytes": 27,
+      "tableSlot": "0x00237880",
+      "observedInLog": true,
+      "status": "retail-bytes-verified-and-dispatchable"
+    },
+    {
+      "address": "0x000242F0",
+      "end": "0x0002431B",
+      "retailBytes": 43,
+      "tableSlot": "0x00227A00",
+      "observedInLog": true,
+      "status": "retail-bytes-verified-and-dispatchable"
+    },
+    {
+      "address": "0x0011CB60",
+      "end": "0x0011CB68",
+      "retailBytes": 8,
+      "tableSlot": "0x00236B3C",
+      "observedInLog": true,
+      "status": "retail-bytes-verified-and-dispatchable"
+    },
+    {
+      "address": "0x0014A290",
+      "end": "0x0014A2DA",
+      "retailBytes": 74,
+      "tableSlot": "0x0023751C",
+      "observedInLog": true,
+      "status": "retail-bytes-verified-and-dispatchable"
+    },
+    {
+      "address": "0x00078040",
+      "end": "0x0007805E",
+      "retailBytes": 30,
+      "tableSlot": "0x0022C424",
+      "observedInLog": true,
+      "status": "retail-bytes-verified-and-dispatchable"
+    }
+  ],
+  "corruptMidInstructionTarget": {
+    "address": "0x0001EB21",
+    "dispatchAdded": false,
+    "reason": "address lies inside the call instruction ending at 0x0001EB22"
+  }
+}

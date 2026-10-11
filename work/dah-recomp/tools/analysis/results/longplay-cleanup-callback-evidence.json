@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callback": {
+    "start": "0002A1A0",
+    "end": "0002A1EA",
+    "bytes": 74,
+    "instructions": 19,
+    "tableSlot": "0x002280AC",
+    "codeBytesSha256": "096FFEFE8C714C115BF661ECFFC49E241A50911B9F846F582FEEA665D615C9F4",
+    "observation": "retail vtable slot +0x0C; scalar deleting cleanup entry called four times during the October 10 death/reload run"
+  }
+}

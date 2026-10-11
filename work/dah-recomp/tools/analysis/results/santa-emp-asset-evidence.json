@@ -1,0 +1,358 @@
+{
+  "schema": 1,
+  "title": "Santa Modesta retail EMP asset evidence",
+  "block": "blocks/sites/santa",
+  "dirSha256": "768FDC7EC82A9EA9DC500EF25D631E7D54A126D53B9DBBA8CB484119B3D0D016",
+  "roots": [
+    4854,
+    4855
+  ],
+  "claims": [
+    "Resource 4854 is the m_emp_mine actor archetype and identifies itself as ActorTypeMineStatic.",
+    "Resource 4855 is the weapon_emp_detonate actor archetype and identifies itself as WeaponTypeDetonate.",
+    "Aligned resource-name-hash references below are candidate serialized dependencies; an edge alone does not prove runtime invocation."
+  ],
+  "nodes": [
+    {
+      "index": 3069,
+      "typeHash": "0x13D4B6D6",
+      "type": "component_or_dependency",
+      "nameHash": "0xD9F538FC",
+      "loadgroup": 0,
+      "offset": "0x4D07A8",
+      "size": 2708,
+      "sha256": "423DC7D06B3ED693203905770CB030D96375A015E74D63862C5554BC2734A0BE",
+      "strings": [
+        "_taL",
+        "6NaL",
+        ":=E(",
+        "%BaL",
+        "333?<"
+      ]
+    },
+    {
+      "index": 3076,
+      "typeHash": "0x13D4B6D6",
+      "type": "component_or_dependency",
+      "nameHash": "0x03E8A80D",
+      "loadgroup": 0,
+      "offset": "0x4D1618",
+      "size": 576,
+      "sha256": "317CC9096F58E03D6E8EBF2AD42210E3AF3926036DCD1BC3B04E6AB499F88BE7",
+      "strings": [
+        "333?"
+      ]
+    },
+    {
+      "index": 3211,
+      "typeHash": "0x13D4B6D6",
+      "type": "component_or_dependency",
+      "nameHash": "0x97E1F8F3",
+      "loadgroup": 0,
+      "offset": "0x4EACF0",
+      "size": 3404,
+      "sha256": "66E6C10CEFCD4B76A222CC3E5BFD3DC99525D32D2DCF38FA0259596EFE579F67",
+      "strings": [
+        "ff&?"
+      ]
+    },
+    {
+      "index": 3219,
+      "typeHash": "0x13D4B6D6",
+      "type": "component_or_dependency",
+      "nameHash": "0x053983D6",
+      "loadgroup": 0,
+      "offset": "0x4EBE58",
+      "size": 556,
+      "sha256": "6C7EA30360C2CBAC875EA3BF7B4DDD026919AAEE77ACA648138BAA8D0C53D8C3",
+      "strings": [
+        "?333?"
+      ]
+    },
+    {
+      "index": 4226,
+      "typeHash": "0xBC1CE62D",
+      "type": "actor_component",
+      "nameHash": "0xC9EF9119",
+      "loadgroup": 0,
+      "offset": "0x64AFA8",
+      "size": 324,
+      "sha256": "F203DE094E8F0A48CDBD13B66D8C205E592464EA84D65F984B08A866D6C0F1C6",
+      "strings": []
+    },
+    {
+      "index": 4854,
+      "typeHash": "0x1D9D48EC",
+      "type": "actor_archetype",
+      "nameHash": "0x1D5627CF",
+      "loadgroup": 0,
+      "offset": "0x6A6178",
+      "size": 1548,
+      "sha256": "974B4C26DE09ECE98231F1C3AC8EE176BD546F6B19BA04F6A423FD09D7424A05",
+      "strings": [
+        "fff?fff?",
+        "NipD",
+        "ActorTypeMineStatic",
+        "m_emp_mine"
+      ]
+    },
+    {
+      "index": 4855,
+      "typeHash": "0x1D9D48EC",
+      "type": "actor_archetype",
+      "nameHash": "0xDED32326",
+      "loadgroup": 0,
+      "offset": "0x6A6784",
+      "size": 344,
+      "sha256": "6A5AB745114CE1959EE6244339DBD0C65F8CAF50F5EAFF5C76AFB35969742704",
+      "strings": [
+        "WeaponTypeDetonate",
+        "weapon_emp_detonate"
+      ]
+    },
+    {
+      "index": 6118,
+      "typeHash": "0xBC1CE62D",
+      "type": "actor_component",
+      "nameHash": "0xA763086D",
+      "loadgroup": 0,
+      "offset": "0x7D9ABC",
+      "size": 324,
+      "sha256": "57956601754DF99AC4C9B5F40937A7067D2EAF7DFBCDAD008638475972CCEC87",
+      "strings": []
+    },
+    {
+      "index": 6180,
+      "typeHash": "0xC1927C00",
+      "type": "small_config",
+      "nameHash": "0x9E3BE033",
+      "loadgroup": 0,
+      "offset": "0x7E3A04",
+      "size": 20,
+      "sha256": "02B912879B864ECEE7A72BAF0B1D75DAB447A31A8A310BC83080FD95B670B416",
+      "strings": []
+    },
+    {
+      "index": 6253,
+      "typeHash": "0xC1927C00",
+      "type": "small_config",
+      "nameHash": "0x274CF3B9",
+      "loadgroup": 0,
+      "offset": "0x7EE720",
+      "size": 20,
+      "sha256": "D387BCC94678982D5EF4CFED479356CB90F2237160B2C3A25CE01D20E2FCD564",
+      "strings": []
+    },
+    {
+      "index": 6254,
+      "typeHash": "0xC1927C00",
+      "type": "small_config",
+      "nameHash": "0x6E05FD3D",
+      "loadgroup": 0,
+      "offset": "0x7EE734",
+      "size": 20,
+      "sha256": "E6D7D4C22CF039C362C89609FE33C0B944E1AC02AF380035085006353065D0F6",
+      "strings": []
+    },
+    {
+      "index": 6255,
+      "typeHash": "0xC1927C00",
+      "type": "small_config",
+      "nameHash": "0x78CB3211",
+      "loadgroup": 0,
+      "offset": "0x7EE748",
+      "size": 20,
+      "sha256": "FA864736B73F7320A9197D73218653D1867319D5408E901ABE27C43A197B4CF8",
+      "strings": []
+    },
+    {
+      "index": 7363,
+      "typeHash": "0x1D9D48EC",
+      "type": "actor_archetype",
+      "nameHash": "0xEBEB1BE9",
+      "loadgroup": 0,
+      "offset": "0x9FC8A4",
+      "size": 168,
+      "sha256": "3E9AAB647A4FC600ABF4CE05730FAEE95639FA944EAF2839C06FED37394ADD2A",
+      "strings": [
+        "FireTypeEB",
+        "fire"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "fromIndex": 3069,
+      "atOffset": "0x46C",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3069,
+      "atOffset": "0x650",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3069,
+      "atOffset": "0x850",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3069,
+      "atOffset": "0xA7C",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3076,
+      "atOffset": "0x228",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3211,
+      "atOffset": "0x270",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3211,
+      "atOffset": "0x6CC",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3211,
+      "atOffset": "0xB28",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3211,
+      "atOffset": "0xD34",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 3219,
+      "atOffset": "0x214",
+      "toIndex": 6180,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x9E3BE033"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x42C",
+      "toIndex": 4226,
+      "toType": "actor_component",
+      "toTypeHash": "0xBC1CE62D",
+      "toNameHash": "0xC9EF9119"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x444",
+      "toIndex": 6118,
+      "toType": "actor_component",
+      "toTypeHash": "0xBC1CE62D",
+      "toNameHash": "0xA763086D"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x4FC",
+      "toIndex": 7363,
+      "toType": "actor_archetype",
+      "toTypeHash": "0x1D9D48EC",
+      "toNameHash": "0xEBEB1BE9"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x54C",
+      "toIndex": 3219,
+      "toType": "component_or_dependency",
+      "toTypeHash": "0x13D4B6D6",
+      "toNameHash": "0x053983D6"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x55C",
+      "toIndex": 3219,
+      "toType": "component_or_dependency",
+      "toTypeHash": "0x13D4B6D6",
+      "toNameHash": "0x053983D6"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x56C",
+      "toIndex": 3069,
+      "toType": "component_or_dependency",
+      "toTypeHash": "0x13D4B6D6",
+      "toNameHash": "0xD9F538FC"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x598",
+      "toIndex": 3211,
+      "toType": "component_or_dependency",
+      "toTypeHash": "0x13D4B6D6",
+      "toNameHash": "0x97E1F8F3"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x5E8",
+      "toIndex": 6253,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x274CF3B9"
+    },
+    {
+      "fromIndex": 4854,
+      "atOffset": "0x5F8",
+      "toIndex": 6255,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x78CB3211"
+    },
+    {
+      "fromIndex": 4855,
+      "atOffset": "0x154",
+      "toIndex": 6254,
+      "toType": "small_config",
+      "toTypeHash": "0xC1927C00",
+      "toNameHash": "0x6E05FD3D"
+    },
+    {
+      "fromIndex": 7363,
+      "atOffset": "0x7C",
+      "toIndex": 3076,
+      "toType": "component_or_dependency",
+      "toTypeHash": "0x13D4B6D6",
+      "toNameHash": "0x03E8A80D"
+    }
+  ],
+  "limits": [
+    "The retail directory contains no symbolic field names for these serialized offsets.",
+    "The graph records hash matches at aligned words and therefore requires runtime or decoder confirmation before assigning behavior.",
+    "No direct name-hash edge from m_emp_mine to weapon_emp_detonate was found in the mine root blob; an indirect or code-driven link remains possible."
+  ]
+}

@@ -1,0 +1,9 @@
+@frame
+# Fresh-profile route to Farm. Stop after the accepted INVADE input so no
+# later pulse can skip the in-engine opening cinematic on a faster backend.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0

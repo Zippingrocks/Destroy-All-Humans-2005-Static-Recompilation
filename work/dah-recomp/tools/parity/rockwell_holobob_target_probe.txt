@@ -1,0 +1,28 @@
+@frame
+# Fresh profile -> mothership hub.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+
+# Enter the retail Hangar, select Rockwell, and invade.
+3600 6 0 255 0 0 0 0 0
+4200 6 4 0 0 0 0 0 0
+4700 6 0 255 0 0 0 0 0
+
+# Dismiss the queued Holobob tutorial, then activate it while the two scripted
+# humans beside the car are still in the opening camera cone.
+6700 6 0 255 0 0 0 0 0
+# Match the retail targeting step used by the xemu reference before B.
+6740 60 0 0 0 0 0 0 0 0 0 0 0 0 255
+6740 60 0 0 0 20000 32767 0 0
+6820 24 0 0 255 0 0 0 0
+7200 24 0 0 255 0 0 0 0
+
+@gameplay
+# Select Holobob, dismiss Alert Levels, and walk only to the opening target
+# position used by the matching xemu capture.  Stop there before activating.
+400 12 0 0 0 0 0 0 0 255
+430 12 0 255 0 0 0 0 0
+520 192 0 0 0 0 32767 0 0

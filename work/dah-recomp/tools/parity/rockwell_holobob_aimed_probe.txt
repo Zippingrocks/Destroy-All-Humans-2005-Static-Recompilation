@@ -1,0 +1,25 @@
+# Rockwell Holobob acquisition probe.  Follow the stable landing/tutorial
+# route, approach the fairground civilians, then pan the camera right until
+# the highlighted woman is centered before pressing B.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+2800 10 0 255 0 0 0 0 0
+3100 10 0 255 0 0 0 0 0
+3400 10 0 255 0 0 0 0 0
+3500 192 0 0 0 16000 28000 0 0
+3720 10 0 255 0 0 0 0 0
+
+3750 18 0 0 0 0 0 12000 0
+3780 110 0 0 0 0 30000 0 0
+# At the baseline checkpoint the acquired civilian is at screen x~475.
+# Pan toward her before activation so the selector ray crosses her collider.
+3890 24 0 0 0 0 0 26000 0
+3920 8 0 0 255 0 0 0 0
+3940 90 0 0 255 0 0 0 0

@@ -1,0 +1,23 @@
+# Internal front-end audit: load the existing first profile without entering
+# gameplay by any developer shortcut.  Pair with run_internal.ps1 -EnterMenu.
+# start duration hex_buttons A B LX LY RX RY
+1320 30 0 255 0 0 0 0 0
+1560 30 0 255 0 0 0 0 0
+1900 30 0 255 0 0 0 0 0
+2200 30 0 255 0 0 0 0 0
+2500 30 0 255 0 0 0 0 0
+2800 30 0 255 0 0 0 0 0
+3100 30 0 255 0 0 0 0 0
+3400 30 0 255 0 0 0 0 0
+3700 30 0 255 0 0 0 0 0
+4000 30 0 255 0 0 0 0 0
+4300 30 0 255 0 0 0 0 0
+4600 30 0 255 0 0 0 0 0
+4900 30 0 255 0 0 0 0 0
+5200 30 0 255 0 0 0 0 0
+5500 30 0 255 0 0 0 0 0
+5800 30 0 255 0 0 0 0 0
+
+# Once the post-load Pox sequence is exhausted, open the retail pause/menu
+# shell so the options hierarchy can be audited.
+6500 30 10 0 0 0 0 0 0

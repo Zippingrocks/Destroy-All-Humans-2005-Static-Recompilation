@@ -1,0 +1,11 @@
+@frame
+# Warm in-process xemu reset route. The persistent reference reaches the Farm
+# movie from the 2700 A pulse; a second A at 3000 skips that movie, so it is
+# intentionally absent here. This schedule is for cinematic capture only.
+# start duration hex_buttons A B LX LY RX RY
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0

@@ -1,0 +1,16 @@
+# State-verified route to the hub, then Up from the default Hangar slot to
+# Archives and A. Extended fields: frame duration buttons A B X left-x
+# left-y right-x right-y Y black white LT RT.
+318 8 0 255 0 0 0 0 0 0 0 0 0 0 0
+369 4 0 255 0 0 0 0 0 0 0 0 0 0 0
+534 7 1 0 0 0 0 0 0 0 0 0 0 0 0
+606 6 0 255 0 0 0 0 0 0 0 0 0 0 0
+646 7 2 0 0 0 0 0 0 0 0 0 0 0 0
+661 6 1 0 0 0 0 0 0 0 0 0 0 0 0
+692 6 0 255 0 0 0 0 0 0 0 0 0 0 0
+925 7 0 255 0 0 0 0 0 0 0 0 0 0 0
+956 6 2 0 0 0 0 0 0 0 0 0 0 0 0
+962 1 2 255 0 0 0 0 0 0 0 0 0 0 0
+963 6 0 255 0 0 0 0 0 0 0 0 0 0 0
+1050 6 1 0 0 0 0 0 0 0 0 0 0 0 0
+1065 7 0 255 0 0 0 0 0 0 0 0 0 0 0

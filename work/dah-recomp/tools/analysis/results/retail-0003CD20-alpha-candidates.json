@@ -1,0 +1,488 @@
+{
+  "schema": 1,
+  "method": "normalized-instruction-and-function-shape-ranking",
+  "warning": "Candidates require manual control-flow, call-graph, constant, vtable, and runtime validation before naming retail code.",
+  "inputs": {
+    "retailFunctions": {
+      "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\work\\disasm-seeded\\functions.json",
+      "sha256": "5f5ab37805eb45b607752c924c62095fb14982cdfc95df31701650f8a7147e7b"
+    },
+    "retailAsm": {
+      "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\work\\disasm-seeded\\asm\\text.asm",
+      "sha256": "476a0887c2965874626bc8b1aa8fae9c7bef902794d8ec87c9bc91407aabd571"
+    },
+    "alphaFunctions": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\disasm\\functions.json",
+      "sha256": "19df6a0fd84c109accb207642909f003fbfbb3b38e192ff0c2a0f58a41708c20"
+    },
+    "alphaAsm": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\disasm\\asm\\text.asm",
+      "sha256": "de8ab6538f17eb1a5c22f846f61140c46f23031a723943ebda76eca764312a7f"
+    },
+    "alphaSymbols": {
+      "path": "C:\\Users\\Bilbo\\Downloads\\Destroy All Humans Alpha Recomp\\analysis\\sf-symbols.json",
+      "sha256": "2ddc12e60c78662f26e86925f5b63357ee67d964e2bb829a8ccde50de3f5c3e7"
+    }
+  },
+  "retail": {
+    "queriedAddress": "0x0003CD20",
+    "explicitRange": true,
+    "functionStart": "0x0003CD20",
+    "functionEnd": "0x0003CDF6",
+    "currentName": "sub_0003CD20",
+    "instructionCount": 66,
+    "size": 214
+  },
+  "candidates": [
+    {
+      "score": 0.55282,
+      "alphaStart": "0x00049E00",
+      "alphaEnd": "0x00049EEA",
+      "names": [
+        "Traffic::ActorSamSite::Update"
+      ],
+      "mnemonicScore": 0.466165,
+      "tokenScore": 0.240602,
+      "instructionShape": 0.985075,
+      "byteShape": 0.91453,
+      "callShape": 1.0,
+      "alphaInstructionCount": 67,
+      "alphaSize": 234
+    },
+    {
+      "score": 0.542041,
+      "alphaStart": "0x000EFEC0",
+      "alphaEnd": "0x000EFF75",
+      "names": [
+        "Sim::ParticleEffectFactory::~ParticleEffectFactory"
+      ],
+      "mnemonicScore": 0.510949,
+      "tokenScore": 0.218978,
+      "instructionShape": 0.929577,
+      "byteShape": 0.845794,
+      "callShape": 0.875,
+      "alphaInstructionCount": 71,
+      "alphaSize": 181
+    },
+    {
+      "score": 0.531123,
+      "alphaStart": "0x00014930",
+      "alphaEnd": "0x000149EE",
+      "names": [
+        "UFO::BeamHelper::~BeamHelper"
+      ],
+      "mnemonicScore": 0.488889,
+      "tokenScore": 0.222222,
+      "instructionShape": 0.956522,
+      "byteShape": 0.88785,
+      "callShape": 0.75,
+      "alphaInstructionCount": 69,
+      "alphaSize": 190
+    },
+    {
+      "score": 0.530782,
+      "alphaStart": "0x000D2D50",
+      "alphaEnd": "0x000D2E19",
+      "names": [
+        "Sound::SoundManager::SetListenerDirectionFacing"
+      ],
+      "mnemonicScore": 0.459259,
+      "tokenScore": 0.207407,
+      "instructionShape": 0.956522,
+      "byteShape": 0.939252,
+      "callShape": 0.888889,
+      "alphaInstructionCount": 69,
+      "alphaSize": 201
+    },
+    {
+      "score": 0.528904,
+      "alphaStart": "0x0016B430",
+      "alphaEnd": "0x0016B517",
+      "names": [
+        "Graphics::Effect::MotionBlurXBox::MotionBlurXBox"
+      ],
+      "mnemonicScore": 0.417266,
+      "tokenScore": 0.258993,
+      "instructionShape": 0.90411,
+      "byteShape": 0.926407,
+      "callShape": 1.0,
+      "alphaInstructionCount": 73,
+      "alphaSize": 231
+    },
+    {
+      "score": 0.523281,
+      "alphaStart": "0x00060860",
+      "alphaEnd": "0x0006092F",
+      "names": [
+        "UFO::Landing::PrepareForLanding"
+      ],
+      "mnemonicScore": 0.446154,
+      "tokenScore": 0.184615,
+      "instructionShape": 0.969697,
+      "byteShape": 0.96729,
+      "callShape": 0.888889,
+      "alphaInstructionCount": 64,
+      "alphaSize": 207
+    },
+    {
+      "score": 0.523063,
+      "alphaStart": "0x0004BD20",
+      "alphaEnd": "0x0004BE24",
+      "names": [
+        "Traffic::LocomotionBipedGround::MoveThrough"
+      ],
+      "mnemonicScore": 0.45,
+      "tokenScore": 0.3125,
+      "instructionShape": 0.702128,
+      "byteShape": 0.823077,
+      "callShape": 1.0,
+      "alphaInstructionCount": 94,
+      "alphaSize": 260
+    },
+    {
+      "score": 0.520804,
+      "alphaStart": "0x0016FCF0",
+      "alphaEnd": "0x0016FDC4",
+      "names": [
+        "hkBsdSockServer::hkBsdSockServer"
+      ],
+      "mnemonicScore": 0.41958,
+      "tokenScore": 0.223776,
+      "instructionShape": 0.857143,
+      "byteShape": 0.990654,
+      "callShape": 1.0,
+      "alphaInstructionCount": 77,
+      "alphaSize": 212
+    },
+    {
+      "score": 0.520072,
+      "alphaStart": "0x0012ADD0",
+      "alphaEnd": "0x0012AE8E",
+      "names": [
+        "hkMousePickingHandler::pickObject"
+      ],
+      "mnemonicScore": 0.476923,
+      "tokenScore": 0.230769,
+      "instructionShape": 0.969697,
+      "byteShape": 0.88785,
+      "callShape": 0.625,
+      "alphaInstructionCount": 64,
+      "alphaSize": 190
+    },
+    {
+      "score": 0.518533,
+      "alphaStart": "0x00049680",
+      "alphaEnd": "0x0004974B",
+      "names": [
+        "Traffic::ActorPedestrian::~ActorPedestrian"
+      ],
+      "mnemonicScore": 0.448,
+      "tokenScore": 0.208,
+      "instructionShape": 0.893939,
+      "byteShape": 0.948598,
+      "callShape": 0.875,
+      "alphaInstructionCount": 59,
+      "alphaSize": 203
+    },
+    {
+      "score": 0.510188,
+      "alphaStart": "0x00129530",
+      "alphaEnd": "0x001295F6",
+      "names": [
+        "hkSpyHandler::hkSpyHandler"
+      ],
+      "mnemonicScore": 0.522388,
+      "tokenScore": 0.149254,
+      "instructionShape": 0.970588,
+      "byteShape": 0.925234,
+      "callShape": 0.5,
+      "alphaInstructionCount": 68,
+      "alphaSize": 198
+    },
+    {
+      "score": 0.509365,
+      "alphaStart": "0x000345E0",
+      "alphaEnd": "0x000346DC",
+      "names": [
+        "UFO::JetPack::Activate"
+      ],
+      "mnemonicScore": 0.489796,
+      "tokenScore": 0.217687,
+      "instructionShape": 0.814815,
+      "byteShape": 0.849206,
+      "callShape": 0.75,
+      "alphaInstructionCount": 81,
+      "alphaSize": 252
+    },
+    {
+      "score": 0.50734,
+      "alphaStart": "0x000C18E0",
+      "alphaEnd": "0x000C19DC",
+      "names": [
+        "Graphics::RendererXBox::DrawLine"
+      ],
+      "mnemonicScore": 0.451128,
+      "tokenScore": 0.195489,
+      "instructionShape": 0.985075,
+      "byteShape": 0.849206,
+      "callShape": 0.75,
+      "alphaInstructionCount": 67,
+      "alphaSize": 252
+    },
+    {
+      "score": 0.506014,
+      "alphaStart": "0x0012A990",
+      "alphaEnd": "0x0012AA5D",
+      "names": [
+        "hkServerPluginHandler::registerAllViewers"
+      ],
+      "mnemonicScore": 0.460432,
+      "tokenScore": 0.172662,
+      "instructionShape": 0.90411,
+      "byteShape": 0.957944,
+      "callShape": 0.75,
+      "alphaInstructionCount": 73,
+      "alphaSize": 205
+    },
+    {
+      "score": 0.505771,
+      "alphaStart": "0x00108C20",
+      "alphaEnd": "0x00108CEA",
+      "names": [
+        "GUI::Handler::Handler"
+      ],
+      "mnemonicScore": 0.411765,
+      "tokenScore": 0.161765,
+      "instructionShape": 0.942857,
+      "byteShape": 0.943925,
+      "callShape": 1.0,
+      "alphaInstructionCount": 70,
+      "alphaSize": 202
+    },
+    {
+      "score": 0.504311,
+      "alphaStart": "0x0011FC50",
+      "alphaEnd": "0x0011FCF3",
+      "names": [
+        "Core::FileDisk::Write"
+      ],
+      "mnemonicScore": 0.455882,
+      "tokenScore": 0.191176,
+      "instructionShape": 0.942857,
+      "byteShape": 0.761682,
+      "callShape": 0.875,
+      "alphaInstructionCount": 70,
+      "alphaSize": 163
+    },
+    {
+      "score": 0.503617,
+      "alphaStart": "0x0006D720",
+      "alphaEnd": "0x0006D7E0",
+      "names": [
+        "UFO::FireManager::~FireManager"
+      ],
+      "mnemonicScore": 0.425532,
+      "tokenScore": 0.212766,
+      "instructionShape": 0.88,
+      "byteShape": 0.897196,
+      "callShape": 0.875,
+      "alphaInstructionCount": 75,
+      "alphaSize": 192
+    },
+    {
+      "score": 0.501033,
+      "alphaStart": "0x000E8460",
+      "alphaEnd": "0x000E851E",
+      "names": [
+        "Sim::MeshFactory::AddMesh"
+      ],
+      "mnemonicScore": 0.503937,
+      "tokenScore": 0.141732,
+      "instructionShape": 0.924242,
+      "byteShape": 0.88785,
+      "callShape": 0.625,
+      "alphaInstructionCount": 61,
+      "alphaSize": 190
+    },
+    {
+      "score": 0.499294,
+      "alphaStart": "0x0012F5A0",
+      "alphaEnd": "0x0012F678",
+      "names": [
+        "hkShapeDisplayViewer::~hkShapeDisplayViewer"
+      ],
+      "mnemonicScore": 0.431655,
+      "tokenScore": 0.215827,
+      "instructionShape": 0.90411,
+      "byteShape": 0.990741,
+      "callShape": 0.625,
+      "alphaInstructionCount": 73,
+      "alphaSize": 216
+    },
+    {
+      "score": 0.497915,
+      "alphaStart": "0x000B56D0",
+      "alphaEnd": "0x000B579E",
+      "names": [
+        "Graphics::RendererDebug::DebugCache::~DebugCache"
+      ],
+      "mnemonicScore": 0.450331,
+      "tokenScore": 0.211921,
+      "instructionShape": 0.776471,
+      "byteShape": 0.962617,
+      "callShape": 0.75,
+      "alphaInstructionCount": 85,
+      "alphaSize": 206
+    },
+    {
+      "score": 0.497832,
+      "alphaStart": "0x00045010",
+      "alphaEnd": "0x000450BB",
+      "names": [
+        "Traffic::Actor::StartUnloadAttack"
+      ],
+      "mnemonicScore": 0.425197,
+      "tokenScore": 0.204724,
+      "instructionShape": 0.924242,
+      "byteShape": 0.799065,
+      "callShape": 0.888889,
+      "alphaInstructionCount": 61,
+      "alphaSize": 171
+    },
+    {
+      "score": 0.497706,
+      "alphaStart": "0x0005E260",
+      "alphaEnd": "0x0005E35F",
+      "names": [
+        "UFO::Mission::ObjectiveTimer::Log"
+      ],
+      "mnemonicScore": 0.38806,
+      "tokenScore": 0.19403,
+      "instructionShape": 0.970588,
+      "byteShape": 0.839216,
+      "callShape": 1.0,
+      "alphaInstructionCount": 68,
+      "alphaSize": 255
+    },
+    {
+      "score": 0.497034,
+      "alphaStart": "0x00027370",
+      "alphaEnd": "0x0002741A",
+      "names": [
+        "UFO::MoveStateMachine::Process"
+      ],
+      "mnemonicScore": 0.4,
+      "tokenScore": 0.261538,
+      "instructionShape": 0.969697,
+      "byteShape": 0.794393,
+      "callShape": 0.75,
+      "alphaInstructionCount": 64,
+      "alphaSize": 170
+    },
+    {
+      "score": 0.495655,
+      "alphaStart": "0x000404E0",
+      "alphaEnd": "0x0004057A",
+      "names": [
+        "Traffic::BehaviorPedestrianEngage::IsCleanLineOfSight"
+      ],
+      "mnemonicScore": 0.434109,
+      "tokenScore": 0.310078,
+      "instructionShape": 0.954545,
+      "byteShape": 0.719626,
+      "callShape": 0.5,
+      "alphaInstructionCount": 63,
+      "alphaSize": 154
+    },
+    {
+      "score": 0.495308,
+      "alphaStart": "0x000222E0",
+      "alphaEnd": "0x0002239F",
+      "names": [
+        "UFO::Building::DoDeathInjectFearAndTerror"
+      ],
+      "mnemonicScore": 0.369231,
+      "tokenScore": 0.230769,
+      "instructionShape": 0.969697,
+      "byteShape": 0.892523,
+      "callShape": 0.875,
+      "alphaInstructionCount": 64,
+      "alphaSize": 191
+    },
+    {
+      "score": 0.494332,
+      "alphaStart": "0x000573E0",
+      "alphaEnd": "0x00057484",
+      "names": [
+        "UFO::Mission::Markers::RemoveRegion"
+      ],
+      "mnemonicScore": 0.394161,
+      "tokenScore": 0.248175,
+      "instructionShape": 0.929577,
+      "byteShape": 0.766355,
+      "callShape": 0.888889,
+      "alphaInstructionCount": 71,
+      "alphaSize": 164
+    },
+    {
+      "score": 0.494046,
+      "alphaStart": "0x0004FD20",
+      "alphaEnd": "0x0004FDEE",
+      "names": [
+        "UFO::HUD::Display::Radar::RemoveTag"
+      ],
+      "mnemonicScore": 0.38806,
+      "tokenScore": 0.19403,
+      "instructionShape": 0.970588,
+      "byteShape": 0.962617,
+      "callShape": 0.8,
+      "alphaInstructionCount": 68,
+      "alphaSize": 206
+    },
+    {
+      "score": 0.494046,
+      "alphaStart": "0x0004FDF0",
+      "alphaEnd": "0x0004FEBE",
+      "names": [
+        "UFO::HUD::Display::Radar::RemoveGroup"
+      ],
+      "mnemonicScore": 0.38806,
+      "tokenScore": 0.19403,
+      "instructionShape": 0.970588,
+      "byteShape": 0.962617,
+      "callShape": 0.8,
+      "alphaInstructionCount": 68,
+      "alphaSize": 206
+    },
+    {
+      "score": 0.493586,
+      "alphaStart": "0x00043060",
+      "alphaEnd": "0x00043133",
+      "names": [
+        "Traffic::StateMachine::UpdateState"
+      ],
+      "mnemonicScore": 0.407895,
+      "tokenScore": 0.184211,
+      "instructionShape": 0.767442,
+      "byteShape": 0.985981,
+      "callShape": 1.0,
+      "alphaInstructionCount": 86,
+      "alphaSize": 211
+    },
+    {
+      "score": 0.493208,
+      "alphaStart": "0x001227F0",
+      "alphaEnd": "0x0012289B",
+      "names": [
+        "Core::Memory::FastHeap::Free"
+      ],
+      "mnemonicScore": 0.459259,
+      "tokenScore": 0.162963,
+      "instructionShape": 0.956522,
+      "byteShape": 0.799065,
+      "callShape": 0.75,
+      "alphaInstructionCount": 69,
+      "alphaSize": 171
+    }
+  ]
+}

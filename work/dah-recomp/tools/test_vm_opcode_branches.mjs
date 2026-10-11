@@ -51,8 +51,9 @@ for (let opcode = 0; opcode < 49; ++opcode) {
   const va = table.readUInt32LE(opcode * 4), hex = va.toString(16).padStart(8, '0').toUpperCase();
   const name = `sub_${hex}`;
   const manualMapped = new RegExp(`if\\s*\\(xbox_va\\s*==\\s*0x${hex}u?\\)\\s*return\\s+${name}\\s*;`, 'i').test(manual);
+  const manualSwitchMapped = new RegExp(`case\\s+0x${hex}u?\\s*:\\s*return\\s+${name}\\s*;`, 'i').test(manual);
   const generatedMapped = new RegExp(`\\{\\s*0x${hex}u?,\\s*\\(recomp_func_t\\)${name}\\s*\\}`, 'i').test(generatedDispatch);
-  assert(manualMapped || generatedMapped, `Unmapped original opcode ${opcode.toString(16)} -> ${hex}`);
+  assert(manualMapped || manualSwitchMapped || generatedMapped, `Unmapped original opcode ${opcode.toString(16)} -> ${hex}`);
   assert(new RegExp(`^void ${name}\\(void\\)\\r?\\n\\{`, 'm').test(production), `No actual seeded handler body for ${hex}`);
 }
 console.log(`PASS: all 49 original-XBE table entries resolve to real production bodies; ${verifiedInstructions} tested-handler instructions match ${verifiedBytes} original bytes`);

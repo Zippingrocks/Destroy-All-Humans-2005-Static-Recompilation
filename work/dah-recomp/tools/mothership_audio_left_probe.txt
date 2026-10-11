@@ -1,0 +1,24 @@
+# Deterministic isolated-profile route that currently settles on mothership
+# Controls. Return to Options, open Audio, then leave one Left press applied.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+3900 2 0 255 0 0 0 0 0
+4800 2 10 0 0 0 0 0 0
+5200 2 2 0 0 0 0 0 0
+5260 2 2 0 0 0 0 0 0
+5320 2 2 0 0 0 0 0 0
+5600 2 0 255 0 0 0 0 0
+5900 2 2 0 0 0 0 0 0
+6200 2 0 255 0 0 0 0 0
+7400 2 0 255 0 0 0 0 0
+8000 2 0 0 255 0 0 0 0
+8300 2 2 0 0 0 0 0 0
+8600 2 0 255 0 0 0 0 0
+8900 2 4 0 0 0 0 0 0

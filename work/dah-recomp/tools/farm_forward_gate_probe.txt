@@ -1,0 +1,16 @@
+# Survey an authentic Farm endurance corridor: move user-right along the
+# cow-paddock fence toward its opening, settle, then hold unchanged forward.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+@gameplay
+# Raw host +LX becomes retail user-right after the established bridge mirror.
+60 450 0 0 0 32767 0 0 0
+570 60 0 0 0 0 0 0 0
+630 900 0 0 0 0 32767 0 0

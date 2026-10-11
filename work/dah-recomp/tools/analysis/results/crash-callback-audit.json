@@ -1,0 +1,288 @@
+{
+  "schema": 2,
+  "retailXbe": {
+    "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\default.xbe",
+    "sha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb"
+  },
+  "preservedCrashCount": 2,
+  "preservedCrashes": [
+    {
+      "signature": "DAH-1AF563F1251E7840",
+      "first_seen": "20261007T061712.003Z",
+      "exception": "C0000005",
+      "host_rva": "00000000003FE4FE",
+      "access": 0,
+      "guest_return": "0010680E",
+      "report": "crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    },
+    {
+      "signature": "DAH-80DADBA503907EA0",
+      "first_seen": "20261007T194151.393Z",
+      "exception": "C0000005",
+      "host_rva": "0000000000B4E9B1",
+      "access": 0,
+      "guest_return": "FFC06233",
+      "report": "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    }
+  ],
+  "callbacks": [
+    {
+      "address": "0x00015FC0",
+      "origin": "current-crash",
+      "function": "dah_retail_15fc0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00016CA0",
+      "origin": "current-crash",
+      "function": "dah_retail_16ca0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003CD20",
+      "origin": "current-run",
+      "function": "sub_0003CD20",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003E2E0",
+      "origin": "current-run",
+      "function": "sub_0003E2E0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0004ACC0",
+      "origin": "current-run",
+      "function": "sub_0004ACC0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x000A21A0",
+      "origin": "current-run",
+      "function": "sub_000A21A0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00016A90",
+      "origin": "static-vtable",
+      "function": "sub_00016A90",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0009A210",
+      "origin": "static-vtable",
+      "function": "sub_0009A210",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075660",
+      "origin": "ion-detonator-retail",
+      "function": "sub_00075660",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075780",
+      "origin": "ion-detonator-retail",
+      "function": "sub_00075780",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075800",
+      "origin": "ion-detonator-retail",
+      "function": "sub_00075800",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075A10",
+      "origin": "ion-detonator-retail",
+      "function": "sub_00075A10",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x000A6AF0",
+      "origin": "sonic-boom-retail",
+      "function": "sub_000A6AF0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0002A1A0",
+      "origin": "longplay-cleanup-retail",
+      "function": "sub_0002A1A0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0012AEE0",
+      "origin": "live-type-query-retail",
+      "function": "sub_0012AEE0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00130B20",
+      "origin": "mutant-runtime-retail",
+      "function": "sub_00130B20",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x000242F0",
+      "origin": "mutant-runtime-retail",
+      "function": "sub_000242F0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0011CB60",
+      "origin": "mutant-runtime-retail",
+      "function": "sub_0011CB60",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0014A290",
+      "origin": "mutant-runtime-retail",
+      "function": "sub_0014A290",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00078040",
+      "origin": "mutant-runtime-retail",
+      "function": "sub_00078040",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00041540",
+      "origin": "historical",
+      "function": "sub_00041540",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00085FE0",
+      "origin": "historical",
+      "function": "sub_00085FE0",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0004F9E0",
+      "origin": "historical",
+      "function": "sub_0004F9E0",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00054B20",
+      "origin": "historical",
+      "function": "sub_00054B20",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0011FA30",
+      "origin": "historical-stale-log",
+      "function": "sub_0011FA30",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00143689",
+      "origin": "historical-stale-log",
+      "function": "sub_00143689",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    }
+  ],
+  "cumulativeIndirectCallAudit": {
+    "source": "work/dah-recomp/icall_seeds.json",
+    "seedTargets": 99,
+    "accumulatedUniqueTargets": 121,
+    "missingDispatchTargets": [],
+    "generatedRecoveryStubCount": 21,
+    "runtimeSeedRecoveryStubIntersection": [],
+    "accumulatedRecoveryStubIntersection": [],
+    "status": "all-dispatchable"
+  },
+  "retainedRuntimeAudit": {
+    "nonNullTargets": [
+      {
+        "address": "0x00015FC0",
+        "observations": [
+          "crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt:595"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00016CA0",
+        "observations": [
+          "crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt:361"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075660",
+        "observations": [
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:645"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075780",
+        "observations": [
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:651",
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:657"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075800",
+        "observations": [
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:647",
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:649",
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:653",
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:659"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075A10",
+        "observations": [
+          "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:655"
+        ],
+        "status": "implemented-and-dispatchable"
+      }
+    ],
+    "nullCascadeCalls": 4,
+    "unimplementedNonNullTargets": []
+  },
+  "retailActorSamSiteVtable": {
+    "address": "0x00226A80",
+    "deletingDestructorSlot": {
+      "offset": "0x24",
+      "target": "0x00016CA0"
+    },
+    "restoredRetailOnlySlot": {
+      "offset": "0xE4",
+      "target": "0x00015FC0"
+    }
+  },
+  "alpha": null
+}

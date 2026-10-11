@@ -1,0 +1,23 @@
+# Internal-only Farm four-way camera acceptance route.
+# DAH_CONSOLE_AUTOLOAD_LEVEL=farm performs the original level handoff after
+# these front-end inputs select a profile.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# The control probe behind @gameplay prevents these events from reaching the
+# intro camera.  Pitch first moves positive, crosses through neutral to the
+# opposite side, then returns to neutral.  Equal yaw holds test both sides and
+# neutral recovery without depending on a particular starting world heading.
+@gameplay
+60 15 0 0 0 0 0 0 32767
+120 30 0 0 0 0 0 0 -32768
+210 15 0 0 0 0 0 0 32767
+300 60 0 0 0 0 0 32767 0
+420 60 0 0 0 0 0 -32768 0

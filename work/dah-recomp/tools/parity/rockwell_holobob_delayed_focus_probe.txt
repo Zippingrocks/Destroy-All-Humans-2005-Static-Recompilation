@@ -1,0 +1,24 @@
+# Fast Rockwell/Holobob test. Run with retail-path autoload, Holobob autoequip,
+# and DAH_CONSOLE_AUTO_EQUIP_DELAY=40 so the landing sequence cannot reset the
+# equipped weapon before the test begins.
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+2800 10 0 255 0 0 0 0 0
+3100 10 0 255 0 0 0 0 0
+3400 10 0 255 0 0 0 0 0
+
+# Approach the car on the same diagonal used by xemu, pan toward the people,
+# acquire a human, and activate Holobob at close range.
+3500 192 0 0 0 16000 28000 0 0
+3720 10 0 255 0 0 0 0 0
+3750 18 0 0 0 0 0 12000 0
+3780 45 0 0 0 0 0 0 0 0 0 0 0 0 255
+3840 24 0 0 255 0 0 0 0
+3940 24 0 0 255 0 0 0 0

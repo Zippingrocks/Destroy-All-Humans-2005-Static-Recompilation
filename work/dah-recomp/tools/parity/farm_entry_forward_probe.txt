@@ -1,0 +1,12 @@
+@frame
+# Same normal retail route as Farm baseline014/015; no Farm cinematic skip.
+1200 6 10 0 0 0 0 0 0
+1400 6 0 255 0 0 0 0 0
+1700 6 0 255 0 0 0 0 0
+2100 6 0 255 0 0 0 0 0
+2300 6 10 0 0 0 0 0 0
+2700 6 0 255 0 0 0 0 0
+3000 6 0 255 0 0 0 0 0
+# After observed control release, walk forward for exactly fifteen retail polls.
+# State trace must confirm that the cinematic has ended before this pulse.
+7200 15 0 0 0 0 32767 0 0

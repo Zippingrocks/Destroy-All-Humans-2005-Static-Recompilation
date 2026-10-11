@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#090d14">
+  <title>DAH Recomp Coverage</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-mark">DAH</span><span>Recomp Coverage</span></a>
+    <nav><a href="https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation">Repository</a></nav>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Destroy All Humans! (2005) · Original Xbox</p>
+      <h1>Function coverage map</h1>
+      <p class="lede">Every tile is an original Xbox function, sized by its machine-code bytes. Translation coverage and parity evidence are tracked separately.</p>
+    </section>
+
+    <section class="stats" id="stats" aria-label="Coverage summary"></section>
+
+    <section class="controls" aria-label="Coverage filters">
+      <label>
+        <span>Organization</span>
+        <select id="layoutMode">
+          <option value="region">Code regions</option>
+          <option value="status">Implementation status</option>
+          <option value="flat">Function size only</option>
+        </select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select id="statusFilter">
+          <option value="all">All functions</option>
+          <option value="recovered">Recovered callbacks</option>
+          <option value="seeded">Observed seeds</option>
+          <option value="translated">Auto translated</option>
+          <option value="stubbed">Explicit stubs</option>
+          <option value="missing">Missing</option>
+          <option value="evidence">Parity evidence linked</option>
+        </select>
+      </label>
+      <label class="search-label">
+        <span>Filter</span>
+        <input id="search" type="search" spellcheck="false" placeholder="Try: 55B50, recovered, >1kb, confidence>80%">
+      </label>
+    </section>
+
+    <section class="workspace">
+      <div class="map-panel">
+        <div class="legend" id="legend"></div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="treemap" aria-label="Interactive function coverage treemap"></canvas>
+          <div class="empty" id="empty" hidden>No functions match this filter.</div>
+          <div class="tooltip" id="tooltip" hidden></div>
+        </div>
+      </div>
+      <aside class="details" id="details">
+        <p class="eyebrow">Selected function</p>
+        <h2>Hover or select a tile</h2>
+        <p>The default view groups nearby Xbox addresses into labeled 64 KiB code regions. Large tiles are large original functions.</p>
+      </aside>
+    </section>
+
+    <section class="method">
+      <h2>What the colors mean</h2>
+      <p><strong>Code regions</strong> preserve the original executable's address neighborhoods. <strong>Implementation status</strong> gathers functions by the kind of recompilation evidence we have. <strong>Function size only</strong> removes grouping for a raw size comparison. Recovered means a dedicated callback translation exists; observed seed means runtime evidence retained the address for dispatch; auto translated means the static translator emitted and dispatches the function; stubbed means a known target still has placeholder behavior. A white corner marker links the address to parity notes.</p>
+    </section>
+  </main>
+
+  <footer>Generated from the repository function inventory, dispatch table, callback seeds, explicit stubs, and parity notes.</footer>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

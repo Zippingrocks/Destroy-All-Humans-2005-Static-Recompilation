@@ -1,0 +1,23 @@
+# Internal-only Farm endurance route using the collision-valid corridor found
+# by the bounded heading survey.  Use with DAH_CONSOLE_AUTOLOAD_LEVEL=farm at
+# the 30 FPS compatibility target.
+# start duration hex_buttons A B LX LY RX RY
+150 30 0 255 0 0 0 0 0
+400 30 0 255 0 0 0 0 0
+700 30 0 255 0 0 0 0 0
+1000 30 0 255 0 0 0 0 0
+1300 30 0 255 0 0 0 0 0
+1600 30 0 255 0 0 0 0 0
+1750 25 2 0 0 0 0 0 0
+1790 25 0 255 0 0 0 0 0
+
+# Do not begin the endurance clock against a loading-card/pre-roll object.
+# Follow the paddock fence toward its opening, turn the camera toward the clear
+# negative-X corridor, and settle.  The final row alone is the endurance gate:
+# 3600 unchanged forward frames, exactly two minutes at the 30 FPS target.
+@gameplay
+60 450 0 0 0 32767 0 0 0
+570 60 0 0 0 0 0 0 0
+630 10 0 0 0 0 0 32767 0
+700 60 0 0 0 0 0 0 0
+760 3600 0 0 0 0 32767 0 0

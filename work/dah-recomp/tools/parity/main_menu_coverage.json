@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "scope": "main-menu",
+  "statusValues": ["verified", "partial", "unverified", "blocked"],
+  "routes": [
+    {"id": "boot.logos_to_title", "area": "boot", "description": "Cold boot through every startup logo/movie into the title screen", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "title.start", "area": "title", "description": "Accept Start on the title screen and enter profile/new-game flow", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "MENU_PARITY_20260926.md"]},
+    {"id": "title.idle_attract", "area": "title", "description": "Remain idle through the attract transition and return safely", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["IDLE_FRAME_PACING_20261004.md"]},
+    {"id": "profile.new_slot1", "area": "profile", "description": "Create a new save in empty slot 1 and accept confirmation", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "run_new_game_slot1_background.ps1"]},
+    {"id": "profile.load_existing", "area": "profile", "description": "Load an existing profile from each occupied slot", "static": "unverified", "runtime": "unverified", "xemuParity": "unverified", "evidence": []},
+    {"id": "profile.overwrite", "area": "profile", "description": "Exercise overwrite confirmation, cancel, and accept paths", "static": "unverified", "runtime": "unverified", "xemuParity": "unverified", "evidence": []},
+    {"id": "intro.play_complete", "area": "new-game", "description": "Play the new-game intro movie to natural completion", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "intro.skip", "area": "new-game", "description": "Skip the new-game intro and reach the mothership with retail transition order", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "IMPATIENT_SKIP_STRESS_20261003.md"]},
+    {"id": "hub.main_navigation", "area": "hub", "description": "Traverse Archives, Hangar, Options, and Pox's Lab in both directions", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "MENU_PARITY_20260926.md"]},
+    {"id": "hub.controller_legend", "area": "hub", "description": "Show, animate, and dismiss the controller legend", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "options.controller", "area": "options", "description": "Open controller options, change every setting, cancel, accept, and restore defaults", "static": "partial", "runtime": "unverified", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "options.audio", "area": "options", "description": "Open audio options, change every setting, cancel, accept, and restore defaults", "static": "partial", "runtime": "unverified", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "options.display", "area": "options", "description": "Open display options, change every setting, cancel, accept, and restore defaults", "static": "partial", "runtime": "unverified", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "archives.movies", "area": "archives", "description": "Open each unlocked movie, play, skip, finish, and return", "static": "partial", "runtime": "verified", "xemuParity": "partial", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "archives.furonigami", "area": "archives", "description": "Traverse all available Furonigami entries and return", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "archives.propaganda", "area": "archives", "description": "Traverse all available propaganda entries and return", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "archives.tutorial_guide", "area": "archives", "description": "Traverse every available tutorial guide page and return", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "archives.statistics", "area": "archives", "description": "Open statistics, inspect each page/state, and return", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["ARCHIVES_FUNCTIONAL_20261003.md"]},
+    {"id": "lab.first_visit", "area": "pox-lab", "description": "Enter Pox's Lab on first visit and wait for the full Pox tutorial animation", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "MENU_PARITY_20260926.md"]},
+    {"id": "lab.alien_upgrades", "area": "pox-lab", "description": "Traverse alien upgrade presentation without requiring new mission progress", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "lab.saucer_upgrades", "area": "pox-lab", "description": "Traverse saucer upgrade presentation without requiring new mission progress", "static": "partial", "runtime": "partial", "xemuParity": "unverified", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "hangar.navicom", "area": "hangar", "description": "Enter navicom, traverse every currently unlocked destination, cancel, and return", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md"]},
+    {"id": "hangar.launch_boundary", "area": "hangar", "description": "Accept a destination through the final frontend transition frame without auditing destination gameplay", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["MENU_ROUTE.md", "IMPATIENT_SKIP_STRESS_20261003.md"]},
+    {"id": "shell.exit_confirm", "area": "shell", "description": "Open exit confirmation, cancel, reopen, and accept", "static": "unverified", "runtime": "unverified", "xemuParity": "unverified", "evidence": []},
+    {"id": "shell.rapid_input", "area": "shell", "description": "Mash A/B/Start across every frontend transition without duplicate actions, stale HUD, hangs, or black frames", "static": "partial", "runtime": "partial", "xemuParity": "partial", "evidence": ["IMPATIENT_SKIP_STRESS_20261003.md"]}
+  ]
+}

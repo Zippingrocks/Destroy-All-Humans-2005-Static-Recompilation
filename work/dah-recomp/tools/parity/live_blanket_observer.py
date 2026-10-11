@@ -1,0 +1,1082 @@
+#!/usr/bin/env python3
+"""Low-overhead, read-only lifecycle observer for a running DAH recomp.
+
+This observer deliberately records events instead of full RAM dumps.  It finds
+retail actor-controller objects by their constructor invariants, follows their
+scene transforms, and emits JSONL for lifecycle, state, motion, and anomalies.
+It never writes process memory and never sends input to the game.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ctypes
+import hashlib
+import json
+import math
+import struct
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+PROCESS_VM_READ = 0x0010
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+HOST_OFFSET = 0x10000
+GUEST_MIN, GUEST_MAX = 0x10000, 0x08000000
+# Exact post-constructor signatures reached by retail pedestrian dispatch
+# 00063770.  Names remain address based unless the retail type is proven.
+# The 22ECD8 class is known PropType; 226C60 is the pedestrian actor path.
+# Retail 226A80 is structurally matched to alpha Traffic::ActorSamSite: the
+# complete vtable shape, object size, constructor writes, and scalar deleting
+# destructor slot agree.  Resource identity remains a separate observation in
+# every event; Santa run 20261007T064831185Z joined this class to m_emp_mine.
+PROFILES = (
+    ("actor-225e88", 0x32C, 0x00225E88, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225E28, 0x00226648),
+    ("actor-2261a8", 0x534, 0x002261A8, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225FE0, 0x00226648),
+    ("actor-226338", 0x378, 0x00226338, 0x0022D480, 0x00225C90, 0x002264DC, 0x00225FE0, 0x00226648),
+    ("actor-2264f0", 0x354, 0x002264F0, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226480, 0x00226648),
+    ("actor-2268b0", 0x3B4, 0x002268B0, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226850, 0x00226648),
+    ("traffic-actor-sam-site", 0x35C, 0x00226A80, 0x0022D480, 0x00225C90, 0x002264DC, 0x00226A20, 0x00226648),
+    ("pedestrian", 0x5C0, 0x00226C60, 0x0022D480, 0x00226C44, 0x002264DC, 0x00226BE8, 0x00226648),
+    ("actor-229328", 0x130, 0x00229328, 0x00229314, 0x00225C90, 0x0022C8A0, 0x002292B8, 0x00229248),
+    ("actor-22e7d0", 0x1A4, 0x0022E7D0, 0x0022D480, 0x00225C90, 0x0022C8A0, 0x0022E770, 0x00226648),
+    ("prop", 0x164, 0x0022ECD8, 0x0022D480, 0x00225C90, 0x0022C8A0, 0x0022EC78, 0x00226648),
+)
+MAX_ENTITY_SIZE = max(profile[1] for profile in PROFILES)
+
+
+kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+kernel32.OpenProcess.restype = ctypes.c_void_p
+kernel32.ReadProcessMemory.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+                                       ctypes.c_void_p, ctypes.c_size_t,
+                                       ctypes.POINTER(ctypes.c_size_t)]
+kernel32.ReadProcessMemory.restype = ctypes.c_bool
+kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+kernel32.QueryFullProcessImageNameW.argtypes = [ctypes.c_void_p, ctypes.c_uint32,
+                                                ctypes.c_wchar_p,
+                                                ctypes.POINTER(ctypes.c_uint32)]
+kernel32.QueryFullProcessImageNameW.restype = ctypes.c_bool
+kernel32.GetExitCodeProcess.argtypes = [ctypes.c_void_p,
+                                        ctypes.POINTER(ctypes.c_uint32)]
+kernel32.GetExitCodeProcess.restype = ctypes.c_bool
+
+
+class Reader:
+    def __init__(self, pid: int, host_offset: int):
+        self.host_offset = host_offset
+        self.handle = kernel32.OpenProcess(
+            PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not self.handle:
+            raise OSError(ctypes.get_last_error(), "OpenProcess failed")
+
+    def close(self) -> None:
+        if self.handle:
+            kernel32.CloseHandle(self.handle)
+            self.handle = None
+
+    def read(self, address: int, size: int) -> bytes | None:
+        if address < GUEST_MIN or size <= 0 or address + size > GUEST_MAX:
+            return None
+        data = (ctypes.c_ubyte * size)()
+        count = ctypes.c_size_t()
+        ok = kernel32.ReadProcessMemory(
+            self.handle, ctypes.c_void_p(address + self.host_offset), data, size,
+            ctypes.byref(count))
+        return bytes(data) if ok and count.value == size else None
+
+    def u32(self, address: int) -> int:
+        data = self.read(address, 4)
+        return struct.unpack_from("<I", data)[0] if data else 0
+
+    def u8(self, address: int) -> int | None:
+        data = self.read(address, 1)
+        return data[0] if data else None
+
+    def image_path(self) -> Path | None:
+        capacity = ctypes.c_uint32(32768)
+        buffer = ctypes.create_unicode_buffer(capacity.value)
+        if not kernel32.QueryFullProcessImageNameW(self.handle, 0, buffer,
+                                                   ctypes.byref(capacity)):
+            return None
+        return Path(buffer.value)
+
+    def is_running(self) -> bool:
+        exit_code = ctypes.c_uint32()
+        return (bool(kernel32.GetExitCodeProcess(self.handle,
+                                                 ctypes.byref(exit_code))) and
+                exit_code.value == 259)  # STILL_ACTIVE
+
+
+def u32(data: bytes, offset: int) -> int:
+    return struct.unpack_from("<I", data, offset)[0]
+
+
+def f32(data: bytes, offset: int) -> float:
+    return struct.unpack_from("<f", data, offset)[0]
+
+
+def pointer(value: int) -> bool:
+    # Native recomp pointers use the low 64 MiB guest view. Retail Xbox heap
+    # pointers in xemu commonly use its 0x80000000 direct-map alias. Accepting
+    # both keeps the shared decoder semantic; Reader.read still bounds native
+    # process reads to the low view.
+    return ((GUEST_MIN <= value < GUEST_MAX) or
+            (0x80010000 <= value < 0x84000000)) and value % 4 == 0
+
+
+def matching_profile(data: bytes, offset: int):
+    for profile in PROFILES:
+        _, size, vt, vt10, vt14, vt18, vtbc, vtc0 = profile
+        if offset + size <= len(data) and (
+                u32(data, offset) == vt and
+                u32(data, offset + 0x10) == vt10 and
+                u32(data, offset + 0x14) == vt14 and
+                u32(data, offset + 0x18) == vt18 and
+                u32(data, offset + 0xBC) == vtbc and
+                u32(data, offset + 0xC0) == vtc0):
+            return profile
+    return None
+
+
+def scan_actors(reader: Reader, start: int, end: int) -> dict[int, tuple]:
+    data = reader.read(start, end - start)
+    if not data:
+        return {}
+    found = {}
+    # Search each vtable marker in C instead of unpacking every 16-byte heap
+    # slot through Python. Retail heap allocations are 16-byte aligned, and
+    # matching_profile still verifies all six constructor invariants before a
+    # candidate is accepted. This keeps the observer read-only while avoiding
+    # a full CPU core of polling overhead during gameplay.
+    for profile in PROFILES:
+        needle = struct.pack("<I", profile[2])
+        offset = data.find(needle)
+        while offset >= 0:
+            if offset % 0x10 == 0 and matching_profile(data, offset) == profile:
+                found[start + offset] = profile
+            offset = data.find(needle, offset + 1)
+    return found
+
+
+@dataclass
+class Actor:
+    address: int
+    kind: str
+    size: int
+    vtable: int
+    serial: int
+    resource: int
+    resource_name: str | None
+    scene: int
+    render: int
+    gate140: int
+    object_flags: int | None
+    position: tuple[float, float, float] | None
+    quaternion: tuple[float, float, float, float] | None
+    state_words: tuple[int, ...]
+    health_divisor_bits: int | None
+    health_current_bits: int | None
+    ai_state: int
+    ai_vtable: int
+    ai_descriptor: int
+    ai_state_id: int
+    ai_state_name: str | None
+    ai_phase48: int | None
+    ai_words: tuple[int, ...]
+    life_state: str | None
+    physics_body: int
+    physics_vtable: int
+    physics_collision: int
+    physics_collision_vtable: int
+    physics_collidable: int
+    physics_filter_info: int | None
+    physics_category: int | None
+    physics_group: int | None
+    physics_collide_mask: int | None
+    physics_velocity: tuple[float, float, float] | None
+    physics_inner: int
+    physics_inner_vtable: int
+    physics_quaternion: tuple[float, float, float, float] | None
+    ai_target_53c: int
+    ai_target_540: int
+    first_seen: float
+    last_seen: float
+    missing_scans: int = 0
+    max_height: float | None = None
+    motion_samples: int = 0
+    state_events: int = 0
+    ai_state_entered: float = 0.0
+    ai_state_min_height: float | None = None
+    ai_state_max_height: float | None = None
+    physics_state_entered: float = 0.0
+    physics_body_seen: bool = False
+    physics_missing_reported: bool = False
+    ragdoll_stuck_reported: bool = False
+    last_moved: float = 0.0
+    distance_travelled: float = 0.0
+    ai_transitions: int = 0
+    life_transitions: int = 0
+    target_transitions: int = 0
+    physics_transitions: int = 0
+    physics_filter_transitions: int = 0
+    render_transitions: int = 0
+    max_speed: float = 0.0
+    anomalies: list[str] = field(default_factory=list)
+
+
+# Words that are stable enough to expose AI/lifecycle transitions.  Transform
+# and intrusive-list storage are reported separately to avoid per-frame floods.
+VOLATILE_STATE_OFFSETS = {
+    0x58, 0x11C, 0x120, 0x124, 0x128,
+    # Per-frame float/interpolation storage. AI state, physics state, render
+    # identity, visibility, and transforms are decoded through named fields.
+    0x130, 0x138, 0x13C,
+}
+STATE_OFFSETS = tuple(offset for offset in (
+    tuple(range(0x38, 0xBC, 4)) + tuple(range(0xC4, 0x134, 4)) +
+    (0x138, 0x13C, 0x140, 0x144)) if offset not in VOLATILE_STATE_OFFSETS)
+
+
+def cstring(reader: Reader, address: int, limit: int = 96) -> str | None:
+    data = reader.read(address, limit) if pointer(address) else None
+    if not data:
+        return None
+    end = data.find(b"\0")
+    if end < 1 or not all(32 <= byte < 127 for byte in data[:end]):
+        return None
+    return data[:end].decode("ascii")
+
+
+RESOURCE_NAMES: dict[int, str | None] = {}
+
+
+def read_collision_filter(reader: Reader, body: int) -> dict:
+    """Follow the retail body -> collision object -> Havok filter path.
+
+    CollisionObject vtables 00238180 and 00237968 both expose the raw filter
+    reader 0012AA40 at slot +80. Retail 00135EA0 proves the packed layout:
+    category bits 0..4, six-bit system group at 5..10, collide mask at 11+.
+    """
+    collision = reader.u32(body + 0x18) if pointer(body) else 0
+    vtable = reader.u32(collision) if pointer(collision) else 0
+    raw_reader = reader.u32(vtable + 0x80) if pointer(vtable) else 0
+    collidable = (reader.u32(collision + 4)
+                  if raw_reader == 0x0012AA40 else 0)
+    info = (reader.u32(collidable + 0x28)
+            if pointer(collidable) else None)
+    return {
+        "collision": collision,
+        "vtable": vtable,
+        "collidable": collidable,
+        "info": info,
+        "category": info & 0x1F if info is not None else None,
+        "group": (info >> 5) & 0x3F if info is not None else None,
+        "collide_mask": info >> 11 if info is not None else None,
+    }
+
+
+def collision_pair_enabled(first: int, second: int) -> tuple[bool, str]:
+    """Reproduce retail Physics::CollisionFilter at 00135EA0."""
+    first_category, second_category = first & 0x1F, second & 0x1F
+    first_mask, second_mask = first >> 11, second >> 11
+    masks_accept = (bool(first_mask & (1 << second_category)) or
+                    bool(second_mask & (1 << first_category)))
+    if not masks_accept:
+        return False, "neither-collide-mask-accepts-other-category"
+    first_group, second_group = (first >> 5) & 0x3F, (second >> 5) & 0x3F
+    if first_group and first_group == second_group:
+        return False, "matching-nonzero-system-group"
+    return True, "collide-mask-accepted"
+
+
+def read_player_state(reader: Reader) -> dict | None:
+    """Read the source-proven UFO::PlayerObject -> Crypto path."""
+    control = reader.u32(0x0025FCEC)
+    player = reader.u32(control + 0x38) if pointer(control) else 0
+    crypto = reader.u32(player + 0x38) if pointer(player) else 0
+    if not pointer(crypto) or reader.u32(crypto) != 0x0022C9F8:
+        return None
+    body = reader.u32(crypto + 0x110)
+    filter_state = read_collision_filter(reader, body)
+    scene_object = reader.u32(crypto + 0x28)
+    scene_raw = reader.read(scene_object, 0x50) if pointer(scene_object) else None
+    crypto_position = None
+    if scene_raw:
+        candidate = tuple(f32(scene_raw, 0x2C + index * 4) for index in range(3))
+        if all(math.isfinite(value) for value in candidate):
+            crypto_position = candidate
+    return {
+        "controlSystem": f"{control:08X}",
+        "player": f"{player:08X}",
+        "playerFocus": f"{reader.u32(player + 0x30):08X}",
+        "crypto": f"{crypto:08X}",
+        "cryptoVtable": "0022C9F8",
+        "cryptoSceneObject": f"{scene_object:08X}" if scene_object else None,
+        "cryptoPosition": rounded(crypto_position),
+        "cryptoObjectFlags": (f"{reader.u32(scene_object + 0x4C):08X}"
+                              if pointer(scene_object) else None),
+        "cryptoRender": f"{reader.u32(crypto + 0x144):08X}",
+        "cryptoStateByte140": reader.u8(crypto + 0x140),
+        "cryptoBody": f"{body:08X}" if body else None,
+        "cryptoBodyVtable": f"{reader.u32(body):08X}" if pointer(body) else None,
+        "cryptoCollision": (f"{filter_state['collision']:08X}"
+                            if filter_state["collision"] else None),
+        "cryptoCollisionVtable": (f"{filter_state['vtable']:08X}"
+                                  if filter_state["vtable"] else None),
+        "cryptoFilterInfo": (f"{filter_state['info']:08X}"
+                             if filter_state["info"] is not None else None),
+        "cryptoCategory": filter_state["category"],
+        "cryptoSystemGroup": filter_state["group"],
+        "cryptoCollideMask": filter_state["collide_mask"],
+        "jetpackStoredDisable": reader.u8(player + 0x360),
+    }
+
+
+def read_actor(reader: Reader, address: int, profile: tuple, now: float,
+               old: Actor | None = None) -> Actor | None:
+    kind, size, vtable, *_ = profile
+    raw = reader.read(address, size)
+    if not raw or matching_profile(raw, 0) != profile:
+        return None
+    scene = u32(raw, 0x28)
+    transform = reader.read(scene, 0x50) if pointer(scene) else None
+    position = None
+    quaternion = None
+    object_flags = None
+    if transform:
+        candidate = tuple(f32(transform, 0x2C + index * 4) for index in range(3))
+        quat = tuple(f32(transform, 0x38 + index * 4) for index in range(4))
+        if all(math.isfinite(value) for value in candidate):
+            position = candidate
+        if all(math.isfinite(value) for value in quat):
+            quaternion = quat
+        object_flags = u32(transform, 0x4C)
+    resource = u32(raw, 0x1C)
+    if resource not in RESOURCE_NAMES:
+        name_pointer = reader.u32(resource + 0x0C) if pointer(resource) else 0
+        RESOURCE_NAMES[resource] = cstring(reader, name_pointer)
+    resource_name = RESOURCE_NAMES[resource]
+    # 000600B0 proves +368/+370 only for the player actor class 00226338.
+    # Pedestrian storage at the same offsets is unrelated pointer/integer data.
+    health_divisor = u32(raw, 0x368) if vtable == 0x00226338 else None
+    health_current = u32(raw, 0x370) if vtable == 0x00226338 else None
+    ai_state = u32(raw, 0x34C) if kind == "pedestrian" else 0
+    ai_raw = reader.read(ai_state, 0x4C) if pointer(ai_state) else None
+    ai_vtable = u32(ai_raw, 0) if ai_raw else 0
+    ai_descriptor = reader.u32(ai_state + 8) if pointer(ai_state) else 0
+    ai_state_id = reader.u32(ai_descriptor) if pointer(ai_descriptor) else 0
+    ai_name_pointer = reader.u32(ai_descriptor + 0x0C) if pointer(ai_descriptor) else 0
+    ai_state_name = cstring(reader, ai_name_pointer)
+    if ai_state_name and "dead" in ai_state_name:
+        life_state = "dead"
+    elif ai_state_name and ("death" in ai_state_name or "dying" in ai_state_name):
+        life_state = "dying"
+    elif ai_state_name:
+        life_state = "alive"
+    else:
+        life_state = None
+    physics_body = u32(raw, 0x110) if size >= 0x114 else 0
+    physics_vtable = reader.u32(physics_body) if pointer(physics_body) else 0
+    # Retail Physics::RigidBody methods 00124980/001249E0 forward collide flag
+    # and mask to the primary collision object at body+0x18.
+    filter_state = read_collision_filter(reader, physics_body)
+    physics_collision = filter_state["collision"]
+    physics_collision_vtable = filter_state["vtable"]
+    physics_collidable = filter_state["collidable"]
+    physics_filter_info = filter_state["info"]
+    physics_category = filter_state["category"]
+    physics_group = filter_state["group"]
+    physics_collide_mask = filter_state["collide_mask"]
+    physics_velocity = None
+    physics_inner = 0
+    physics_inner_vtable = 0
+    physics_quaternion = None
+    if physics_vtable == 0x002376E8:
+        velocity_setter = reader.u32(physics_vtable + 0x90)
+        body_raw = reader.read(physics_body, 0x90)
+        if velocity_setter == 0x0012BB30 and body_raw:
+            candidate = tuple(f32(body_raw, 0x84 + index * 4) for index in range(3))
+            if all(math.isfinite(value) for value in candidate):
+                physics_velocity = candidate
+        physics_inner = reader.u32(physics_body + 0x0C)
+        physics_inner_vtable = reader.u32(physics_inner) if pointer(physics_inner) else 0
+        inner_raw = reader.read(physics_inner, 0x48) if physics_inner_vtable == 0x00237968 else None
+        if inner_raw:
+            candidate_quat = tuple(f32(inner_raw, 0x38 + index * 4) for index in range(4))
+            if all(math.isfinite(value) for value in candidate_quat):
+                physics_quaternion = candidate_quat
+    actor = Actor(
+        address=address, kind=kind, size=size, vtable=vtable,
+        serial=u32(raw, 8), resource=resource, resource_name=resource_name,
+        scene=scene, render=u32(raw, 0x144) if size >= 0x148 else 0,
+        gate140=raw[0x140] if size > 0x140 else 0,
+        object_flags=object_flags, position=position, quaternion=quaternion,
+        state_words=tuple(u32(raw, offset) for offset in STATE_OFFSETS if offset + 4 <= size),
+        health_divisor_bits=health_divisor, health_current_bits=health_current,
+        ai_state=ai_state, ai_vtable=ai_vtable,
+        ai_descriptor=ai_descriptor, ai_state_id=ai_state_id,
+        ai_state_name=ai_state_name,
+        ai_phase48=ai_raw[0x48] if ai_raw else None,
+        ai_words=(tuple(u32(ai_raw, offset) for offset in range(0, 0x4C, 4))
+                  if ai_raw else ()),
+        life_state=life_state, physics_body=physics_body,
+        physics_vtable=physics_vtable,
+        physics_collision=physics_collision,
+        physics_collision_vtable=physics_collision_vtable,
+        physics_collidable=physics_collidable,
+        physics_filter_info=physics_filter_info,
+        physics_category=physics_category, physics_group=physics_group,
+        physics_collide_mask=physics_collide_mask,
+        physics_velocity=physics_velocity, physics_inner=physics_inner,
+        physics_inner_vtable=physics_inner_vtable,
+        physics_quaternion=physics_quaternion,
+        ai_target_53c=u32(raw, 0x53C) if kind == "pedestrian" else 0,
+        ai_target_540=u32(raw, 0x540) if kind == "pedestrian" else 0,
+        first_seen=old.first_seen if old else now, last_seen=now,
+        max_height=old.max_height if old else None,
+        motion_samples=old.motion_samples if old else 0,
+        state_events=old.state_events if old else 0,
+        ai_state_entered=old.ai_state_entered if old else now,
+        ai_state_min_height=old.ai_state_min_height if old else (
+            position[2] if position else None),
+        ai_state_max_height=old.ai_state_max_height if old else (
+            position[2] if position else None),
+        physics_state_entered=old.physics_state_entered if old else now,
+        physics_body_seen=((old.physics_body_seen if old else False) or
+                           bool(physics_body)),
+        physics_missing_reported=(old.physics_missing_reported if old else False),
+        ragdoll_stuck_reported=old.ragdoll_stuck_reported if old else False,
+        last_moved=old.last_moved if old else now,
+        distance_travelled=old.distance_travelled if old else 0.0,
+        ai_transitions=old.ai_transitions if old else 0,
+        life_transitions=old.life_transitions if old else 0,
+        target_transitions=old.target_transitions if old else 0,
+        physics_transitions=old.physics_transitions if old else 0,
+        physics_filter_transitions=(old.physics_filter_transitions if old else 0),
+        render_transitions=old.render_transitions if old else 0,
+        max_speed=old.max_speed if old else 0.0,
+        anomalies=list(old.anomalies) if old else [])
+    if position:
+        actor.max_height = (position[2] if actor.max_height is None else
+                            max(actor.max_height, position[2]))
+        actor.ai_state_min_height = (position[2] if actor.ai_state_min_height is None else
+                                     min(actor.ai_state_min_height, position[2]))
+        actor.ai_state_max_height = (position[2] if actor.ai_state_max_height is None else
+                                     max(actor.ai_state_max_height, position[2]))
+    if physics_velocity:
+        actor.max_speed = max(actor.max_speed, math.sqrt(sum(value * value for value in
+                                                              physics_velocity)))
+    return actor
+
+
+def ident(actor: Actor) -> dict:
+    return {"actor": f"{actor.address:08X}", "class": actor.kind,
+            "vtable": f"{actor.vtable:08X}", "serial": actor.serial,
+            "resource": f"{actor.resource:08X}",
+            "resourceName": actor.resource_name,
+            "render": f"{actor.render:08X}", "stateByte140": actor.gate140,
+            "aiState": f"{actor.ai_state:08X}" if actor.ai_state else None,
+            "aiVtable": f"{actor.ai_vtable:08X}" if actor.ai_vtable else None,
+            "aiDescriptor": (f"{actor.ai_descriptor:08X}"
+                             if actor.ai_descriptor else None),
+            "aiStateId": f"{actor.ai_state_id:08X}" if actor.ai_state_id else None,
+            "aiStateName": actor.ai_state_name, "lifeState": actor.life_state,
+            "aiPhase48": actor.ai_phase48,
+            "physicsBody": f"{actor.physics_body:08X}" if actor.physics_body else None,
+            "physicsVtable": f"{actor.physics_vtable:08X}" if actor.physics_vtable else None,
+            "physicsCollision": (f"{actor.physics_collision:08X}"
+                                 if actor.physics_collision else None),
+            "physicsCollisionVtable": (f"{actor.physics_collision_vtable:08X}"
+                                       if actor.physics_collision_vtable else None),
+            "physicsCollidable": (f"{actor.physics_collidable:08X}"
+                                  if actor.physics_collidable else None),
+            "physicsFilterInfo": (f"{actor.physics_filter_info:08X}"
+                                  if actor.physics_filter_info is not None else None),
+            "physicsCategory": actor.physics_category,
+            "physicsSystemGroup": actor.physics_group,
+            "physicsCollideMask": actor.physics_collide_mask,
+            "physicsVelocity": rounded(actor.physics_velocity),
+            "physicsInner": f"{actor.physics_inner:08X}" if actor.physics_inner else None,
+            "physicsInnerVtable": (f"{actor.physics_inner_vtable:08X}"
+                                    if actor.physics_inner_vtable else None),
+            "physicsQuaternion": rounded(actor.physics_quaternion),
+            "aiTarget53C": f"{actor.ai_target_53c:08X}" if actor.ai_target_53c else None,
+            "aiTarget540": f"{actor.ai_target_540:08X}" if actor.ai_target_540 else None}
+
+
+def rounded(values: tuple[float, ...] | None) -> list[float] | None:
+    return [round(value, 5) for value in values] if values else None
+
+
+def float_bits(bits: int | None) -> float | None:
+    if bits is None:
+        return None
+    value = struct.unpack("<f", struct.pack("<I", bits))[0]
+    return round(value, 6) if math.isfinite(value) else None
+
+
+def emit(output, kind: str, now: float, tick: int, **fields) -> None:
+    output.write(json.dumps({"event": kind, "hostSeconds": now,
+                             "worldTick": tick, **fields},
+                            separators=(",", ":")) + "\n")
+
+
+def actor_summary(actor: Actor, now: float) -> dict:
+    return {
+        **ident(actor),
+        "lifetimeSeconds": round(now - actor.first_seen, 3),
+        "stateSeconds": round(now - actor.ai_state_entered, 3),
+        "aiStateMinHeight": actor.ai_state_min_height,
+        "aiStateMaxHeight": actor.ai_state_max_height,
+        "secondsSinceMovement": round(now - actor.last_moved, 3),
+        "distanceTravelled": round(actor.distance_travelled, 3),
+        "motionSamples": actor.motion_samples,
+        "stateEvents": actor.state_events,
+        "aiTransitions": actor.ai_transitions,
+        "lifeTransitions": actor.life_transitions,
+        "targetTransitions": actor.target_transitions,
+        "physicsTransitions": actor.physics_transitions,
+        "physicsFilterTransitions": actor.physics_filter_transitions,
+        "physicsBodySeen": actor.physics_body_seen,
+        "renderTransitions": actor.render_transitions,
+        "maxSpeed": round(actor.max_speed, 5),
+        "lastPosition": rounded(actor.position),
+        "maxHeight": actor.max_height,
+        "anomalies": actor.anomalies,
+    }
+
+
+def census(tracked: dict[int, Actor]) -> dict:
+    by_class: dict[str, int] = {}
+    by_resource: dict[str, int] = {}
+    by_ai_state: dict[str, int] = {}
+    by_life: dict[str, int] = {}
+    for actor in tracked.values():
+        by_class[actor.kind] = by_class.get(actor.kind, 0) + 1
+        resource = actor.resource_name or f"{actor.resource:08X}"
+        by_resource[resource] = by_resource.get(resource, 0) + 1
+        if actor.ai_state_name:
+            by_ai_state[actor.ai_state_name] = by_ai_state.get(actor.ai_state_name, 0) + 1
+        if actor.life_state:
+            by_life[actor.life_state] = by_life.get(actor.life_state, 0) + 1
+    return {
+        "byClass": dict(sorted(by_class.items())),
+        "byResource": dict(sorted(by_resource.items())),
+        "byAiState": dict(sorted(by_ai_state.items())),
+        "byLifeState": dict(sorted(by_life.items())),
+    }
+
+
+def file_sha256(path: Path | None) -> str | None:
+    if not path or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pid", type=int, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--seconds", type=float, default=0.0,
+                        help="capture duration; zero follows the process until exit")
+    parser.add_argument("--hz", type=float, default=10.0)
+    parser.add_argument("--scan-seconds", type=float, default=2.0)
+    parser.add_argument("--scan-start", type=lambda value: int(value, 0), default=0x02800000)
+    parser.add_argument("--scan-end", type=lambda value: int(value, 0), default=0x04000000)
+    parser.add_argument("--host-offset", type=lambda value: int(value, 0), default=HOST_OFFSET)
+    args = parser.parse_args()
+    if args.scan_start >= args.scan_end:
+        parser.error("scan start must precede scan end")
+
+    reader = Reader(args.pid, args.host_offset)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    tracked: dict[int, Actor] = {}
+    counts: dict[str, int] = {}
+    start_time = time.time()
+    deadline = (time.perf_counter() + args.seconds
+                if args.seconds > 0 else float("inf"))
+    next_sample = time.perf_counter()
+    next_scan = next_sample
+    next_heartbeat = next_sample
+    last_heartbeat_time = start_time
+    last_heartbeat_tick = 0
+    previous_tick = 0
+    world_transition_until = 0.0
+    stalled_heartbeats = 0
+    observed_life_state = False
+    observed_ai_state_name = False
+    observed_sam_site = False
+    observed_sam_site_physics = False
+    observed_player_crypto = False
+    observed_player_filter = False
+    observed_emp_crypto_pair = False
+    observed_emp_proximity = False
+    previous_player_state: dict | None = None
+    previous_pair_state: tuple | None = None
+    previous_emp_proximity: dict[tuple[int, int], bool] = {}
+    image_path = reader.image_path()
+
+    def count(kind: str) -> None:
+        counts[kind] = counts.get(kind, 0) + 1
+
+    try:
+        with args.output.open("x", encoding="utf-8", buffering=1) as output:
+            emit(output, "run-start", start_time, 0, pid=args.pid,
+                 observer="blanket-v4", sampleHz=args.hz,
+                 executable=str(image_path) if image_path else None,
+                 executableSha256=file_sha256(image_path),
+                 scanSeconds=args.scan_seconds,
+                 scanRange=[f"{args.scan_start:08X}", f"{args.scan_end:08X}"],
+                 coverage=["actor-lifecycle", "actor-state", "actor-transform",
+                           "visibility-flags", "unexpected-despawn",
+                           "teleport", "nonfinite-transform",
+                           "physics-body-lifecycle", "physics-filter-state",
+                           "sam-site-presence", "player-crypto-state",
+                           "player-render-state",
+                           "emp-player-collision-pair", "emp-proximity"])
+            while time.perf_counter() < deadline and reader.is_running():
+                perf_now = time.perf_counter()
+                now = time.time()
+                world = reader.u32(0x00286768)
+                tick = reader.u32(world + 8) if pointer(world) else 0
+                if previous_tick and tick < previous_tick and previous_tick - tick > 300:
+                    world_transition_until = now + 15.0
+                    emit(output, "world-transition", now, tick,
+                         previousTick=previous_tick,
+                         detail="World clock reset; actor removals are level unloads")
+                    count("world-transition")
+                    last_heartbeat_tick = tick
+                    last_heartbeat_time = now
+                    stalled_heartbeats = 0
+                previous_tick = tick
+
+                player_state = read_player_state(reader)
+                if player_state is not None:
+                    observed_player_crypto = True
+                    observed_player_filter |= player_state["cryptoFilterInfo"] is not None
+                    if player_state != previous_player_state:
+                        emit(output, "player-state", now, tick, **player_state,
+                             reason=("player-discovered"
+                                     if previous_player_state is None else
+                                     "player-or-crypto-state-transition"),
+                             previous=previous_player_state)
+                        count("player-state")
+                elif previous_player_state is not None:
+                    emit(output, "player-state", now, tick,
+                         reason="player-or-crypto-unavailable",
+                         previous=previous_player_state)
+                    count("player-state")
+                previous_player_state = player_state
+
+                if perf_now >= next_scan:
+                    found = scan_actors(reader, args.scan_start, args.scan_end)
+                    for address, profile in found.items():
+                        if address not in tracked:
+                            actor = read_actor(reader, address, profile, now)
+                            if actor:
+                                tracked[address] = actor
+                                observed_life_state |= actor.life_state is not None
+                                observed_ai_state_name |= actor.ai_state_name is not None
+                                if actor.kind == "traffic-actor-sam-site":
+                                    observed_sam_site = True
+                                    observed_sam_site_physics |= bool(actor.physics_body)
+                                emit(output, "actor-spawn", now, tick, **ident(actor),
+                                     scene=f"{actor.scene:08X}",
+                                     position=rounded(actor.position))
+                                count("actor-spawn")
+                                if actor.kind == "traffic-actor-sam-site":
+                                    emit(output, "physics-state", now, tick, **ident(actor),
+                                         reason="sam-site-discovered",
+                                         bodyPresent=bool(actor.physics_body))
+                                    count("physics-state")
+                        else:
+                            tracked[address].missing_scans = 0
+                    for address, actor in list(tracked.items()):
+                        if address in found:
+                            continue
+                        actor.missing_scans += 1
+                        if actor.missing_scans < 2:
+                            continue
+                        emit(output, "actor-despawn", now, tick, **ident(actor),
+                             history=actor_summary(actor, now),
+                             classification=("world-transition"
+                                             if now < world_transition_until else
+                                             "ambient-streaming"
+                                             if actor.resource_name == "a_chicken" else
+                                             "semantics-unresolved"))
+                        count("actor-despawn")
+                        if (now >= world_transition_until and
+                                actor.kind == "pedestrian" and
+                                actor.resource_name != "a_chicken" and
+                                actor.life_state == "alive"):
+                            emit(output, "anomaly", now, tick, **ident(actor),
+                                 code="living-pedestrian-vanished",
+                                 detail="No dying/dead AI state was observed before removal")
+                            count("anomaly")
+                        del tracked[address]
+                    next_scan = perf_now + args.scan_seconds
+
+                for address, old in list(tracked.items()):
+                    profile = found.get(address)
+                    if profile is None:
+                        profile = next((item for item in PROFILES if item[2] == old.vtable), None)
+                    current = read_actor(reader, address, profile, now, old) if profile else None
+                    if not current:
+                        continue
+                    observed_life_state |= current.life_state is not None
+                    observed_ai_state_name |= current.ai_state_name is not None
+                    if current.kind == "traffic-actor-sam-site":
+                        observed_sam_site = True
+                        observed_sam_site_physics |= bool(current.physics_body)
+                    if current.serial != old.serial:
+                        # The retail arena immediately reuses freed addresses.
+                        # Treat a changed stable serial as a complete lifecycle
+                        # boundary so histories from two objects never merge.
+                        fresh = read_actor(reader, address, profile, now)
+                        if fresh is None:
+                            continue
+                        current = fresh
+                        emit(output, "actor-despawn", now, tick, **ident(old),
+                             history=actor_summary(old, now),
+                             classification="address-reused",
+                             replacementSerial=current.serial)
+                        count("actor-despawn")
+                        emit(output, "actor-spawn", now, tick, **ident(current),
+                             scene=f"{current.scene:08X}",
+                             position=rounded(current.position),
+                             classification="reused-address",
+                             previousSerial=old.serial)
+                        count("actor-spawn")
+                        if current.kind == "traffic-actor-sam-site":
+                            observed_sam_site = True
+                            observed_sam_site_physics |= bool(current.physics_body)
+                            emit(output, "physics-state", now, tick, **ident(current),
+                                 reason="sam-site-reused-address",
+                                 bodyPresent=bool(current.physics_body))
+                            count("physics-state")
+                        tracked[address] = current
+                        continue
+                    changes = []
+                    for index, (before, after) in enumerate(zip(old.state_words,
+                                                                current.state_words)):
+                        offset = STATE_OFFSETS[index]
+                        if offset == 0x12C:
+                            # Bit 2 is the common per-frame visited/update bit;
+                            # retain every other object flag transition.
+                            before &= ~0x4
+                            after &= ~0x4
+                        if before != after:
+                            changes.append({"offset": f"{offset:03X}",
+                                            "before": f"{before:08X}",
+                                            "after": f"{after:08X}"})
+                    if changes or current.gate140 != old.gate140 or current.render != old.render:
+                        current.state_events += 1
+                        if current.render != old.render:
+                            current.render_transitions += 1
+                        emit(output, "actor-state", now, tick, **ident(current),
+                             previousStateByte140=old.gate140,
+                             previousRender=f"{old.render:08X}", changes=changes)
+                        count("actor-state")
+                    if (current.health_divisor_bits != old.health_divisor_bits or
+                            current.health_current_bits != old.health_current_bits):
+                        emit(output, "health-change", now, tick, **ident(current),
+                             previousDivisorBits=(f"{old.health_divisor_bits:08X}"
+                                                  if old.health_divisor_bits is not None else None),
+                             divisorBits=(f"{current.health_divisor_bits:08X}"
+                                          if current.health_divisor_bits is not None else None),
+                             previousCurrentBits=(f"{old.health_current_bits:08X}"
+                                                  if old.health_current_bits is not None else None),
+                             currentBits=(f"{current.health_current_bits:08X}"
+                                          if current.health_current_bits is not None else None),
+                             previousCurrent=float_bits(old.health_current_bits),
+                             current=float_bits(current.health_current_bits),
+                             attribution="not-yet-instrumented")
+                        count("health-change")
+                    if (current.ai_state != old.ai_state or
+                            current.ai_state_id != old.ai_state_id or
+                            current.ai_state_name != old.ai_state_name or
+                            current.life_state != old.life_state or
+                            current.physics_body != old.physics_body or
+                            current.physics_vtable != old.physics_vtable or
+                            current.physics_filter_info != old.physics_filter_info or
+                            current.ai_target_53c != old.ai_target_53c or
+                            current.ai_target_540 != old.ai_target_540):
+                        ai_changed = (current.ai_state != old.ai_state or
+                                      current.ai_state_id != old.ai_state_id or
+                                      current.ai_state_name != old.ai_state_name)
+                        life_changed = current.life_state != old.life_state
+                        target_changed = (current.ai_target_53c != old.ai_target_53c or
+                                          current.ai_target_540 != old.ai_target_540)
+                        physics_changed = (current.physics_body != old.physics_body or
+                                           current.physics_vtable != old.physics_vtable)
+                        physics_filter_changed = (
+                            current.physics_filter_info != old.physics_filter_info)
+                        previous_state_seconds = now - old.ai_state_entered
+                        previous_physics_seconds = now - old.physics_state_entered
+                        if ai_changed:
+                            current.ai_transitions += 1
+                            current.ai_state_entered = now
+                            current.ai_state_min_height = (current.position[2]
+                                                           if current.position else None)
+                            current.ai_state_max_height = (current.position[2]
+                                                           if current.position else None)
+                        if life_changed:
+                            current.life_transitions += 1
+                        if target_changed:
+                            current.target_transitions += 1
+                        if physics_changed:
+                            current.physics_transitions += 1
+                            current.physics_state_entered = now
+                            current.ragdoll_stuck_reported = False
+                        if physics_filter_changed:
+                            current.physics_filter_transitions += 1
+                        emit(output, "ai-state", now, tick, **ident(current),
+                             previousStateSeconds=round(previous_state_seconds, 3),
+                             previousPhysicsSeconds=round(previous_physics_seconds, 3),
+                             previousState=f"{old.ai_state:08X}" if old.ai_state else None,
+                             previousStateId=(f"{old.ai_state_id:08X}"
+                                              if old.ai_state_id else None),
+                             previousStateName=old.ai_state_name,
+                             previousLifeState=old.life_state,
+                             previousPhysicsVtable=(f"{old.physics_vtable:08X}"
+                                                    if old.physics_vtable else None),
+                             previousPhysicsBody=(f"{old.physics_body:08X}"
+                                                  if old.physics_body else None),
+                             previousTarget53C=(f"{old.ai_target_53c:08X}"
+                                                if old.ai_target_53c else None),
+                             previousTarget540=(f"{old.ai_target_540:08X}"
+                                                if old.ai_target_540 else None),
+                             previousAiPhase48=old.ai_phase48,
+                             previousAiWords=[f"{word:08X}" for word in old.ai_words],
+                             aiWords=[f"{word:08X}" for word in current.ai_words],
+                             previousStateMinHeight=old.ai_state_min_height,
+                             previousStateMaxHeight=old.ai_state_max_height)
+                        count("ai-state")
+                        if physics_changed:
+                            emit(output, "physics-state", now, tick, **ident(current),
+                                 reason="body-or-vtable-transition",
+                                 previousBody=(f"{old.physics_body:08X}"
+                                               if old.physics_body else None),
+                                 previousVtable=(f"{old.physics_vtable:08X}"
+                                                 if old.physics_vtable else None),
+                                 bodyPresent=bool(current.physics_body))
+                            count("physics-state")
+                        if physics_filter_changed:
+                            emit(output, "physics-filter-state", now, tick,
+                                 **ident(current),
+                                 previousFilterInfo=(
+                                     f"{old.physics_filter_info:08X}"
+                                     if old.physics_filter_info is not None else None),
+                                 previousCategory=old.physics_category,
+                                 previousSystemGroup=old.physics_group,
+                                 previousCollideMask=old.physics_collide_mask)
+                            count("physics-filter-state")
+                        if old.life_state == "dead" and current.life_state == "alive":
+                            current.anomalies.append("dead-pedestrian-became-alive")
+                            emit(output, "anomaly", now, tick, **ident(current),
+                                 code="dead-pedestrian-became-alive",
+                                 previousStateName=old.ai_state_name)
+                            count("anomaly")
+                        if (old.ai_state_name == "pedestrian_floating" and
+                                current.life_state == "dead"):
+                            height_span = (old.ai_state_max_height - old.ai_state_min_height
+                                           if old.ai_state_max_height is not None and
+                                           old.ai_state_min_height is not None else None)
+                            current.anomalies.append("floating-pedestrian-became-dead")
+                            emit(output, "anomaly", now, tick, **ident(current),
+                                 code="floating-pedestrian-became-dead",
+                                 floatingSeconds=round(previous_state_seconds, 3),
+                                 floatingHeightSpan=(round(height_span, 5)
+                                                     if height_span is not None else None),
+                                 previousAiPhase48=old.ai_phase48,
+                                 previousAiWords=[f"{word:08X}" for word in old.ai_words],
+                                 detail="Floating/PK state transitioned directly to death")
+                            count("anomaly")
+                        if (old.physics_vtable == 0x00237FA8 and
+                                current.physics_vtable == 0x002376E8):
+                            emit(output, "physics-recovery", now, tick, **ident(current),
+                                 ragdollSeconds=round(previous_physics_seconds, 3),
+                                 result="returned-to-active-body")
+                            count("physics-recovery")
+                    if (current.kind == "traffic-actor-sam-site" and
+                            not current.physics_body_seen and
+                            now - current.first_seen >= 1.0 and
+                            not current.physics_missing_reported):
+                        current.physics_missing_reported = True
+                        emit(output, "coverage-gap", now, tick, **ident(current),
+                             code="sam-site-physics-body-not-observed",
+                             observedSeconds=round(now - current.first_seen, 3),
+                             detail=("The proven ActorSamSite object has not exposed a "
+                                     "physics body; compare its resource and lifecycle "
+                                     "with the matched xemu checkpoint"))
+                        count("coverage-gap")
+                    if (current.kind == "pedestrian" and
+                            current.life_state == "alive" and
+                            current.physics_vtable == 0x00237FA8 and
+                            now - current.physics_state_entered >= 4.0 and
+                            not current.ragdoll_stuck_reported):
+                        current.ragdoll_stuck_reported = True
+                        current.anomalies.append("living-pedestrian-ragdoll-stuck")
+                        emit(output, "anomaly", now, tick, **ident(current),
+                             code="living-pedestrian-ragdoll-stuck",
+                             ragdollSeconds=round(now - current.physics_state_entered, 3),
+                             detail="Alive pedestrian did not return to active physics body")
+                        count("anomaly")
+                    if current.position and old.position:
+                        distance = math.dist(current.position, old.position)
+                        current.motion_samples += 1
+                        current.distance_travelled += distance
+                        if distance > 0.02:
+                            current.last_moved = now
+                        if distance > 250.0:
+                            emit(output, "anomaly", now, tick, **ident(current),
+                                 code="large-transform-jump", distance=round(distance, 3),
+                                 before=rounded(old.position), after=rounded(current.position))
+                            count("anomaly")
+                    if current.position is None and old.position is not None:
+                        emit(output, "anomaly", now, tick, **ident(current),
+                             code="invalid-transform", scene=f"{current.scene:08X}")
+                        count("anomaly")
+                    tracked[address] = current
+
+                emp_filters = sorted({
+                    actor.physics_filter_info for actor in tracked.values()
+                    if actor.kind == "traffic-actor-sam-site" and
+                    actor.resource_name == "m_emp_mine" and
+                    actor.physics_filter_info is not None
+                })
+                crypto_filter = (int(player_state["cryptoFilterInfo"], 16)
+                                 if player_state and
+                                 player_state["cryptoFilterInfo"] is not None else None)
+                pair_state = ((crypto_filter, tuple(emp_filters))
+                              if crypto_filter is not None and emp_filters else None)
+                if pair_state is not None:
+                    observed_emp_crypto_pair = True
+                    if pair_state != previous_pair_state:
+                        pairs = []
+                        for emp_filter in emp_filters:
+                            enabled, reason = collision_pair_enabled(
+                                emp_filter, crypto_filter)
+                            pairs.append({
+                                "empFilterInfo": f"{emp_filter:08X}",
+                                "empCategory": emp_filter & 0x1F,
+                                "empSystemGroup": (emp_filter >> 5) & 0x3F,
+                                "empCollideMask": emp_filter >> 11,
+                                "cryptoFilterInfo": f"{crypto_filter:08X}",
+                                "cryptoCategory": crypto_filter & 0x1F,
+                                "cryptoSystemGroup": (crypto_filter >> 5) & 0x3F,
+                                "cryptoCollideMask": crypto_filter >> 11,
+                                "retailFilterAccepts": enabled,
+                                "decision": reason,
+                            })
+                        emit(output, "emp-player-collision-pair", now, tick,
+                             pairs=pairs,
+                             previous=(
+                                 {"cryptoFilterInfo": f"{previous_pair_state[0]:08X}",
+                                  "empFilterInfo": [f"{value:08X}" for value in
+                                                    previous_pair_state[1]]}
+                                 if previous_pair_state is not None else None))
+                        count("emp-player-collision-pair")
+                previous_pair_state = pair_state
+
+                crypto_position = (tuple(player_state["cryptoPosition"])
+                                   if player_state and
+                                   player_state["cryptoPosition"] is not None else None)
+                live_emp_keys: set[tuple[int, int]] = set()
+                if crypto_position is not None:
+                    for actor in tracked.values():
+                        if (actor.kind != "traffic-actor-sam-site" or
+                                actor.resource_name != "m_emp_mine" or
+                                actor.position is None):
+                            continue
+                        key = (actor.address, actor.serial)
+                        live_emp_keys.add(key)
+                        distance = math.dist(crypto_position, actor.position)
+                        inside = distance < 21.0
+                        previous_inside = previous_emp_proximity.get(key)
+                        if previous_inside is None or previous_inside != inside:
+                            observed_emp_proximity = True
+                            transition = (
+                                "discovered-inside" if previous_inside is None and inside
+                                else "discovered-outside" if previous_inside is None
+                                else "entered" if inside else "exited"
+                            )
+                            emit(output, "emp-proximity", now, tick, **ident(actor),
+                                 cryptoPosition=rounded(crypto_position),
+                                 empPosition=rounded(actor.position),
+                                 distance=round(distance, 4), threshold=21.0,
+                                 insideTutorialRadius=inside, transition=transition)
+                            count("emp-proximity")
+                        previous_emp_proximity[key] = inside
+                for key in tuple(previous_emp_proximity):
+                    if key not in live_emp_keys:
+                        del previous_emp_proximity[key]
+
+                if perf_now >= next_heartbeat:
+                    heartbeat_seconds = max(now - last_heartbeat_time, 1e-9)
+                    tick_delta = ((tick - last_heartbeat_tick) & 0xFFFFFFFF
+                                  if last_heartbeat_tick else 0)
+                    tick_rate = tick_delta / heartbeat_seconds if last_heartbeat_tick else None
+                    stalled_heartbeats = (stalled_heartbeats + 1
+                                          if last_heartbeat_tick and tick_delta == 0 else 0)
+                    emit(output, "heartbeat", now, tick, actors=len(tracked),
+                         counts=counts, census=census(tracked),
+                         tickDelta=tick_delta,
+                         observedTickRate=(round(tick_rate, 3)
+                                           if tick_rate is not None else None),
+                         stalledHeartbeats=stalled_heartbeats)
+                    last_heartbeat_time = now
+                    last_heartbeat_tick = tick
+                    next_heartbeat = perf_now + 1.0
+                next_sample += 1.0 / max(1.0, args.hz)
+                delay = next_sample - time.perf_counter()
+                if delay > 0:
+                    time.sleep(delay)
+                else:
+                    next_sample = time.perf_counter()
+
+            end_time = time.time()
+            for actor in tracked.values():
+                emit(output, "actor-summary", end_time, 0,
+                     **actor_summary(actor, end_time))
+                count("actor-summary")
+            emit(output, "run-end", end_time, 0,
+                 durationSeconds=round(end_time - start_time, 3),
+                 reason=("process-exited" if not reader.is_running() else
+                         "duration-complete"),
+                 actorsRemaining=len(tracked), counts=counts,
+                 coverage={
+                     "actorLifecycle": counts.get("actor-spawn", 0) > 0,
+                     "stateTransitions": counts.get("actor-state", 0) > 0,
+                     "aiTransitions": counts.get("ai-state", 0) > 0,
+                     "despawns": counts.get("actor-despawn", 0) > 0,
+                     "anomalies": counts.get("anomaly", 0) > 0,
+                     "damageCause": False,
+                     "healthTransitions": counts.get("health-change", 0) > 0,
+                     "physicsRecovery": counts.get("physics-recovery", 0) > 0,
+                     "physicsTransitions": counts.get("physics-state", 0) > 0,
+                     "physicsFilterTransitions": (
+                         counts.get("physics-filter-state", 0) > 0),
+                     "samSiteObserved": observed_sam_site,
+                     "samSitePhysicsObserved": observed_sam_site_physics,
+                     "playerCryptoObserved": observed_player_crypto,
+                     "playerCollisionFilterObserved": observed_player_filter,
+                     "empCryptoCollisionPairObserved": observed_emp_crypto_pair,
+                     "empProximityObserved": observed_emp_proximity,
+                     "aliveDeadMeaning": observed_life_state,
+                     "effectOwnership": False,
+                     "aiTaskNames": observed_ai_state_name,
+                 })
+    finally:
+        reader.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
