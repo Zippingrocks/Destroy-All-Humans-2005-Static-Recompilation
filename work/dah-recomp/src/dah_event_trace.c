@@ -10,7 +10,8 @@ enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
 enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
        DAH_EVENT_ABILITY_FLAG = 3, DAH_EVENT_TAG_ABILITY = 4,
        DAH_EVENT_PHYSICS_BODY_COMMAND = 5,
-       DAH_EVENT_PLAYER_RENDER = 6, DAH_EVENT_SCENE_FLASH = 7 };
+       DAH_EVENT_PLAYER_RENDER = 6, DAH_EVENT_SCENE_FLASH = 7,
+       DAH_EVENT_UI_STATE = 8 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -62,6 +63,11 @@ typedef struct DahTraceEvent {
             uint32_t visible, previous_visible, transition_gap;
             float x, y, z;
         } scene_flash;
+        struct {
+            uint32_t root, active_mask, previous_active_mask;
+            uint32_t mission_defeat, mission_complete, titlecard;
+            uint32_t start_menu_background, messages, cinematic, main, fade;
+        } ui_state;
     } payload;
 } DahTraceEvent;
 
@@ -252,6 +258,29 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.scene_flash.x,
                     event->payload.scene_flash.y,
                     event->payload.scene_flash.z);
+            else if (event->type == DAH_EVENT_UI_STATE) fprintf(output,
+                    "{\"event\":\"ui-active-state\",\"sequence\":%llu,"
+                    "\"worldTick\":%u,\"root\":\"%08X\","
+                    "\"activeMask\":\"%08X\","
+                    "\"previousActiveMask\":\"%08X\","
+                    "\"missionDefeat\":\"%08X\","
+                    "\"missionComplete\":\"%08X\","
+                    "\"titlecard\":\"%08X\","
+                    "\"startMenuBackground\":\"%08X\","
+                    "\"messages\":\"%08X\",\"cinematic\":\"%08X\","
+                    "\"main\":\"%08X\",\"fade\":\"%08X\"}\n",
+                    (unsigned long long)event->sequence, event->world_tick,
+                    event->payload.ui_state.root,
+                    event->payload.ui_state.active_mask,
+                    event->payload.ui_state.previous_active_mask,
+                    event->payload.ui_state.mission_defeat,
+                    event->payload.ui_state.mission_complete,
+                    event->payload.ui_state.titlecard,
+                    event->payload.ui_state.start_menu_background,
+                    event->payload.ui_state.messages,
+                    event->payload.ui_state.cinematic,
+                    event->payload.ui_state.main,
+                    event->payload.ui_state.fade);
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -468,6 +497,107 @@ void dah_event_trace_player_render_sample(void)
     previous_scene = scene;
     previous_scene_flags = scene_flags;
     previous_world = world_tick;
+    sampled = 1;
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+}
+
+static int guest_inline_name_is(uint32_t object, const char *name)
+{
+    size_t index, length = strlen(name);
+    ptrdiff_t offset = xbox_GetMemoryOffset();
+    if (!guest_range(object + 0x0Cu, (uint32_t)length + 1u)) return 0;
+    for (index = 0; index < length; ++index)
+        if (*(const char *)((uintptr_t)offset + object + 0x0Cu + index) != name[index])
+            return 0;
+    return *(const unsigned char *)((uintptr_t)offset + object + 0x0Cu + length) == 0u;
+}
+
+void dah_event_trace_ui_state_sample(void)
+{
+    static uint32_t cached_root;
+    static uint32_t reported_root;
+    static uint32_t mission_defeat, mission_complete, titlecard;
+    static uint32_t start_menu_background, messages, cinematic, main_ui, fade;
+    static uint32_t previous_active_mask;
+    static int sampled;
+    uint32_t owner, root, sentinel, node, active_mask = 0u;
+    uint32_t world, world_tick;
+    unsigned count = 0u;
+    LONG write, read;
+    DahTraceEvent *event;
+
+    if (!InterlockedCompareExchange(&enabled, 0, 0)) return;
+    owner = guest_u32(0x00258470u);
+    root = guest_range(owner, 4u) ? guest_u32(owner) : 0u;
+    if (!guest_range(root, 0x48u)) root = 0u;
+    if (root != cached_root) {
+        cached_root = root;
+        mission_defeat = mission_complete = titlecard = 0u;
+        start_menu_background = messages = cinematic = main_ui = fade = 0u;
+        if (root) {
+            sentinel = root + 0x44u;
+            node = guest_u32(sentinel);
+            while (node && node != sentinel && count++ < 64u) {
+                uint32_t object = guest_range(node, 12u) ? guest_u32(node + 8u) : 0u;
+                if (guest_range(object, 0x0Du)) {
+                    if (guest_inline_name_is(object, "missiondefeat")) mission_defeat = object;
+                    else if (guest_inline_name_is(object, "missioncomplete")) mission_complete = object;
+                    else if (guest_inline_name_is(object, "titlecard")) titlecard = object;
+                    else if (guest_inline_name_is(object, "startMenuBackground")) start_menu_background = object;
+                    else if (guest_inline_name_is(object, "messages")) messages = object;
+                    else if (guest_inline_name_is(object, "cinematic")) cinematic = object;
+                    else if (guest_inline_name_is(object, "main")) main_ui = object;
+                    else if (guest_inline_name_is(object, "fade")) fade = object;
+                }
+                node = guest_range(node, 4u) ? guest_u32(node) : 0u;
+            }
+        }
+    }
+    if (guest_range(mission_defeat, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + mission_defeat + 4u)) active_mask |= 1u;
+    if (guest_range(mission_complete, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + mission_complete + 4u)) active_mask |= 2u;
+    if (guest_range(titlecard, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + titlecard + 4u)) active_mask |= 4u;
+    if (guest_range(start_menu_background, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + start_menu_background + 4u)) active_mask |= 8u;
+    if (guest_range(messages, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + messages + 4u)) active_mask |= 16u;
+    if (guest_range(cinematic, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + cinematic + 4u)) active_mask |= 32u;
+    if (guest_range(main_ui, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + main_ui + 4u)) active_mask |= 64u;
+    if (guest_range(fade, 5u) &&
+        *(const uint8_t *)((uintptr_t)xbox_GetMemoryOffset() + fade + 4u)) active_mask |= 128u;
+    if (sampled && root == reported_root && active_mask == previous_active_mask) return;
+
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    world = guest_u32(0x00286768u);
+    world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->world_tick = world_tick;
+    event->type = DAH_EVENT_UI_STATE;
+    event->payload.ui_state.root = root;
+    event->payload.ui_state.active_mask = active_mask;
+    event->payload.ui_state.previous_active_mask = previous_active_mask;
+    event->payload.ui_state.mission_defeat = mission_defeat;
+    event->payload.ui_state.mission_complete = mission_complete;
+    event->payload.ui_state.titlecard = titlecard;
+    event->payload.ui_state.start_menu_background = start_menu_background;
+    event->payload.ui_state.messages = messages;
+    event->payload.ui_state.cinematic = cinematic;
+    event->payload.ui_state.main = main_ui;
+    event->payload.ui_state.fade = fade;
+    reported_root = root;
+    previous_active_mask = active_mask;
     sampled = 1;
     MemoryBarrier();
     InterlockedExchange(&write_index, write + 1);

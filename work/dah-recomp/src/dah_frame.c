@@ -623,6 +623,7 @@ void dah_frame_end(void)
      * external observer was not running. This is read-only and emits only on
      * change. */
     dah_event_trace_player_render_sample();
+    dah_event_trace_ui_state_sample();
     dah_event_trace_frame(g_dah_frame_serial, guest_u32(0x0025B1DCu),
         (uint32_t)(frame.current_interval * 1000000.0 + 0.5),
         (uint32_t)(frame.period * 1000000.0 + 0.5),
