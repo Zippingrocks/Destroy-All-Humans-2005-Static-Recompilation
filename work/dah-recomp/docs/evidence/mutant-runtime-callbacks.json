@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "0x00130B20",
+      "end": "0x00130B3B",
+      "bytes": 27,
+      "instructions": 8,
+      "purpose": "mutant type-query callback",
+      "codeBytesSha256": "AA03A066F47F91B9D14B081C30EA1C957EF03A551D7480466AEF354FF12293D2"
+    },
+    {
+      "start": "0x000242F0",
+      "end": "0x0002431B",
+      "bytes": 43,
+      "instructions": 13,
+      "purpose": "object scalar deleting destructor",
+      "codeBytesSha256": "F1519AB0681E4DE952E56F6AD08DB601150D7AD1C3B8805B3F7120738ED90B71"
+    },
+    {
+      "start": "0x0011CB60",
+      "end": "0x0011CB68",
+      "bytes": 8,
+      "instructions": 2,
+      "purpose": "multiple-inheritance adjustor thunk",
+      "codeBytesSha256": "D03BCC46BCADB1689BB0747C8C2986D9A05828946CEA1659960C6E374D46C94C"
+    },
+    {
+      "start": "0x0014A290",
+      "end": "0x0014A2DA",
+      "bytes": 74,
+      "instructions": 30,
+      "purpose": "tree/list insertion callback",
+      "codeBytesSha256": "B3563A1ED371BF83AD8AAA4429356801F9520A5A9E93B6BCA5DB1B0F770072A3"
+    },
+    {
+      "start": "0x00078040",
+      "end": "0x0007805E",
+      "bytes": 30,
+      "instructions": 11,
+      "purpose": "mutant-scene scalar deleting destructor",
+      "codeBytesSha256": "E916E996F9D2B01DD2120DD7816526BA528F2E938C2C714FE4E48130B1C997E3"
+    }
+  ]
+}
