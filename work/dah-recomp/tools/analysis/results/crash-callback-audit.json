@@ -255,8 +255,8 @@
   ],
   "cumulativeIndirectCallAudit": {
     "source": "work/dah-recomp/icall_seeds.json",
-    "seedTargets": 105,
-    "accumulatedUniqueTargets": 127,
+    "seedTargets": 186,
+    "accumulatedUniqueTargets": 208,
     "missingDispatchTargets": [],
     "generatedRecoveryStubCount": 21,
     "runtimeSeedRecoveryStubIntersection": [],
@@ -265,13 +265,6 @@
   },
   "retainedRuntimeAudit": {
     "nonNullTargets": [
-      {
-        "address": "0x00012280",
-        "observations": [
-          "furonlog.log:8070"
-        ],
-        "status": "implemented-and-dispatchable"
-      },
       {
         "address": "0x00015FC0",
         "observations": [
@@ -283,32 +276,6 @@
         "address": "0x00016CA0",
         "observations": [
           "crashlog/crash-20261007T061712.003Z-p16976-t51848-DAH-1AF563F1251E7840.txt:361"
-        ],
-        "status": "implemented-and-dispatchable"
-      },
-      {
-        "address": "0x0002C660",
-        "observations": [
-          "furonlog.log:8096"
-        ],
-        "status": "implemented-and-dispatchable"
-      },
-      {
-        "address": "0x0003DF00",
-        "observations": [
-          "furonlog.log:8072",
-          "furonlog.log:8075",
-          "furonlog.log:8076",
-          "furonlog.log:8077",
-          "furonlog.log:8078",
-          "furonlog.log:8079",
-          "furonlog.log:8082",
-          "furonlog.log:8085",
-          "furonlog.log:8093",
-          "furonlog.log:8107",
-          "furonlog.log:8126",
-          "furonlog.log:8172",
-          "furonlog.log:8270"
         ],
         "status": "implemented-and-dispatchable"
       },
@@ -343,56 +310,10 @@
           "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:655"
         ],
         "status": "implemented-and-dispatchable"
-      },
-      {
-        "address": "0x00077810",
-        "observations": [
-          "furonlog.log:8348"
-        ],
-        "status": "implemented-and-dispatchable"
       }
     ],
-    "rejectedNonEntryTargets": [
-      {
-        "address": "0x0001ECA2",
-        "observations": [
-          "furonlog.log:8350",
-          "furonlog.log:8356",
-          "furonlog.log:8359",
-          "furonlog.log:8362",
-          "furonlog.log:8365",
-          "furonlog.log:8368",
-          "furonlog.log:8371",
-          "furonlog.log:8374",
-          "furonlog.log:8377",
-          "furonlog.log:8380",
-          "furonlog.log:8383",
-          "furonlog.log:8386",
-          "furonlog.log:8389",
-          "furonlog.log:8392",
-          "furonlog.log:8395",
-          "furonlog.log:8398",
-          "furonlog.log:8401",
-          "furonlog.log:8404",
-          "furonlog.log:8407",
-          "furonlog.log:8410",
-          "furonlog.log:8413",
-          "furonlog.log:8416",
-          "furonlog.log:8419",
-          "furonlog.log:8422",
-          "furonlog.log:8425",
-          "furonlog.log:8428",
-          "furonlog.log:8431",
-          "furonlog.log:8434",
-          "furonlog.log:8437",
-          "furonlog.log:8440",
-          "furonlog.log:8443"
-        ],
-        "reason": "instruction inside the retail function containing 0x0001EC9C",
-        "status": "corrupt-cascade-target-not-dispatched"
-      }
-    ],
-    "nullCascadeCalls": 66,
+    "rejectedNonEntryTargets": [],
+    "nullCascadeCalls": 4,
     "unimplementedNonNullTargets": []
   },
   "retailActorSamSiteVtable": {
