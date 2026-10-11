@@ -211,6 +211,16 @@
       "status": "implemented-and-dispatchable"
     }
   ],
+  "cumulativeIndirectCallAudit": {
+    "source": "work/dah-recomp/icall_seeds.json",
+    "seedTargets": 99,
+    "accumulatedUniqueTargets": 121,
+    "missingDispatchTargets": [],
+    "generatedRecoveryStubCount": 21,
+    "runtimeSeedRecoveryStubIntersection": [],
+    "accumulatedRecoveryStubIntersection": [],
+    "status": "all-dispatchable"
+  },
   "retainedRuntimeAudit": {
     "nonNullTargets": [
       {

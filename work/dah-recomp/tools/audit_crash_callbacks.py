@@ -55,11 +55,19 @@ def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]
     Zero targets are recorded separately because they are null/corrupt calls
     produced after an earlier failure, not retail functions that can be lifted.
     """
-    candidates = [workspace / "furonlog.log"]
+    candidates = []
+    for pattern in ("*.log", "*.txt", "*.jsonl"):
+        candidates.extend(workspace.glob(pattern))
     crashlog = workspace / "crashlog"
     if crashlog.exists():
         candidates.extend(crashlog.rglob("*.txt"))
         candidates.extend(crashlog.rglob("*.log"))
+        candidates.extend(crashlog.rglob("*.jsonl"))
+    blanket_runs = workspace / "work/dah-recomp/tools/parity/blanket-runs"
+    if blanket_runs.exists():
+        candidates.extend(blanket_runs.rglob("*.txt"))
+        candidates.extend(blanket_runs.rglob("*.log"))
+        candidates.extend(blanket_runs.rglob("*.jsonl"))
 
     observations: dict[int, list[str]] = {}
     null_calls = 0
@@ -79,6 +87,13 @@ def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]
             source = path.relative_to(workspace).as_posix()
             observations.setdefault(address, []).append(f"{source}:{line_number}")
     return observations, null_calls
+
+
+def dispatched(address: int, manual: str, generated_dispatch: str) -> bool:
+    token = rf"0x{address:08X}u"
+    return re.search(token, manual, re.IGNORECASE) is not None or re.search(
+        token, generated_dispatch, re.IGNORECASE
+    ) is not None
 
 
 def sha256(path: Path) -> str:
@@ -128,6 +143,34 @@ def main() -> int:
     )
     generated_dispatch = (repo / "src/recomp/gen/recomp_dispatch.c").read_text(encoding="utf-8")
 
+    seed_path = repo / "icall_seeds.json"
+    seed_addresses = {
+        int(entry["start"], 16)
+        for entry in json.loads(seed_path.read_text(encoding="utf-8"))
+    }
+    missing_seed_dispatch = sorted(
+        address for address in seed_addresses
+        if not dispatched(address, manual, generated_dispatch)
+    )
+    if missing_seed_dispatch:
+        missing = ", ".join(f"0x{address:08X}" for address in missing_seed_dispatch)
+        raise SystemExit(f"FAIL cumulative indirect-call seed(s) lack dispatch: {missing}")
+
+    recovery_source = (repo / "src/recomp/gen/recomp_stubs_unresolved.c").read_text(
+        encoding="utf-8"
+    )
+    recovery_stubs = {
+        int(value, 16)
+        for value in re.findall(
+            r"void\s+sub_([0-9A-Fa-f]{8})\s*\(void\)\s*\{\s*g_esp\s*\+=\s*4",
+            recovery_source,
+        )
+    }
+    seeded_recovery_stubs = sorted(seed_addresses & recovery_stubs)
+    if seeded_recovery_stubs:
+        bad = ", ".join(f"0x{address:08X}" for address in seeded_recovery_stubs)
+        raise SystemExit(f"FAIL runtime callback seed(s) still use no-op recovery stubs: {bad}")
+
     callback_rows = []
     implemented_addresses = set()
     for address, origin, function in CALLBACKS:
@@ -160,6 +203,21 @@ def main() -> int:
     if missing_retained:
         missing = ", ".join(f"0x{address:08X}" for address in missing_retained)
         raise SystemExit(f"FAIL retained unresolved callback(s) lack implementations: {missing}")
+
+    accumulated_addresses = seed_addresses | implemented_addresses | set(retained_observations)
+    accumulated_recovery_stubs = sorted(accumulated_addresses & recovery_stubs)
+    if accumulated_recovery_stubs:
+        bad = ", ".join(f"0x{address:08X}" for address in accumulated_recovery_stubs)
+        raise SystemExit(f"FAIL accumulated callback target(s) use no-op recovery stubs: {bad}")
+    missing_accumulated_dispatch = sorted(
+        address for address in accumulated_addresses
+        if not dispatched(address, manual, generated_dispatch)
+    )
+    if missing_accumulated_dispatch:
+        missing = ", ".join(
+            f"0x{address:08X}" for address in missing_accumulated_dispatch
+        )
+        raise SystemExit(f"FAIL accumulated callback target(s) lack dispatch: {missing}")
 
     retail_path = workspace / "default.xbe"
     retail = xbe_sections(retail_path)
@@ -194,6 +252,16 @@ def main() -> int:
         "preservedCrashCount": len(crashes),
         "preservedCrashes": crashes,
         "callbacks": callback_rows,
+        "cumulativeIndirectCallAudit": {
+            "source": seed_path.relative_to(workspace).as_posix(),
+            "seedTargets": len(seed_addresses),
+            "accumulatedUniqueTargets": len(accumulated_addresses),
+            "missingDispatchTargets": [],
+            "generatedRecoveryStubCount": len(recovery_stubs),
+            "runtimeSeedRecoveryStubIntersection": [],
+            "accumulatedRecoveryStubIntersection": [],
+            "status": "all-dispatchable",
+        },
         "retainedRuntimeAudit": {
             "nonNullTargets": [
                 {
@@ -218,6 +286,11 @@ def main() -> int:
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"PASS: {len(crashes)} preserved unique crash signature(s)")
     print(f"PASS: {len(callback_rows)} observed callbacks have bodies and dispatch entries")
+    print(
+        f"PASS: all {len(seed_addresses)} cumulative indirect-call seeds are dispatchable; "
+        f"none use {len(recovery_stubs)} generated no-op recovery stubs"
+    )
+    print(f"PASS: {len(accumulated_addresses)} unique accumulated callback targets reconciled")
     print(
         f"PASS: {len(retained_observations)} non-null callback target(s) in retained logs "
         f"are dispatchable ({retained_null_calls} null cascade call(s) excluded)"
