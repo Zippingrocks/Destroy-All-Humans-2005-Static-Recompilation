@@ -44,6 +44,42 @@ CALLBACKS = (
     (0x00143689, "historical-stale-log", "sub_00143689"),
 )
 
+UNRESOLVED_LINE = re.compile(
+    r"\[ICALL\]\s+unresolved Xbox target 0x([0-9A-Fa-f]{8})"
+)
+
+
+def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]], int]:
+    """Collect callback targets from the retained runtime/crash logs.
+
+    Zero targets are recorded separately because they are null/corrupt calls
+    produced after an earlier failure, not retail functions that can be lifted.
+    """
+    candidates = [workspace / "furonlog.log"]
+    crashlog = workspace / "crashlog"
+    if crashlog.exists():
+        candidates.extend(crashlog.rglob("*.txt"))
+        candidates.extend(crashlog.rglob("*.log"))
+
+    observations: dict[int, list[str]] = {}
+    null_calls = 0
+    for path in sorted(set(candidates)):
+        if not path.is_file():
+            continue
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+        ):
+            match = UNRESOLVED_LINE.search(line)
+            if not match:
+                continue
+            address = int(match.group(1), 16)
+            if address == 0:
+                null_calls += 1
+                continue
+            source = path.relative_to(workspace).as_posix()
+            observations.setdefault(address, []).append(f"{source}:{line_number}")
+    return observations, null_calls
+
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -93,6 +129,7 @@ def main() -> int:
     generated_dispatch = (repo / "src/recomp/gen/recomp_dispatch.c").read_text(encoding="utf-8")
 
     callback_rows = []
+    implemented_addresses = set()
     for address, origin, function in CALLBACKS:
         if function.startswith("dah_retail_"):
             body_present = re.search(rf"static\s+void\s+{re.escape(function)}\s*\(", manual) is not None
@@ -116,6 +153,13 @@ def main() -> int:
             "dispatch": "manual" if manual_case else "generated",
             "status": "implemented-and-dispatchable",
         })
+        implemented_addresses.add(address)
+
+    retained_observations, retained_null_calls = retained_callback_observations(workspace)
+    missing_retained = sorted(set(retained_observations) - implemented_addresses)
+    if missing_retained:
+        missing = ", ".join(f"0x{address:08X}" for address in missing_retained)
+        raise SystemExit(f"FAIL retained unresolved callback(s) lack implementations: {missing}")
 
     retail_path = workspace / "default.xbe"
     retail = xbe_sections(retail_path)
@@ -145,11 +189,23 @@ def main() -> int:
         }
 
     report = {
-        "schema": 1,
+        "schema": 2,
         "retailXbe": {"path": str(retail_path), "sha256": sha256(retail_path)},
         "preservedCrashCount": len(crashes),
         "preservedCrashes": crashes,
         "callbacks": callback_rows,
+        "retainedRuntimeAudit": {
+            "nonNullTargets": [
+                {
+                    "address": f"0x{address:08X}",
+                    "observations": sources,
+                    "status": "implemented-and-dispatchable",
+                }
+                for address, sources in sorted(retained_observations.items())
+            ],
+            "nullCascadeCalls": retained_null_calls,
+            "unimplementedNonNullTargets": [],
+        },
         "retailActorSamSiteVtable": {
             "address": "0x00226A80",
             "deletingDestructorSlot": {"offset": "0x24", "target": f"0x{dword(retail, 0x00226A80 + 0x24):08X}"},
@@ -162,6 +218,10 @@ def main() -> int:
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"PASS: {len(crashes)} preserved unique crash signature(s)")
     print(f"PASS: {len(callback_rows)} observed callbacks have bodies and dispatch entries")
+    print(
+        f"PASS: {len(retained_observations)} non-null callback target(s) in retained logs "
+        f"are dispatchable ({retained_null_calls} null cascade call(s) excluded)"
+    )
     print("PASS: retail crash callbacks match original XBE bytes and vtable slots")
     if alpha_record:
         print("PASS: alpha retains the +0x24 destructor slot; retail extends past alpha +0x98")
