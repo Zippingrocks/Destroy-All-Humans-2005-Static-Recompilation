@@ -412,10 +412,24 @@ HRESULT d3d8_PresentFrameWithInterval(UINT interval)
                                                 interval, present_flags);
         if (result == DXGI_ERROR_WAS_STILL_DRAWING) {
             static unsigned deferred_present_count;
-            if (deferred_present_count++ < 8u)
-                fprintf(stderr, "[D3D8-PRESENT-DEFERRED] call=%u swap chain still drawing; simulation remains live\n",
-                        present_trace_count + 1u);
-            result = S_OK;
+            static unsigned recovered_present_count;
+            unsigned deferred = ++deferred_present_count;
+            /* Dropping a nonblocking present is not harmless.  Under a
+             * sustained compositor backlog, every subsequent call can also
+             * report WAS_STILL_DRAWING: guest simulation and draw telemetry
+             * continue normally while the player sees one frozen frame.
+             * Xbox Flip waits for ownership of the presentation surface, so
+             * retry this visible-window frame without DO_NOT_WAIT. */
+            result = IDXGISwapChain_Present(g_device_state.swap_chain,
+                                            interval, 0u);
+            if (SUCCEEDED(result)) ++recovered_present_count;
+            if (deferred <= 8u || (deferred & (deferred - 1u)) == 0u) {
+                fprintf(stderr,
+                        "[D3D8-PRESENT-BACKPRESSURE] call=%u deferred=%u recovered=%u retry=0x%08lX\n",
+                        present_trace_count + 1u, deferred,
+                        recovered_present_count, (unsigned long)result);
+                fflush(stderr);
+            }
         }
         if (present_trace_count < 8u || (FAILED(result) && result != DXGI_STATUS_OCCLUDED)) {
             fprintf(stderr, "[D3D8-PRESENT] call=%u interval=%u result=0x%08lX hwnd=%p visible=%u iconic=%u\n",
