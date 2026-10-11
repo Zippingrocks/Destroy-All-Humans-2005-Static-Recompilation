@@ -10894,4 +10894,10 @@ void sub_0004ACC0(void);
 /* Byte-checked indirect callbacks observed during long playtests. */
 void sub_000A21A0(void);
 
+/* Byte-checked indirect callbacks observed during cutscene playback. */
+void sub_00012280(void);
+void sub_0002C660(void);
+void sub_0003DF00(void);
+void sub_00077810(void);
+
 #endif /* RECOMP_FUNCS_H */

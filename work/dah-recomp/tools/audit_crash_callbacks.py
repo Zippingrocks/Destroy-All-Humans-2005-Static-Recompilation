@@ -36,6 +36,10 @@ CALLBACKS = (
     (0x0011CB60, "mutant-runtime-retail", "sub_0011CB60"),
     (0x0014A290, "mutant-runtime-retail", "sub_0014A290"),
     (0x00078040, "mutant-runtime-retail", "sub_00078040"),
+    (0x00012280, "cutscene-runtime-retail", "sub_00012280"),
+    (0x0002C660, "cutscene-runtime-retail", "sub_0002C660"),
+    (0x0003DF00, "cutscene-runtime-retail", "sub_0003DF00"),
+    (0x00077810, "cutscene-runtime-retail", "sub_00077810"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),
@@ -47,6 +51,13 @@ CALLBACKS = (
 UNRESOLVED_LINE = re.compile(
     r"\[ICALL\]\s+unresolved Xbox target 0x([0-9A-Fa-f]{8})"
 )
+
+# This target was logged only after the missing 0x00077810 destructor was
+# skipped.  Retail disassembly proves it is the LEA instruction at 0x1ECA2
+# inside another function, rather than a callable function entry.
+KNOWN_NON_ENTRY_TARGETS = {
+    0x0001ECA2: "instruction inside the retail function containing 0x0001EC9C",
+}
 
 
 def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]], int]:
@@ -199,12 +210,24 @@ def main() -> int:
         implemented_addresses.add(address)
 
     retained_observations, retained_null_calls = retained_callback_observations(workspace)
-    missing_retained = sorted(set(retained_observations) - implemented_addresses)
+    rejected_non_entries = {
+        address: retained_observations[address]
+        for address in KNOWN_NON_ENTRY_TARGETS
+        if address in retained_observations
+    }
+    retained_function_observations = {
+        address: sources
+        for address, sources in retained_observations.items()
+        if address not in KNOWN_NON_ENTRY_TARGETS
+    }
+    missing_retained = sorted(set(retained_function_observations) - implemented_addresses)
     if missing_retained:
         missing = ", ".join(f"0x{address:08X}" for address in missing_retained)
         raise SystemExit(f"FAIL retained unresolved callback(s) lack implementations: {missing}")
 
-    accumulated_addresses = seed_addresses | implemented_addresses | set(retained_observations)
+    accumulated_addresses = (
+        seed_addresses | implemented_addresses | set(retained_function_observations)
+    )
     accumulated_recovery_stubs = sorted(accumulated_addresses & recovery_stubs)
     if accumulated_recovery_stubs:
         bad = ", ".join(f"0x{address:08X}" for address in accumulated_recovery_stubs)
@@ -269,7 +292,16 @@ def main() -> int:
                     "observations": sources,
                     "status": "implemented-and-dispatchable",
                 }
-                for address, sources in sorted(retained_observations.items())
+                for address, sources in sorted(retained_function_observations.items())
+            ],
+            "rejectedNonEntryTargets": [
+                {
+                    "address": f"0x{address:08X}",
+                    "observations": sources,
+                    "reason": KNOWN_NON_ENTRY_TARGETS[address],
+                    "status": "corrupt-cascade-target-not-dispatched",
+                }
+                for address, sources in sorted(rejected_non_entries.items())
             ],
             "nullCascadeCalls": retained_null_calls,
             "unimplementedNonNullTargets": [],
@@ -292,9 +324,14 @@ def main() -> int:
     )
     print(f"PASS: {len(accumulated_addresses)} unique accumulated callback targets reconciled")
     print(
-        f"PASS: {len(retained_observations)} non-null callback target(s) in retained logs "
+        f"PASS: {len(retained_function_observations)} function callback target(s) in retained logs "
         f"are dispatchable ({retained_null_calls} null cascade call(s) excluded)"
     )
+    if rejected_non_entries:
+        print(
+            f"PASS: {len(rejected_non_entries)} proven non-entry cascade target(s) "
+            "recorded and excluded from dispatch"
+        )
     print("PASS: retail crash callbacks match original XBE bytes and vtable slots")
     if alpha_record:
         print("PASS: alpha retains the +0x24 destructor slot; retail extends past alpha +0x98")

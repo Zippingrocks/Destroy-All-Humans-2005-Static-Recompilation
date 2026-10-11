@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "0x00012280",
+      "end": "0x000122A9",
+      "bytes": 41,
+      "instructions": 12,
+      "purpose": "runtime type-query callback",
+      "codeBytesSha256": "7936DACC5A8A39E9057B25CA3FB58B237B9EB1590FB2F5E15011917575E3D57B"
+    },
+    {
+      "start": "0x0002C660",
+      "end": "0x0002C6DA",
+      "bytes": 122,
+      "instructions": 41,
+      "purpose": "scene-object cleanup callback",
+      "codeBytesSha256": "9140384E327FEF5544618E2EEDB51BBDCB0B9E26AA397C08B5C772AC3AA680F9"
+    },
+    {
+      "start": "0x0003DF00",
+      "end": "0x0003DF1F",
+      "bytes": 31,
+      "instructions": 8,
+      "purpose": "scene transform update callback",
+      "codeBytesSha256": "EEF0E568FEA4CB7660217BC19E8AE4E04A30ED776A74359296A90B5281684A3A"
+    },
+    {
+      "start": "0x00077810",
+      "end": "0x0007783B",
+      "bytes": 43,
+      "instructions": 13,
+      "purpose": "scene-object deleting destructor",
+      "codeBytesSha256": "F5EA9BAAED3E76B996F34F9DA5CEA00BFDE8D4BD56F147ED0FBCA4DC2406758B"
+    }
+  ],
+  "rejectedCascadeTargets": [
+    {
+      "address": "0x0001ECA2",
+      "reason": "not a function entry; this address is an instruction inside the discovered retail function containing 0x0001EC9C"
+    }
+  ]
+}
