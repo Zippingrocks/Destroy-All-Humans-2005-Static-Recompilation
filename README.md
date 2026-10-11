@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4?style=flat-square)](#requirements)
 [![Target](https://img.shields.io/badge/target-Original%20Xbox-107C10?style=flat-square)](#how-it-works)
 [![Frame rate](https://img.shields.io/badge/accuracy%20target-30%20FPS-734F96?style=flat-square)](#status)
-[![Repository checks](https://img.shields.io/github/actions/workflow/status/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/repository-checks.yml?branch=codex%2Fcurrent-workspace-import&style=flat-square&label=checks)](https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/actions)
+[![Repository checks](https://img.shields.io/github/actions/workflow/status/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/repository-checks.yml?branch=main&style=flat-square&label=checks)](https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/actions)
 
 [Status](#status) · [Requirements](#requirements) · [Building](#building-from-source) · [Known issues](#known-issues) · [Contributing](#contributing) · [Coverage dashboard](https://zippingrocks.github.io/Destroy-All-Humans-2005-Static-Recompilation/)
 
