@@ -10900,4 +10900,8 @@ void sub_0002C660(void);
 void sub_0003DF00(void);
 void sub_00077810(void);
 
+/* Byte-checked callbacks from the retail Capitol boss vtable. */
+void sub_00034C70(void);
+void sub_00035000(void);
+
 #endif /* RECOMP_FUNCS_H */

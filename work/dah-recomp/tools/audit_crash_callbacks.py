@@ -40,6 +40,8 @@ CALLBACKS = (
     (0x0002C660, "cutscene-runtime-retail", "sub_0002C660"),
     (0x0003DF00, "cutscene-runtime-retail", "sub_0003DF00"),
     (0x00077810, "cutscene-runtime-retail", "sub_00077810"),
+    (0x00034C70, "capitol-boss-vtable-retail", "sub_00034C70"),
+    (0x00035000, "capitol-boss-vtable-retail", "sub_00035000"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),
@@ -252,6 +254,16 @@ def main() -> int:
         if read_va(retail, address, len(body)) != body:
             raise SystemExit(f"FAIL retail byte audit at 0x{address:08X}")
 
+    capitol_boss_vtable = 0x00228908
+    expected_boss_slots = {0x00: 0x00034C70, 0x84: 0x00035000}
+    for slot, target in expected_boss_slots.items():
+        actual = dword(retail, capitol_boss_vtable + slot)
+        if actual != target:
+            raise SystemExit(
+                f"FAIL Capitol boss vtable +0x{slot:02X}: "
+                f"expected 0x{target:08X}, got 0x{actual:08X}"
+            )
+
     crash_db = workspace / "crashlog/unique-crashes.jsonl"
     crashes = [json.loads(line) for line in crash_db.read_text(encoding="utf-8").splitlines() if line.strip()]
     alpha_record: dict | None = None
@@ -311,6 +323,16 @@ def main() -> int:
             "deletingDestructorSlot": {"offset": "0x24", "target": f"0x{dword(retail, 0x00226A80 + 0x24):08X}"},
             "restoredRetailOnlySlot": {"offset": "0xE4", "target": f"0x{dword(retail, 0x00226A80 + 0xE4):08X}"},
         },
+        "retailCapitolBossVtable": {
+            "address": f"0x{capitol_boss_vtable:08X}",
+            "restoredSlots": [
+                {
+                    "offset": f"0x{slot:02X}",
+                    "target": f"0x{target:08X}",
+                }
+                for slot, target in expected_boss_slots.items()
+            ],
+        },
         "alpha": alpha_record,
     }
     if args.output:
@@ -333,6 +355,7 @@ def main() -> int:
             "recorded and excluded from dispatch"
         )
     print("PASS: retail crash callbacks match original XBE bytes and vtable slots")
+    print("PASS: Capitol boss type-query and activation slots match the retail vtable")
     if alpha_record:
         print("PASS: alpha retains the +0x24 destructor slot; retail extends past alpha +0x98")
     return 0

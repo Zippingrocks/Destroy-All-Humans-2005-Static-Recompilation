@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "0x00034C70",
+      "end": "0x00034C8B",
+      "bytes": 27,
+      "instructions": 8,
+      "purpose": "Capitol boss type-query callback",
+      "vtable": "0x00228908",
+      "vtableSlot": "0x00",
+      "codeBytesSha256": "6B11EE17F4B795CADD1465CF10509650F5C1077AE3041FDDAAF2E6EF0217F5E5"
+    },
+    {
+      "start": "0x00035000",
+      "end": "0x0003500E",
+      "bytes": 14,
+      "instructions": 6,
+      "purpose": "Capitol boss activation callback",
+      "vtable": "0x00228908",
+      "vtableSlot": "0x84",
+      "codeBytesSha256": "78F7A47CD57C61E7EFD0298D391C04F07B9C845E8C8A078E6CBCB83E30B5020F"
+    }
+  ]
+}

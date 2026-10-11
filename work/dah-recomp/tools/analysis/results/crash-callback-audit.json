@@ -197,6 +197,20 @@
       "status": "implemented-and-dispatchable"
     },
     {
+      "address": "0x00034C70",
+      "origin": "capitol-boss-vtable-retail",
+      "function": "sub_00034C70",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00035000",
+      "origin": "capitol-boss-vtable-retail",
+      "function": "sub_00035000",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
       "address": "0x00041540",
       "origin": "historical",
       "function": "sub_00041540",
@@ -241,8 +255,8 @@
   ],
   "cumulativeIndirectCallAudit": {
     "source": "work/dah-recomp/icall_seeds.json",
-    "seedTargets": 103,
-    "accumulatedUniqueTargets": 125,
+    "seedTargets": 105,
+    "accumulatedUniqueTargets": 127,
     "missingDispatchTargets": [],
     "generatedRecoveryStubCount": 21,
     "runtimeSeedRecoveryStubIntersection": [],
@@ -391,6 +405,19 @@
       "offset": "0xE4",
       "target": "0x00015FC0"
     }
+  },
+  "retailCapitolBossVtable": {
+    "address": "0x00228908",
+    "restoredSlots": [
+      {
+        "offset": "0x00",
+        "target": "0x00034C70"
+      },
+      {
+        "offset": "0x84",
+        "target": "0x00035000"
+      }
+    ]
   },
   "alpha": null
 }
