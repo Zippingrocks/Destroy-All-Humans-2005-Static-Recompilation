@@ -23,6 +23,8 @@ from live_blanket_observer import HOST_OFFSET, Reader, pointer
 WATCH_ROOTS = {
     "main", "mission", "messages", "tutorial", "cinematic", "fade", "burn",
     "reticle", "objectives", "objective", "subtitles", "subtitle",
+    "missiondefeat", "missioncomplete", "titlecard", "startmenu",
+    "startmenubackground",
 }
 MAX_DEPTH = 10
 MAX_OBJECTS = 512
