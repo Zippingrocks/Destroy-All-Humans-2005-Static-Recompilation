@@ -366,3 +366,23 @@ records the object and model pointers, both flag words, transition timing, and
 world position. This supplies the missing evidence needed to distinguish a
 whole soldier or vehicle from an independently culled animated part before a
 targeted retention change is attempted.
+
+### Live completion recovery and font-resource evidence
+
+The later b7 replay reached the same final notification with
+`attackwaves_control`, `b7_wave_timer`, and `b7_score_start` complete and
+`bw_signoff` waiting. The retail sound-manager list was already empty, so this
+instance was not held by an active DirectSound buffer. Activating the prepared
+`bw_signoff` timer allowed its unchanged retail `StopTrue` callback to run:
+the save slot was written and the game returned to Pox's Lab on the mothership.
+The notification scheduler still needs a root-cause fix; the live recovery is
+evidence, not the production implementation.
+
+The mission-complete panel initially had blank and exploded text. Both live
+1,024-glyph font renderers had valid index-buffer descriptors but missing
+vertex-buffer descriptors after the long session. Supplying isolated backing
+pages immediately restored readable UI text. The player build now reserves a
+bounded four MiB of the already-mapped devkit address space for recomp host GPU
+resource overhead. Gameplay continues to use the retail allocation model; the
+reserve prevents required double-buffered UI/font pages from failing at the
+64 MiB accounting edge.

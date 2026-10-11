@@ -822,11 +822,26 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
      * 64 MiB during the title's startup probe before its main arena is made. */
     xbox_SetTotalRam(XBOX_DEVKIT_RAM);
     /* The XBE occupies physical pages; the relocated heap's address gap does
-     * not. Keep the retail budget while allowing separate host address space. */
+     * not.  The recomp also represents Xbox GPU resources with guest-visible
+     * descriptors and backing stores that remain live until the host has
+     * consumed them.  A long retail mission can therefore reach the original
+     * 64 MiB accounting ceiling while the game still needs its small,
+     * double-buffered UI/font pages.  Keep gameplay allocations on the retail
+     * budget and provide a bounded four-MiB host-resource reserve.  This is
+     * well below the mapped devkit ceiling and prevents failed font buffers
+     * from turning mission-complete text into missing or exploded glyphs. */
     {
+        const uint32_t host_resource_headroom = 4u * 1024u * 1024u;
         uint32_t image_bytes = *(const uint32_t *)((const uint8_t *)xbe + 0x10C);
         uint32_t image_pages = (image_bytes + 4095u) & ~4095u;
-        xbox_SetContiguousAllocationLimit(XBOX_TOTAL_RAM - image_pages);
+        uint32_t allocation_limit = XBOX_TOTAL_RAM - image_pages;
+        if (allocation_limit <= XBOX_DEVKIT_RAM - host_resource_headroom)
+            allocation_limit += host_resource_headroom;
+        xbox_SetContiguousAllocationLimit(allocation_limit);
+        fprintf(stderr,
+                "[DAH-MEMORY] retail-budget=%u host-resource-headroom=%u contiguous-limit=%u\n",
+                XBOX_TOTAL_RAM - image_pages, host_resource_headroom,
+                allocation_limit);
     }
     if (!xbox_MemoryLayoutInit(xbe, xbe_size)) {
         dah_report_startup_error("Xbox memory initialization failed", MB_ICONERROR);

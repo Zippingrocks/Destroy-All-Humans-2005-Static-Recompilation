@@ -16,7 +16,17 @@ while (Get-Process -Id $TargetProcessId -ErrorAction SilentlyContinue) {
 for ($attempt = 1; $attempt -le 120; ++$attempt) {
     try {
         Copy-Item -LiteralPath $sourcePath -Destination $destinationPath -Force
-        $hash = (Get-FileHash -LiteralPath $destinationPath -Algorithm SHA256).Hash
+        $stream = [IO.File]::OpenRead($destinationPath)
+        try {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '')
+            } finally {
+                $sha.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
         "published=$([DateTime]::UtcNow.ToString('o')) sha256=$hash" |
             Set-Content -LiteralPath $LogPath -Encoding ascii
         exit 0
