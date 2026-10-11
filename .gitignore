@@ -35,6 +35,9 @@ crashlog/
 recomp_crash.log
 xbox_kernel.log
 furonlog.log
+dah_current_run.json
+dah_event_trace.jsonl
+*.ram.bin
 
 # IDE
 .vs/
@@ -70,3 +73,4 @@ work/dah-recomp/regen-one/
 /dah_resource_*.bin
 work/dah-recomp/tools/parity/live-*.json
 work/dah-recomp/tools/parity/live-*.jsonl
+work/dah-recomp/tools/parity/blanket-runs/

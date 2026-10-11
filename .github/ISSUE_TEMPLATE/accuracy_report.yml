@@ -1,0 +1,49 @@
+name: Retail accuracy report
+description: Document a verified difference between the recompilation and the original Xbox game.
+title: "[Parity]: "
+labels: ["accuracy", "needs-triage"]
+body:
+  - type: input
+    id: scene
+    attributes:
+      label: Scene or behavior
+      placeholder: Rockwell — first Holobob tutorial — transformation effect
+    validations:
+      required: true
+  - type: textarea
+    id: conditions
+    attributes:
+      label: Matching test conditions
+      description: Include save state, mission state, camera, input sequence and timing when known.
+    validations:
+      required: true
+  - type: textarea
+    id: difference
+    attributes:
+      label: Difference
+      description: Explain the earliest visible or behavioral divergence.
+    validations:
+      required: true
+  - type: dropdown
+    id: reference
+    attributes:
+      label: Retail reference
+      options:
+        - xemu with the supported retail XBE
+        - Original Xbox hardware
+        - Both xemu and original hardware
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Add synchronized screenshots, short captures or reviewed logs. Do not attach game data.
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Recompilation build or commit
+    validations:
+      required: true

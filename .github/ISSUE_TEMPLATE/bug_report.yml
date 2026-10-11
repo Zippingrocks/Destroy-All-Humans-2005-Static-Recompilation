@@ -1,0 +1,84 @@
+name: Bug report
+description: Report a crash, gameplay difference, graphical error or regression.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing. Do not attach game files, an XBE, an ISO, extracted assets, movies, saves or memory dumps containing copyrighted data.
+  - type: input
+    id: build
+    attributes:
+      label: Build or commit
+      description: Give the release name or full commit hash.
+      placeholder: e.g. 667f0b9
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Crash or freeze
+        - Graphics or presentation
+        - Gameplay or mission scripting
+        - Input or controller
+        - Audio or video
+        - Save or profile
+        - Performance or frame pacing
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Mission, objective and location
+      placeholder: Turnipseed Farm — Destination Earth — cow pasture
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Begin from a known menu, checkpoint or save state and list every relevant action.
+      placeholder: |
+        1. Start a new profile in slot 1.
+        2. Invade Turnipseed Farm.
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: retail
+    attributes:
+      label: Expected retail behavior
+      description: Describe what the original Xbox game does. Note whether this was verified in xemu or on hardware.
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System information
+      placeholder: Windows version, CPU, GPU, driver version and controller model
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs and visual evidence
+      description: Drag in screenshots or reviewed text logs. Remove private paths and do not upload copyrighted game data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I have not attached copyrighted game files or private information.
+          required: true
