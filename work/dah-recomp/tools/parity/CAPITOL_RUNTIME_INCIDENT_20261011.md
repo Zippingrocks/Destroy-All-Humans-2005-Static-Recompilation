@@ -50,11 +50,25 @@ The three callbacks are byte-checked by
 `icall_seeds.json`, dispatched by `recomp_manual.c`, and included in the
 cumulative crash-callback audit.
 
+After the first repaired build, Silhouette still rendered incorrectly.  A
+proactive scan of the contiguous retail Capitol cinematic/actor table region
+(`0x00228000..0x00228FFF`) found five more genuine function entries omitted by
+static discovery: `0x00021FB0`, `0x00033060`, `0x0003C880`, `0x0003E190`, and
+`0x0003F9D0`.  These cover neighboring actor initialization, cinematic actor
+transform, two runtime type queries, and scene activation.  They are lifted by
+`tools/lift_capitol_cinematic_callback_set.py`.  The cumulative audit now
+requires every one of the 12 genuine internal callbacks in this table range to
+have both a retail-derived body and a dispatcher entry.  The repeated value
+`0x00139ADB` in the same data region is an instruction inside another retail
+function and is intentionally rejected as a callable entry.
+
 Validation performed after the repair:
 
 - full native executable build;
 - keyboard and stick-conditioner CTest suite;
-- cumulative callback audit: 111 seeds dispatchable, no seeded no-op stubs;
+- cumulative callback audit: 116 seeds dispatchable, no seeded no-op stubs;
+- Capitol cinematic table audit: all 12 genuine internal callbacks have
+  retail bodies and dispatch entries;
 - retained-log audit: all 12 non-null observed callback targets dispatchable.
 
 ## Required playtest

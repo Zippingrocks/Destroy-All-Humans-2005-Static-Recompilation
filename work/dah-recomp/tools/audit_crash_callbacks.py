@@ -48,6 +48,11 @@ CALLBACKS = (
     (0x0002BFB0, "tesla-run-actor-retail", "sub_0002BFB0"),
     (0x00074DD0, "tesla-tower-runtime-retail", "sub_00074DD0"),
     (0x00075410, "tesla-tower-crash-retail", "sub_00075410"),
+    (0x00021FB0, "capitol-cinematic-table-retail", "sub_00021FB0"),
+    (0x00033060, "capitol-cinematic-table-retail", "sub_00033060"),
+    (0x0003C880, "capitol-cinematic-table-retail", "sub_0003C880"),
+    (0x0003E190, "capitol-cinematic-table-retail", "sub_0003E190"),
+    (0x0003F9D0, "capitol-cinematic-table-retail", "sub_0003F9D0"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),
@@ -65,6 +70,15 @@ UNRESOLVED_LINE = re.compile(
 # inside another function, rather than a callable function entry.
 KNOWN_NON_ENTRY_TARGETS = {
     0x0001ECA2: "instruction inside the retail function containing 0x0001EC9C",
+}
+
+# Every genuine internal function entry referenced by the contiguous Capitol
+# cinematic/actor table region in retail .rdata (0x00228000..0x00228FFF).
+# 0x00139ADB is an instruction inside another function, not a callable entry.
+CAPITOL_CINEMATIC_TABLE_CALLBACKS = {
+    0x00021FB0, 0x0002A1A0, 0x0002BFB0, 0x0002C660, 0x0002C6E0,
+    0x00033060, 0x00034C70, 0x00035000, 0x0003C880, 0x0003DF00,
+    0x0003E190, 0x0003F9D0,
 }
 
 
@@ -217,6 +231,13 @@ def main() -> int:
         })
         implemented_addresses.add(address)
 
+    missing_capitol_table = sorted(
+        CAPITOL_CINEMATIC_TABLE_CALLBACKS - implemented_addresses
+    )
+    if missing_capitol_table:
+        missing = ", ".join(f"0x{address:08X}" for address in missing_capitol_table)
+        raise SystemExit(f"FAIL Capitol cinematic table callback(s) missing: {missing}")
+
     retained_observations, retained_null_calls = retained_callback_observations(workspace)
     rejected_non_entries = {
         address: retained_observations[address]
@@ -346,6 +367,10 @@ def main() -> int:
         args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(f"PASS: {len(crashes)} preserved unique crash signature(s)")
     print(f"PASS: {len(callback_rows)} observed callbacks have bodies and dispatch entries")
+    print(
+        f"PASS: all {len(CAPITOL_CINEMATIC_TABLE_CALLBACKS)} Capitol cinematic "
+        "table callbacks have retail bodies and dispatch entries"
+    )
     print(
         f"PASS: all {len(seed_addresses)} cumulative indirect-call seeds are dispatchable; "
         f"none use {len(recovery_stubs)} generated no-op recovery stubs"

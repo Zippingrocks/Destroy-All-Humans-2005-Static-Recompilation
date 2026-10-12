@@ -10903,6 +10903,11 @@ void sub_00075330(void);
 void sub_0002BFB0(void);
 void sub_00074DD0(void);
 void sub_00075410(void);
+void sub_00021FB0(void);
+void sub_00033060(void);
+void sub_0003C880(void);
+void sub_0003E190(void);
+void sub_0003F9D0(void);
 void sub_0003DF00(void);
 void sub_00077810(void);
 
