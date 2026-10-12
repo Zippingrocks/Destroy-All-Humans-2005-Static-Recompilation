@@ -10900,6 +10900,9 @@ void sub_0001F500(void);
 void sub_0002C660(void);
 void sub_0002C6E0(void);
 void sub_00075330(void);
+void sub_0002BFB0(void);
+void sub_00074DD0(void);
+void sub_00075410(void);
 void sub_0003DF00(void);
 void sub_00077810(void);
 
