@@ -1003,21 +1003,6 @@ static uint32_t pack_argb(const float d[4])
     return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
-/* Rockwell's 38-instruction reflective-material program writes ordinary RGBA
- * vertex colour.  Its D3D11 R8G8B8A8 input therefore needs R in the low byte.
- * Other recovered DAH shaders retain the legacy packing above; changing them
- * globally turns xemu's cool night lighting into a warm brown scene. */
-static uint32_t pack_rgba8(const float d[4])
-{
-#define CLAMP01(x) ((x) < 0.0f ? 0.0f : (x) > 1.0f ? 1.0f : (x))
-    uint32_t a = (uint32_t)(CLAMP01(d[3]) * 255.0f + 0.5f);
-    uint32_t r = (uint32_t)(CLAMP01(d[0]) * 255.0f + 0.5f);
-    uint32_t g = (uint32_t)(CLAMP01(d[1]) * 255.0f + 0.5f);
-    uint32_t b = (uint32_t)(CLAMP01(d[2]) * 255.0f + 0.5f);
-#undef CLAMP01
-    return (a << 24) | (b << 16) | (g << 8) | r;
-}
-
 /* ── Indexed 3D draw path: handles the DAH main-menu 17-instruction VSH ──
  * Returns 1 on success, 0 when this draw should fall through to the
  * movie-gated path.  Never touches the existing reject counter or logs. */
@@ -1487,6 +1472,8 @@ static void dah_farm_material_trace(const char *reason, unsigned kind,
         hash = (hash ^ p5) * 16777619u;
         hash = (hash ^ g_pg.tex[0].format) * 16777619u;
         hash = (hash ^ g_pg.tex[1].format) * 16777619u;
+        hash = (hash ^ g_pg.tex[0].address) * 16777619u;
+        hash = (hash ^ g_pg.tex[1].address) * 16777619u;
         for (unsigned j = 0; j < seen_count; ++j) if (seen[j].hash == hash) {
             if (seen[j].n++ >= 4u) return;
             goto unique_checked;
@@ -1516,7 +1503,7 @@ unique_checked:
         "prog=%08X,%08X target=%08X tex0=%u,%08X,%08X tex1=%u,%08X,%08X "
         "xy=%.2f,%.2f..%.2f,%.2f z=%.5g..%.5g at_y400=%u front=%u "
         "argb0=%08X argb_or=%08X argb_and=%08X "
-        "sampler0=%08X,%08X bias=%.3f aniso=%u "
+        "sampler0=%08X,%08X,%08X sampler1=%08X,%08X,%08X bias=%.3f aniso=%u "
         "combiner=%08X final=%08X,%08X stage=%08X "
         "blend=%u,%04X,%04X depth=%d,%d,%04X alpha=%d,%04X,%u hr=%08lX\n",
         g_pg.active_submission, g_pg.indexed_diagnostic_id, reason, kind,
@@ -1527,7 +1514,8 @@ unique_checked:
         xmin, ymin, xmax, ymax, zmin, zmax,
         count && ymin <= 400.0f && ymax >= 400.0f, visible,
         count ? out[0].color : 0u, color_or, color_and,
-        g_pg.tex[0].filter, g_pg.tex[0].control0,
+        g_pg.tex[0].address, g_pg.tex[0].filter, g_pg.tex[0].control0,
+        g_pg.tex[1].address, g_pg.tex[1].filter, g_pg.tex[1].control0,
         nv2a_texture_lod_bias(g_pg.tex[0].filter),
         nv2a_texture_max_anisotropy(g_pg.tex[0].control0),
         g_pg.combiner_control, g_pg.final_cw0, g_pg.final_cw1,
@@ -2113,20 +2101,66 @@ static int submit_indexed_3d(void)
                 fprintf(stderr, "\n"); fflush(stderr);
             }
         }
-        /* Log unique other vertex programs so we know what we're missing. */
-        static uint32_t last_prog0 = 0, other_count = 0;
+        /* Keep one complete record for every distinct unsupported program.
+         * Comparing only word 1 lost later variants whenever a skin pass and
+         * a screen-space pass alternated, exhausting the old 64-line budget.
+         * The full-program hash and state snapshot make one playthrough useful
+         * for restoring actors, vehicles, terrain and static props together. */
+        static uint32_t unsupported_hashes[256];
+        static unsigned unsupported_count;
         uint32_t base = g_pg.transform_start * 4u;
         uint32_t w0 = g_pg.transform_program[base + 1];
-        if (w0 != last_prog0 && other_count++ < 64u) {
-            last_prog0 = w0;
+        uint32_t unsupported_hash = 2166136261u;
+        unsigned unsupported_words = 0u;
+        int unsupported_complete = 1;
+        for (unsigned instruction = 0u;
+             instruction < 62u && base + unsupported_words + 3u < 136u * 4u;
+             ++instruction) {
+            for (unsigned part = 0u; part < 4u; ++part) {
+                uint32_t at = base + unsupported_words + part;
+                uint32_t value = g_pg.transform_valid[at] ?
+                                 g_pg.transform_program[at] : 0xDEADBEEFu;
+                unsupported_hash = (unsupported_hash ^ value) * 16777619u;
+                if (!g_pg.transform_valid[at]) unsupported_complete = 0;
+            }
+            unsupported_words += 4u;
+            if (!unsupported_complete ||
+                (g_pg.transform_program[base + unsupported_words - 1u] & 1u))
+                break;
+        }
+        int unsupported_seen = 0;
+        for (unsigned i = 0u; i < unsupported_count; ++i)
+            if (unsupported_hashes[i] == unsupported_hash) {
+                unsupported_seen = 1;
+                break;
+            }
+        if (!unsupported_seen && unsupported_count < 256u) {
+            unsupported_hashes[unsupported_count++] = unsupported_hash;
             fprintf(stderr,
-                "[DAH-3D-OTHER] draw=%u mode=%u prog_start=%u"
-                " words[1]=%08X words[5]=%08X vcount=%u surface=%08X\n",
+                "[DAH-3D-UNSUPPORTED] hash=%08X complete=%d words=%u "
+                "submit=%u draw=%u mode=%u prog_start=%u indices=%u "
+                "surface=%08X stage=%08X other=%08X combiner=%08X "
+                "final=%08X,%08X textures=",
+                unsupported_hash, unsupported_complete, unsupported_words,
+                g_pg.active_submission,
                 g_pg.indexed_diagnostic_id, g_pg.transform_mode,
-                g_pg.transform_start,
-                g_pg.transform_program[base + 1],
-                g_pg.transform_program[base + 5],
-                g_pg.index_count, g_pg.surface_color_offset);
+                g_pg.transform_start, g_pg.index_count, g_pg.surface_color_offset,
+                g_pg.shader_stage_program, g_pg.shader_other_stage_input,
+                g_pg.combiner_control, g_pg.final_cw0, g_pg.final_cw1);
+            for (unsigned stage = 0u; stage < 4u; ++stage)
+                fprintf(stderr, "%s%u:%d:%08X:%08X:%08X:%08X",
+                        stage ? "," : "", stage, g_pg.tex[stage].enabled,
+                        g_pg.tex[stage].offset, g_pg.tex[stage].format,
+                        g_pg.tex[stage].image_rect, g_pg.tex[stage].filter);
+            fprintf(stderr, " arrays=");
+            for (unsigned slot = 0u; slot < 16u; ++slot)
+                if ((g_pg.array_format[slot] >> 4u) & 15u)
+                    fprintf(stderr, "%u:%08X:%08X,", slot,
+                            g_pg.array_offset[slot], g_pg.array_format[slot]);
+            fprintf(stderr, "\n[DAH-3D-UNSUPPORTED-WORDS] hash=%08X", unsupported_hash);
+            for (unsigned i = 0u; i < unsupported_words; ++i)
+                fprintf(stderr, " %08X", g_pg.transform_program[base + i]);
+            fputc('\n', stderr);
             /* Full program dump when first word matches our fingerprint — helps
              * identify which instruction words differ from dah_menu_program. */
             if (w0 == 0x00A5C21Au) {
@@ -2144,6 +2178,7 @@ static int submit_indexed_3d(void)
                         first_bad, g_pg.indexed_diagnostic_id);
                 fflush(stderr);
             }
+            fflush(stderr);
         }
 
         if(dah_crypto_head_trace_enabled() &&
@@ -2707,8 +2742,13 @@ static int submit_indexed_3d(void)
         if (out[i].z > 1.0f) out[i].z = 1.0f;
         /* Preserve the original W sign for homogeneous clipping. */
         out[i].rhw = dah_menu_rcc(result.screen[3]);
-        out[i].color = program_kind==27u ?
-            pack_rgba8(result.diffuse) : pack_argb(result.diffuse);
+        /* The host input layout is R8G8B8A8, but the shared D3D8 vertex
+         * shader converts D3DCOLOR with input.diffuse.bgra.  Feed every
+         * recovered program the same Xbox ARGB representation.  Bypassing
+         * that conversion for the reflective vehicle shader swapped red and
+         * blue after the vertex stage, which produced the purple tint seen on
+         * vehicle glass and other instances of that material. */
+        out[i].color = pack_argb(result.diffuse);
         if(program_kind==17u){
             uint32_t width=g_pg.tex[0].image_rect>>16u;
             uint32_t height=g_pg.tex[0].image_rect&0xFFFFu;
@@ -2782,8 +2822,8 @@ static int submit_indexed_3d(void)
             for (uint32_t i=0;i<g_pg.index_count;++i) {
                 const float cube[3]={out[i].u1,out[i].v1,out[i].w1};
                 const unsigned rgba[4]={
-                    out[i].color&255u,(out[i].color>>8u)&255u,
-                    (out[i].color>>16u)&255u,out[i].color>>24u};
+                    (out[i].color>>16u)&255u,(out[i].color>>8u)&255u,
+                    out[i].color&255u,out[i].color>>24u};
                 for (unsigned j=0;j<3u;++j) {
                     if(cube[j]<cube_min[j])cube_min[j]=cube[j];
                     if(cube[j]>cube_max[j])cube_max[j]=cube[j];
@@ -3228,8 +3268,14 @@ static int submit_indexed_3d(void)
 
     if(program_kind>=3u) {
         dev->lpVtbl->SetTexture(dev,1,(IDirect3DBaseTexture8*)tex1_obj);
-        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
-        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
+        /* Preserve the material's captured Xbox sampler addressing.  The
+         * packed register stores U/V in its low bytes; reflection materials
+         * resolve to CLAMP from their retail 0x00000303 state while repeated
+         * secondary textures retain their own guest state. */
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSU,
+            nv2a_texture_address_to_d3d(g_pg.tex[1].address));
+        dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_ADDRESSV,
+            nv2a_texture_address_to_d3d(g_pg.tex[1].address >> 8u));
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MINFILTER,
             nv2a_texture_min_filter_to_d3d(g_pg.tex[1].filter));
         dev->lpVtbl->SetTextureStageState(dev,1,D3DTSS_MAGFILTER,
@@ -3253,8 +3299,10 @@ static int submit_indexed_3d(void)
     if(program_kind==17u){
         for(unsigned stage=0;stage<4u;++stage){
             dev->lpVtbl->SetTexture(dev,stage,(IDirect3DBaseTexture8*)pox_textures[stage]);
-            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSU,D3DTADDRESS_CLAMP);
-            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSV,D3DTADDRESS_CLAMP);
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSU,
+                nv2a_texture_address_to_d3d(g_pg.tex[stage].address));
+            dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_ADDRESSV,
+                nv2a_texture_address_to_d3d(g_pg.tex[stage].address >> 8u));
             dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MINFILTER,
                 nv2a_texture_min_filter_to_d3d(g_pg.tex[stage].filter));
             dev->lpVtbl->SetTextureStageState(dev,stage,D3DTSS_MAGFILTER,
