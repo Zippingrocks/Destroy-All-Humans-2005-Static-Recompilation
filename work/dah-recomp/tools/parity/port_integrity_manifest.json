@@ -1,0 +1,1392 @@
+{
+  "schema": 1,
+  "policyVersion": 1,
+  "nativeSymbols": [
+    {
+      "symbol": "dah_apply_keyboard_overlay",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_camera_memdiff_poll",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_camera_pitch_compat_apply",
+      "category": "temporary-mitigation",
+      "evidenceStatus": "verified",
+      "reason": "Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit.",
+      "acceptance": "Replace with proven retail behavior and pass matched native/xemu scenario."
+    },
+    {
+      "symbol": "dah_console_autoload_poll",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_autounlock_poll",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_autoweapons_poll",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_give_weapon",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_giveall_weapons",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_blocks_damage_reaction",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_blocks_health_write",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_blocks_invulnerability_clear",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_crypto",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_enforce",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_initialize",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_god_set",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_grant_saucer_prerequisites",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_infinite_ammo_enabled",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_infinite_ammo_toggle",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_load_level",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_poll",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_console_poll_game_thread",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_crashlog_initialize",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_accept_spawn",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_guest_ptr",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_hash_allowed",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_player_position",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_poll",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_dev_npc_private_session",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_ability_flag",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_ai_state",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_frame",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_initialize",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_physics_body_command",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_player_render_sample",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_scene_flash",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_shutdown",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_tag_ability",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_event_trace_ui_state_sample",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_farm_presentation_hold",
+      "category": "temporary-mitigation",
+      "evidenceStatus": "verified",
+      "reason": "Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit.",
+      "acceptance": "Replace with proven retail behavior and pass matched native/xemu scenario."
+    },
+    {
+      "symbol": "dah_frame_begin",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_end",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_gameplay_visual_ready",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_presentation_held",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_profile_now",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_record_guest_render",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_record_render_stage",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_record_ring_submit",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_serial",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_frame_thread_id",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_hash_file_w",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_host_set_render_activity",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_input_handle_port",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_input_initialize_once",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_input_is_hidden_scripted",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_input_is_internal",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_input_uses_neutral_pad",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_internal_run",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_key_down",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_migrate_legacy_save_containers",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_monotonic_milliseconds",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_movement_precompat_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_movement_trace_span",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_movement_trace_words",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_npc_component_icall",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_npc_component_pair",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_physics_quat_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_player_movement_compat_apply",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_player_set_physics_rotation",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_player_velocity_compat",
+      "category": "temporary-mitigation",
+      "evidenceStatus": "verified",
+      "reason": "Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit.",
+      "acceptance": "Replace with proven retail behavior and pass matched native/xemu scenario."
+    },
+    {
+      "symbol": "dah_quat_constructor_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_read_tsc",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_arm_next_frame",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_begin",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_begin_effect",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_cinematic_elapsed",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_end",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_guest_u32",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_renderdoc_init",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_report_startup_error",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_reset_ltcg_context",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_retail_12140",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_12160",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_12b560",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_12ee90",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_133e90",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_133ef0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_15ab0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_15fc0",
+      "category": "retail-restoration",
+      "evidenceStatus": "verified",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_16ca0",
+      "category": "retail-restoration",
+      "evidenceStatus": "verified",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_184430",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_18ac0_vtable_tail",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_18da20",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_18de20",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_18fd10",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_1cb50",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_1f2178",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_21020",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_234e0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_26710",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_35650",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_3c660",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_3c770",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_3c770_compare_pop",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_4a460",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_566a0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_6fc30",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_81910",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_850b0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_85720",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_9d100",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a12c0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a1dd0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a1df0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a3750",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a7b60",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a8100",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_a8540",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_b6da0",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_cop_icall",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_pushbuffer_commit",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_pushbuffer_reset",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_retail_submit_span",
+      "category": "retail-restoration",
+      "evidenceStatus": "needs-byte-audit",
+      "reason": "Manual retail-address implementation; byte provenance must remain independently auditable.",
+      "acceptance": "Byte-check exact retail boundary and preserve dispatch/calling convention."
+    },
+    {
+      "symbol": "dah_rockwell_trace_range",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_set_stable_window_border",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_start_model_watch",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_sub_001925C0_host_guard",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_test_window_hidden",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in developer command or controlled test setup; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_trace_rockwell_player_camera",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_try_host_longjmp",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_velocity_source_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_velocity_stage_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_velocity_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_write_json_string",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_write_run_manifest",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Observational tracing or capture support; excluded from retail parity.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xapi_get_last_error",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xget_device_changes_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xget_devices_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xinput_close_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xinput_get_state_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xinput_open_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_xinput_set_state_bridge",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
+      "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    }
+  ],
+  "manualDispatchOverrides": [
+    {
+      "address": "0x00035650",
+      "function": "dah_retail_35650",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0001CB50",
+      "function": "dah_retail_1cb50",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000566A0",
+      "function": "dah_retail_566a0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00015FC0",
+      "function": "dah_retail_15fc0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00016CA0",
+      "function": "dah_retail_16ca0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00012140",
+      "function": "dah_retail_12140",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00012160",
+      "function": "dah_retail_12160",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0003C660",
+      "function": "dah_retail_3c660",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A8100",
+      "function": "dah_retail_a8100",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0003C770",
+      "function": "dah_retail_3c770",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A8540",
+      "function": "dah_retail_a8540",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0012B560",
+      "function": "dah_retail_12b560",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00133E90",
+      "function": "dah_retail_133e90",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00133EF0",
+      "function": "dah_retail_133ef0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0018DA20",
+      "function": "dah_retail_18da20",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00085720",
+      "function": "dah_retail_85720",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0006FC30",
+      "function": "dah_retail_6fc30",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0004A460",
+      "function": "dah_retail_4a460",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00015AB0",
+      "function": "dah_retail_15ab0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0006B790",
+      "function": "trace_game_boot",
+      "category": "diagnostic-instrumentation"
+    },
+    {
+      "address": "0x00018AC0",
+      "function": "dah_retail_18ac0_vtable_tail",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0012EE90",
+      "function": "dah_retail_12ee90",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00184430",
+      "function": "dah_retail_184430",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00021020",
+      "function": "dah_retail_21020",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000B6DA0",
+      "function": "dah_retail_b6da0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000850B0",
+      "function": "dah_retail_850b0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0009D100",
+      "function": "dah_retail_9d100",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000234E0",
+      "function": "dah_retail_234e0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00081910",
+      "function": "dah_retail_81910",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0018DE20",
+      "function": "dah_retail_18de20",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x0018FD10",
+      "function": "dah_retail_18fd10",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A1DF0",
+      "function": "dah_retail_a1df0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A7B60",
+      "function": "dah_retail_a7b60",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A1DD0",
+      "function": "dah_retail_a1dd0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x00026710",
+      "function": "dah_retail_26710",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A12C0",
+      "function": "dah_retail_a12c0",
+      "category": "retail-restoration"
+    },
+    {
+      "address": "0x000A3750",
+      "function": "dah_retail_a3750",
+      "category": "retail-restoration"
+    }
+  ],
+  "generatedHooks": [
+    {
+      "symbol": "dah_console_god_actor_invulnerable_value",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_dev_story_private_session",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_fmod_add",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_fmod_bits",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_fmod_store80",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_fmod_value",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_font_resource_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_hub_name_legend",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_hub_name_main",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_hub_render_trace_kind",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_hub_render_trace_take",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_matrix_trace_enabled",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_model_trace_enabled",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_movie_trace",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_museum_trace_tree",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_native_audio_is_null",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_script_dispatch_next",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_script_restore_and_return",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_script_vm_trace_enabled",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_spawn_trace_name",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_token_append",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_token_emit_increment",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_token_parser_finish",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_token_update_high_water",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_tutorial_trace_tree",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_ui_name_museum",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_ui_name_tutorial",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_ui_under_tutorial",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicitly classified generated-code host hook.",
+      "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_x87_fxam_live_status",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    },
+    {
+      "symbol": "dah_x87_round",
+      "category": "parity-implementation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.",
+      "acceptance": "Match retail state/output across deterministic scenarios or replace with translated retail behavior."
+    }
+  ]
+}

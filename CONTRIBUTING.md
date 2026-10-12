@@ -44,6 +44,23 @@ Avoid broad symptom patches, state-specific exceptions and changes that make a
 single screenshot match while damaging other scenes. Keep diagnostic features
 behind development gates.
 
+Read the [port completion standard](work/dah-recomp/tools/parity/PORT_COMPLETION_STANDARD.md)
+before adding native code or generated-code hooks. Every `dah_*` intervention
+must be classified in `port_integrity_manifest.json`; provisional mitigations,
+compatibility code and developer tools do not count as restored game behavior.
+Run:
+
+```powershell
+python work/dah-recomp/tools/audit_port_integrity.py `
+  --json work/dah-recomp/tools/parity/port_integrity_report.json `
+  --markdown work/dah-recomp/tools/parity/PORT_INTEGRITY_LEDGER.md
+python work/dah-recomp/tools/audit_crash_callbacks.py
+```
+
+Commit the regenerated integrity ledger when its inputs change. Repository CI
+rejects unclassified hooks, unclassified manual dispatch overrides, seeded
+no-op recovery stubs and stale ledger output.
+
 ## Pull requests
 
 - Keep each pull request focused.

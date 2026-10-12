@@ -36,3 +36,14 @@ jobs:
           missing = [str(path) for path in required if not path.is_file()]
           if missing:
               raise SystemExit("Missing public project files: " + ", ".join(missing))
+      - name: Enforce port-integrity classifications and ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          python work/dah-recomp/tools/audit_port_integrity.py \
+            --json /tmp/port_integrity_report.json \
+            --markdown /tmp/PORT_INTEGRITY_LEDGER.md
+          diff -u work/dah-recomp/tools/parity/port_integrity_report.json \
+            /tmp/port_integrity_report.json
+          diff -u work/dah-recomp/tools/parity/PORT_INTEGRITY_LEDGER.md \
+            /tmp/PORT_INTEGRITY_LEDGER.md
