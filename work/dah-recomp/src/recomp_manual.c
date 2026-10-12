@@ -13,6 +13,7 @@
 #include "xinput_xbox.h"
 #include "recomp_types.h"
 #include "dah_timing.h"
+#include "dah_event_trace.h"
 
 extern volatile uint64_t g_icall_count;
 static RECOMP_TLS uint32_t g_dah_last_error;
@@ -1534,6 +1535,11 @@ static void dah_console_poll(void)
     dah_console_autoweapons_poll();
     dah_console_god_enforce();
     if (!dah_console_take_command(line, sizeof(line))) return;
+    if (!_strnicmp(line, "mark ", 5) && line[5]) {
+        dah_event_trace_mark(line + 5);
+        dah_console_write("Evidence marker recorded: %s", line + 5);
+        return;
+    }
     tokens = sscanf(line, "%31s %63s %c", command, arg, &extra);
     if (tokens == 1 && !_stricmp(command, "capture")) {
         if (dah_request_frame_capture()) dah_console_write("Queued the next two game frames; capture paths will appear in the game log.");

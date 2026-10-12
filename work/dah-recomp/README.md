@@ -158,8 +158,12 @@ performance. Native sound output remains unfinished; see the audio limitation.
 A disabled static image probe is diagnostic only and never counts as working
 game rendering.
 
-Each run writes `furonlog.log` beside the executable unless `DAH_LOG_PATH`
-selects a different diagnostic path.
+Each run writes an immutable evidence bundle under `debug-runs/<run-id>/`,
+including `runtime.log`, structured events, anomaly fingerprints, and a
+shutdown summary. `dah_current_run.json` points automation at the latest
+bundle. `DAH_LOG_PATH` and `DAH_EVENT_TRACE` still select explicit diagnostic
+paths. See `tools/parity/RUN_EVIDENCE_SYSTEM.md` for the schema and cross-run
+indexer.
 
 ## Runtime bring-up modes
 

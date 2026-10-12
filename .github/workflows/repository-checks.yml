@@ -47,3 +47,6 @@ jobs:
             /tmp/port_integrity_report.json
           diff -u work/dah-recomp/tools/parity/PORT_INTEGRITY_LEDGER.md \
             /tmp/PORT_INTEGRITY_LEDGER.md
+      - name: Test run-evidence correlation
+        shell: bash
+        run: python work/dah-recomp/tools/parity/test_summarize_debug_runs.py

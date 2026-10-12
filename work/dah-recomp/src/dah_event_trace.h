@@ -37,5 +37,6 @@ void dah_event_trace_scene_flash(uint32_t frame, uint32_t object,
                                  uint32_t visible, uint32_t previous_visible,
                                  uint32_t transition_gap,
                                  float x, float y, float z);
+void dah_event_trace_mark(const char *note);
 
 #endif

@@ -227,6 +227,13 @@
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
     },
     {
+      "symbol": "dah_event_trace_mark",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
+    },
+    {
       "symbol": "dah_event_trace_physics_body_command",
       "category": "diagnostic-instrumentation",
       "evidenceStatus": "verified",
@@ -267,6 +274,13 @@
       "evidenceStatus": "verified",
       "reason": "Observational tracing or capture support; excluded from retail parity.",
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_evidence_json_string",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
     },
     {
       "symbol": "dah_farm_presentation_hold",
@@ -862,6 +876,34 @@
       "evidenceStatus": "verified",
       "reason": "Observational tracing or capture support; excluded from retail parity.",
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_run_evidence_directory",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
+    },
+    {
+      "symbol": "dah_run_evidence_initialize",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
+    },
+    {
+      "symbol": "dah_run_evidence_path",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
+    },
+    {
+      "symbol": "dah_run_evidence_update_status",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Session-scoped diagnostic evidence plumbing; excluded from gameplay completion.",
+      "acceptance": "Remain behavior-neutral, asynchronous on gameplay paths, and pass evidence-system regression checks."
     },
     {
       "symbol": "dah_set_stable_window_border",
