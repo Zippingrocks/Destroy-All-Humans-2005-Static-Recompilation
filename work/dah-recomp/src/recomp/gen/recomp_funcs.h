@@ -10896,7 +10896,10 @@ void sub_000A21A0(void);
 
 /* Byte-checked indirect callbacks observed during cutscene playback. */
 void sub_00012280(void);
+void sub_0001F500(void);
 void sub_0002C660(void);
+void sub_0002C6E0(void);
+void sub_00075330(void);
 void sub_0003DF00(void);
 void sub_00077810(void);
 
