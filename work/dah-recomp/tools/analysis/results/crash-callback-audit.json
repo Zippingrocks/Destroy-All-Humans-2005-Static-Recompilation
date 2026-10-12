@@ -4,7 +4,7 @@
     "path": "D:\\.codex\\.codex workspaces\\Destroy All Huamans! 2005 Recomp\\default.xbe",
     "sha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb"
   },
-  "preservedCrashCount": 2,
+  "preservedCrashCount": 5,
   "preservedCrashes": [
     {
       "signature": "DAH-1AF563F1251E7840",
@@ -24,6 +24,36 @@
       "access": 0,
       "guest_return": "FFC06233",
       "report": "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    },
+    {
+      "signature": "DAH-CE45648D31F5AFCD",
+      "first_seen": "20261012T005857.118Z",
+      "exception": "C0000005",
+      "host_rva": "0000000000322AB8",
+      "access": 0,
+      "guest_return": "0287AEC4",
+      "report": "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    },
+    {
+      "signature": "DAH-5CE241E1BBDBD156",
+      "first_seen": "20261012T012837.560Z",
+      "exception": "C0000005",
+      "host_rva": "0000000000712923",
+      "access": 0,
+      "guest_return": "02475FE0",
+      "report": "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt",
+      "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
+    },
+    {
+      "signature": "DAH-192507A8B0B8C19F",
+      "first_seen": "20261012T020425.717Z",
+      "exception": "C0000005",
+      "host_rva": "00000000007686DD",
+      "access": 0,
+      "guest_return": "00104D56",
+      "report": "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt",
       "fix_hint": "Invalid read: resolve the host RVA and inspect the source pointer, object lifetime, and missing original callback."
     }
   ],
@@ -183,6 +213,13 @@
       "status": "implemented-and-dispatchable"
     },
     {
+      "address": "0x0002C6E0",
+      "origin": "capitol-cinematic-retail",
+      "function": "sub_0002C6E0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
       "address": "0x0003DF00",
       "origin": "cutscene-runtime-retail",
       "function": "sub_0003DF00",
@@ -207,6 +244,83 @@
       "address": "0x00035000",
       "origin": "capitol-boss-vtable-retail",
       "function": "sub_00035000",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0001F500",
+      "origin": "capitol-runtime-retail",
+      "function": "sub_0001F500",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075330",
+      "origin": "capitol-crash-retail",
+      "function": "sub_00075330",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0002BFB0",
+      "origin": "tesla-run-actor-retail",
+      "function": "sub_0002BFB0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00074DD0",
+      "origin": "tesla-tower-runtime-retail",
+      "function": "sub_00074DD0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00075410",
+      "origin": "tesla-tower-crash-retail",
+      "function": "sub_00075410",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00025060",
+      "origin": "silhouette-fight-event-retail",
+      "function": "sub_00025060",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00021FB0",
+      "origin": "capitol-cinematic-table-retail",
+      "function": "sub_00021FB0",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x00033060",
+      "origin": "capitol-cinematic-table-retail",
+      "function": "sub_00033060",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003C880",
+      "origin": "capitol-cinematic-table-retail",
+      "function": "sub_0003C880",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003E190",
+      "origin": "capitol-cinematic-table-retail",
+      "function": "sub_0003E190",
+      "dispatch": "manual",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x0003F9D0",
+      "origin": "capitol-cinematic-table-retail",
+      "function": "sub_0003F9D0",
       "dispatch": "manual",
       "status": "implemented-and-dispatchable"
     },
@@ -255,8 +369,8 @@
   ],
   "cumulativeIndirectCallAudit": {
     "source": "work/dah-recomp/icall_seeds.json",
-    "seedTargets": 105,
-    "accumulatedUniqueTargets": 127,
+    "seedTargets": 116,
+    "accumulatedUniqueTargets": 139,
     "missingDispatchTargets": [],
     "generatedRecoveryStubCount": 21,
     "runtimeSeedRecoveryStubIntersection": [],
@@ -265,13 +379,6 @@
   },
   "retainedRuntimeAudit": {
     "nonNullTargets": [
-      {
-        "address": "0x00012280",
-        "observations": [
-          "furonlog.log:8070"
-        ],
-        "status": "implemented-and-dispatchable"
-      },
       {
         "address": "0x00015FC0",
         "observations": [
@@ -287,28 +394,69 @@
         "status": "implemented-and-dispatchable"
       },
       {
-        "address": "0x0002C660",
+        "address": "0x0001F500",
         "observations": [
-          "furonlog.log:8096"
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:630"
         ],
         "status": "implemented-and-dispatchable"
       },
       {
-        "address": "0x0003DF00",
+        "address": "0x00025060",
         "observations": [
-          "furonlog.log:8072",
-          "furonlog.log:8075",
-          "furonlog.log:8076",
-          "furonlog.log:8077",
-          "furonlog.log:8078",
-          "furonlog.log:8079",
-          "furonlog.log:8082",
-          "furonlog.log:8085",
-          "furonlog.log:8093",
-          "furonlog.log:8107",
-          "furonlog.log:8126",
-          "furonlog.log:8172",
-          "furonlog.log:8270"
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:608",
+          "furonlog.log:9059"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x0002BFB0",
+        "observations": [
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:125"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x0002C6E0",
+        "observations": [
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:374",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:377",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:378",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:382",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:383",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:384",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:386",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:390",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:392",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:402",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:424",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:472",
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:569"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00074DD0",
+        "observations": [
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:595",
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:597",
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:598",
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:599",
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:600",
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:601"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075330",
+        "observations": [
+          "crashlog/crash-20261012T005857.118Z-p27276-t67660-DAH-CE45648D31F5AFCD.txt:638"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00075410",
+        "observations": [
+          "crashlog/crash-20261012T012837.560Z-p52520-t27108-DAH-5CE241E1BBDBD156.txt:602"
         ],
         "status": "implemented-and-dispatchable"
       },
@@ -343,56 +491,42 @@
           "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:655"
         ],
         "status": "implemented-and-dispatchable"
-      },
-      {
-        "address": "0x00077810",
-        "observations": [
-          "furonlog.log:8348"
-        ],
-        "status": "implemented-and-dispatchable"
       }
     ],
     "rejectedNonEntryTargets": [
       {
-        "address": "0x0001ECA2",
+        "address": "0x00023899",
         "observations": [
-          "furonlog.log:8350",
-          "furonlog.log:8356",
-          "furonlog.log:8359",
-          "furonlog.log:8362",
-          "furonlog.log:8365",
-          "furonlog.log:8368",
-          "furonlog.log:8371",
-          "furonlog.log:8374",
-          "furonlog.log:8377",
-          "furonlog.log:8380",
-          "furonlog.log:8383",
-          "furonlog.log:8386",
-          "furonlog.log:8389",
-          "furonlog.log:8392",
-          "furonlog.log:8395",
-          "furonlog.log:8398",
-          "furonlog.log:8401",
-          "furonlog.log:8404",
-          "furonlog.log:8407",
-          "furonlog.log:8410",
-          "furonlog.log:8413",
-          "furonlog.log:8416",
-          "furonlog.log:8419",
-          "furonlog.log:8422",
-          "furonlog.log:8425",
-          "furonlog.log:8428",
-          "furonlog.log:8431",
-          "furonlog.log:8434",
-          "furonlog.log:8437",
-          "furonlog.log:8440",
-          "furonlog.log:8443"
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:613",
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:615",
+          "furonlog.log:9064",
+          "furonlog.log:9066"
         ],
-        "reason": "instruction inside the retail function containing 0x0001EC9C",
+        "reason": "return continuation inside retail function 0x000237C0 after the causal callback omission",
+        "status": "corrupt-cascade-target-not-dispatched"
+      },
+      {
+        "address": "0x0002389F",
+        "observations": [
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:610",
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:612",
+          "furonlog.log:9061",
+          "furonlog.log:9063"
+        ],
+        "reason": "instruction inside retail function 0x000237C0 after the causal callback omission",
+        "status": "corrupt-cascade-target-not-dispatched"
+      },
+      {
+        "address": "0x0025F060",
+        "observations": [
+          "crashlog/crash-20261012T020425.717Z-p9916-t69216-DAH-192507A8B0B8C19F.txt:618",
+          "furonlog.log:9069"
+        ],
+        "reason": "retail data address reached after the deferred callback list was already invalid",
         "status": "corrupt-cascade-target-not-dispatched"
       }
     ],
-    "nullCascadeCalls": 66,
+    "nullCascadeCalls": 9,
     "unimplementedNonNullTargets": []
   },
   "retailActorSamSiteVtable": {

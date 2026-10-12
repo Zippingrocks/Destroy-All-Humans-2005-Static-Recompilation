@@ -21,7 +21,7 @@
     "unverifiedNativeSymbols": 52,
     "provisionalMitigations": 3,
     "manualDispatchOverrides": 37,
-    "retailRecoverySourceFiles": 28,
+    "retailRecoverySourceFiles": 29,
     "recoveryNoOpStubs": 21,
     "seededNoOpStubs": 0,
     "completionCreditedNativeSymbols": 2
@@ -1691,6 +1691,10 @@
     {
       "file": "recomp_save_callbacks.c",
       "functions": 2
+    },
+    {
+      "file": "recomp_silhouette_event_callback.c",
+      "functions": 1
     },
     {
       "file": "recomp_sonic_boom_retail_callback.c",

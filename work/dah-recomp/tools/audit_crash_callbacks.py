@@ -48,6 +48,7 @@ CALLBACKS = (
     (0x0002BFB0, "tesla-run-actor-retail", "sub_0002BFB0"),
     (0x00074DD0, "tesla-tower-runtime-retail", "sub_00074DD0"),
     (0x00075410, "tesla-tower-crash-retail", "sub_00075410"),
+    (0x00025060, "silhouette-fight-event-retail", "sub_00025060"),
     (0x00021FB0, "capitol-cinematic-table-retail", "sub_00021FB0"),
     (0x00033060, "capitol-cinematic-table-retail", "sub_00033060"),
     (0x0003C880, "capitol-cinematic-table-retail", "sub_0003C880"),
@@ -70,6 +71,9 @@ UNRESOLVED_LINE = re.compile(
 # inside another function, rather than a callable function entry.
 KNOWN_NON_ENTRY_TARGETS = {
     0x0001ECA2: "instruction inside the retail function containing 0x0001EC9C",
+    0x00023899: "return continuation inside retail function 0x000237C0 after the causal callback omission",
+    0x0002389F: "instruction inside retail function 0x000237C0 after the causal callback omission",
+    0x0025F060: "retail data address reached after the deferred callback list was already invalid",
 }
 
 # Every genuine internal function entry referenced by the contiguous Capitol

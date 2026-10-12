@@ -577,6 +577,7 @@ void sub_00024F40(void);
 void sub_00024F70(void);
 void sub_00024FE0(void);
 void sub_00025040(void);
+void sub_00025060(void);
 void sub_00025140(void);
 void sub_00025270(void);
 void sub_000253C0(void);
