@@ -48,6 +48,8 @@ CALLBACKS = (
     (0x0002BFB0, "tesla-run-actor-retail", "sub_0002BFB0"),
     (0x00074DD0, "tesla-tower-runtime-retail", "sub_00074DD0"),
     (0x00075410, "tesla-tower-crash-retail", "sub_00075410"),
+    (0x00079450, "tesla-runtime-retail", "sub_00079450"),
+    (0x000797E0, "tesla-runtime-retail", "sub_000797E0"),
     (0x00025060, "silhouette-fight-event-retail", "sub_00025060"),
     (0x00021FB0, "capitol-cinematic-table-retail", "sub_00021FB0"),
     (0x00033060, "capitol-cinematic-table-retail", "sub_00033060"),

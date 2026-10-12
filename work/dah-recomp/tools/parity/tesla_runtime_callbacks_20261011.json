@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "crashSignature": "DAH-CE45648D31F5AFCD",
+  "callbacks": [
+    {
+      "start": "0x00079450",
+      "end": "0x000795FE",
+      "bytes": 430,
+      "instructions": 131,
+      "purpose": "per-frame object state callback",
+      "codeBytesSha256": "38AFC66B2DF662D8CC2FD0303AB09F7983A4E554B03994ACB1A97DC415DB30EA"
+    },
+    {
+      "start": "0x000797E0",
+      "end": "0x000797E8",
+      "bytes": 8,
+      "instructions": 3,
+      "purpose": "contained-object forwarding thunk",
+      "codeBytesSha256": "DEBEBEF13A15ECCD2276C7894F32C7C87912237059F5B727C5231A839308B11F"
+    }
+  ]
+}

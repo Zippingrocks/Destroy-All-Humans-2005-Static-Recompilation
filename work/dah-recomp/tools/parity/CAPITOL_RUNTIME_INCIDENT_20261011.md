@@ -24,6 +24,16 @@ specific causal chain.  The run happened near a Tesla tower, but the evidence
 does not establish a retail class name for the object, so the implementation
 uses only its address-derived name.
 
+The signature recurred on the 2026-10-11 19:25 build after that first repair.
+The later trace progressed far enough to expose two more skipped retail vtable
+entries from the same object family: `0x00079450` (430 bytes, slot `+0x3C` in
+the primary table at `0x0022C4F0`) and `0x000797E0` (an eight-byte forwarding
+thunk at slot `+0x04`).  They were called from `0x000760A0` and `0x0007912F`
+immediately before the same null dispatch at `0x000760DA`.  Both routines are
+now lifted from retail bytes by `tools/lift_tesla_runtime_callbacks_20261011.py`.
+The cumulative audit treats both as required so another build cannot silently
+drop either callback.
+
 A second encounter produced crash signature `DAH-5CE241E1BBDBD156` and
 advanced farther into the same retail object lifecycle.  It called
 `0x00074DD0` six times, then skipped `0x00075410` from the object release path
@@ -70,6 +80,11 @@ Validation performed after the repair:
 - Capitol cinematic table audit: all 12 genuine internal callbacks have
   retail bodies and dispatch entries;
 - retained-log audit: all 12 non-null observed callback targets dispatchable.
+
+After the recurring-signature repair, the corresponding totals are 118 seeds,
+46 explicitly classified observed callbacks, 141 accumulated callback targets,
+and all 15 non-null targets retained in crash logs dispatchable.  The two normal
+CTest targets pass on the rebuilt executable.
 
 ## Required playtest
 

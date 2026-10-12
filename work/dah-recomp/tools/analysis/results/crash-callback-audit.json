@@ -283,6 +283,20 @@
       "status": "implemented-and-dispatchable"
     },
     {
+      "address": "0x00079450",
+      "origin": "tesla-runtime-retail",
+      "function": "sub_00079450",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
+      "address": "0x000797E0",
+      "origin": "tesla-runtime-retail",
+      "function": "sub_000797E0",
+      "dispatch": "generated",
+      "status": "implemented-and-dispatchable"
+    },
+    {
       "address": "0x00025060",
       "origin": "silhouette-fight-event-retail",
       "function": "sub_00025060",
@@ -369,8 +383,8 @@
   ],
   "cumulativeIndirectCallAudit": {
     "source": "work/dah-recomp/icall_seeds.json",
-    "seedTargets": 116,
-    "accumulatedUniqueTargets": 139,
+    "seedTargets": 118,
+    "accumulatedUniqueTargets": 141,
     "missingDispatchTargets": [],
     "generatedRecoveryStubCount": 21,
     "runtimeSeedRecoveryStubIntersection": [],
@@ -491,6 +505,20 @@
           "crashlog/crash-20261007T194151.393Z-p34096-t40400-DAH-80DADBA503907EA0.txt:655"
         ],
         "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x00079450",
+        "observations": [
+          "crashlog/crash-20261012T022528.627Z-p61772-t56232-DAH-CE45648D31F5AFCD.txt:612"
+        ],
+        "status": "implemented-and-dispatchable"
+      },
+      {
+        "address": "0x000797E0",
+        "observations": [
+          "crashlog/crash-20261012T022528.627Z-p61772-t56232-DAH-CE45648D31F5AFCD.txt:614"
+        ],
+        "status": "implemented-and-dispatchable"
       }
     ],
     "rejectedNonEntryTargets": [
@@ -526,7 +554,7 @@
         "status": "corrupt-cascade-target-not-dispatched"
       }
     ],
-    "nullCascadeCalls": 9,
+    "nullCascadeCalls": 10,
     "unimplementedNonNullTargets": []
   },
   "retailActorSamSiteVtable": {
