@@ -4,8 +4,9 @@
 
 #define DAH_CONSOLE_LINE 192
 #define DAH_CONSOLE_OUTPUT 96
-#define DAH_CONSOLE_HISTORY 32
+#define DAH_CONSOLE_HISTORY 64
 #define DAH_CONSOLE_QUEUE 8
+#define DAH_CONSOLE_HISTORY_PATH 1024
 static HWND g_dah_console_window;
 static HFONT g_dah_console_font;
 static SRWLOCK g_dah_console_lock = SRWLOCK_INIT;
@@ -16,6 +17,8 @@ static unsigned g_dah_console_output_count;
 static char g_dah_console_history[DAH_CONSOLE_HISTORY][DAH_CONSOLE_LINE];
 static unsigned g_dah_console_history_count;
 static unsigned g_dah_console_history_back;
+static char g_dah_console_history_path[DAH_CONSOLE_HISTORY_PATH];
+static int g_dah_console_history_path_state;
 static char g_dah_console_input[DAH_CONSOLE_LINE];
 static unsigned g_dah_console_cursor;
 static char g_dah_console_queue[DAH_CONSOLE_QUEUE][DAH_CONSOLE_LINE];
@@ -94,6 +97,110 @@ static void dah_console_help(void)
 
 static int dah_console_save_capture(void);
 
+/* Keep history outside the game directory so release folders stay clean and
+ * replacing the executable does not erase useful commands. */
+static const char *dah_console_get_history_path(void)
+{
+    char local_app_data[DAH_CONSOLE_HISTORY_PATH];
+    char directory[DAH_CONSOLE_HISTORY_PATH];
+    DWORD length;
+    int written;
+    if (g_dah_console_history_path_state)
+        return g_dah_console_history_path_state > 0 ?
+            g_dah_console_history_path : NULL;
+    g_dah_console_history_path_state = -1;
+    length = GetEnvironmentVariableA("LOCALAPPDATA", local_app_data,
+        (DWORD)sizeof(local_app_data));
+    if (!length || length >= sizeof(local_app_data)) return NULL;
+    written = snprintf(directory, sizeof(directory),
+        "%s\\DestroyAllHumansRecomp", local_app_data);
+    if (written < 0 || (size_t)written >= sizeof(directory)) return NULL;
+    if (!CreateDirectoryA(directory, NULL) &&
+        GetLastError() != ERROR_ALREADY_EXISTS) return NULL;
+    written = snprintf(g_dah_console_history_path,
+        sizeof(g_dah_console_history_path), "%s\\console_history.txt", directory);
+    if (written < 0 || (size_t)written >= sizeof(g_dah_console_history_path)) {
+        g_dah_console_history_path[0] = 0;
+        return NULL;
+    }
+    g_dah_console_history_path_state = 1;
+    return g_dah_console_history_path;
+}
+
+/* History is stored linearly from oldest to newest. Reusing a command removes
+ * its old case-insensitive match and appends the spelling just submitted. */
+static void dah_console_remember_command(const char *line)
+{
+    unsigned i;
+    for (i = 0; i < g_dah_console_history_count; ++i) {
+        if (!_stricmp(g_dah_console_history[i], line)) {
+            if (i + 1 < g_dah_console_history_count)
+                memmove(g_dah_console_history[i],
+                    g_dah_console_history[i + 1],
+                    (g_dah_console_history_count - i - 1) *
+                        sizeof(g_dah_console_history[0]));
+            --g_dah_console_history_count;
+            break;
+        }
+    }
+    if (g_dah_console_history_count == DAH_CONSOLE_HISTORY) {
+        memmove(g_dah_console_history[0], g_dah_console_history[1],
+            (DAH_CONSOLE_HISTORY - 1) * sizeof(g_dah_console_history[0]));
+        --g_dah_console_history_count;
+    }
+    strcpy(g_dah_console_history[g_dah_console_history_count++], line);
+    g_dah_console_history_back = 0;
+}
+
+static void dah_console_save_history(void)
+{
+    const char *path = dah_console_get_history_path();
+    char temporary[DAH_CONSOLE_HISTORY_PATH + 8];
+    FILE *file;
+    unsigned i;
+    int written;
+    int ok = 1;
+    if (!path) return;
+    written = snprintf(temporary, sizeof(temporary), "%s.tmp", path);
+    if (written < 0 || (size_t)written >= sizeof(temporary)) return;
+    file = fopen(temporary, "wb");
+    if (!file) return;
+    for (i = 0; i < g_dah_console_history_count; ++i) {
+        if (fprintf(file, "%s\n", g_dah_console_history[i]) < 0) {
+            ok = 0;
+            break;
+        }
+    }
+    if (fclose(file) != 0) ok = 0;
+    if (!ok || !MoveFileExA(temporary, path,
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        DeleteFileA(temporary);
+}
+
+static void dah_console_load_history(void)
+{
+    const char *path = dah_console_get_history_path();
+    char line[DAH_CONSOLE_LINE];
+    FILE *file;
+    if (!path) return;
+    file = fopen(path, "rb");
+    if (!file) return;
+    while (fgets(line, sizeof(line), file)) {
+        size_t length = strlen(line);
+        int complete = length && (line[length - 1] == '\n' || feof(file));
+        while (length && (line[length - 1] == '\n' || line[length - 1] == '\r'))
+            line[--length] = 0;
+        if (!complete) {
+            int ch;
+            while ((ch = fgetc(file)) != '\n' && ch != EOF) {}
+            continue;
+        }
+        if (length) dah_console_remember_command(line);
+    }
+    fclose(file);
+    g_dah_console_history_back = 0;
+}
+
 static void dah_console_submit(void)
 {
     char *line = g_dah_console_input;
@@ -103,8 +210,8 @@ static void dah_console_submit(void)
     length = strlen(line);
     while (length && line[length-1] == ' ') line[--length] = 0;
     if (!length) return;
-    strcpy(g_dah_console_history[g_dah_console_history_count++ % DAH_CONSOLE_HISTORY], line);
-    g_dah_console_history_back = 0;
+    dah_console_remember_command(line);
+    dah_console_save_history();
     dah_console_write("> %s", line);
     if (!_stricmp(line, "help")) dah_console_help();
     else if (!_stricmp(line, "capture_console")) {
@@ -187,12 +294,13 @@ static LRESULT CALLBACK dah_console_proc(HWND hwnd, UINT message, WPARAM wp, LPA
             return 0;
         }
         if (wp == VK_UP || wp == VK_DOWN) {
-            unsigned maximum = g_dah_console_history_count < DAH_CONSOLE_HISTORY ?
-                g_dah_console_history_count : DAH_CONSOLE_HISTORY;
+            unsigned maximum = g_dah_console_history_count;
             if (wp == VK_UP && g_dah_console_history_back < maximum) ++g_dah_console_history_back;
             if (wp == VK_DOWN && g_dah_console_history_back) --g_dah_console_history_back;
             if (g_dah_console_history_back)
-                strcpy(g_dah_console_input, g_dah_console_history[(g_dah_console_history_count - g_dah_console_history_back) % DAH_CONSOLE_HISTORY]);
+                strcpy(g_dah_console_input,
+                    g_dah_console_history[g_dah_console_history_count -
+                        g_dah_console_history_back]);
             else g_dah_console_input[0] = 0;
             g_dah_console_cursor = (unsigned)strlen(g_dah_console_input);
         } else if (wp == VK_LEFT && g_dah_console_cursor) --g_dah_console_cursor;
@@ -326,6 +434,7 @@ static int dah_console_create(HINSTANCE instance)
     g_dah_console_window = CreateWindowExA(0, wc.lpszClassName, "Developer console",
         WS_CHILD | WS_CLIPSIBLINGS, 0, 0, 640, 288, g_game_window, NULL, instance, NULL);
     if (!g_dah_console_window) return 0;
+    dah_console_load_history();
     dah_console_help();
     return 1;
 }
