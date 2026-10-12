@@ -559,6 +559,11 @@ uint64_t dah_frame_serial(void)
     return g_dah_frame_serial;
 }
 
+uint32_t dah_frame_thread_id(void)
+{
+    return frame.thread_id;
+}
+
 void dah_frame_end(void)
 {
     PgraphD3D11Stats stats;
