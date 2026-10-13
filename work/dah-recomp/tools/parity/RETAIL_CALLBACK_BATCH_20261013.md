@@ -27,13 +27,18 @@ dispatcher or flat callback table. The size is now derived from the array, and
 `test_dispatch_table.py` checks ordering, uniqueness, range coverage, and both
 lookup models for all 10,851 entries.
 
-## Remaining boundary
+## Recovery boundary completed
 
-Five genuine generated recovery stubs remain at retail addresses `0x13FBDC`,
-`0x142434`, `0x142450`, `0x14245C`, and `0x1424B3`. Six additional generated
-labels are proven false code edges inside retail XGRPH/BINK data and receive no
-callback-restoration credit. No cumulative indirect-call seed currently points
-to any recovery stub.
+The final five genuine generated recovery entries are restored from retail:
+the nonlocal x87 tail at `0x13FBDC` and the coherent descriptor-allocation CFG
+entered at `0x142434`, `0x142450`, `0x14245C`, and `0x1424B3`. The latter keeps
+its backward edges inside one continuation instead of recursively repeating the
+parent's SEH prolog and lock acquisition. The isolated harness covers 13 cases
+and 116 assertions, with four negative controls.
+
+There are now **zero genuine no-op recovery stubs**. Six generated labels remain
+inert because retail bytes prove they are false code edges inside XGRPH/BINK
+data. They are excluded from dispatch and receive no callback-restoration credit.
 
 This batch passed the isolated retail-byte harnesses, dispatch and callback
 audits, the normal build and CTest suite, the internal build, and a bounded

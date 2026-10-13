@@ -91,6 +91,11 @@ CAPITOL_CINEMATIC_TABLE_CALLBACKS = {
     0x0003E190, 0x0003F9D0,
 }
 
+KNOWN_DATA_ARTIFACT_STUBS = {
+    0x001EC715, 0x001EC74C, 0x001EC762,
+    0x0021769D, 0x002176B9, 0x002176C7,
+}
+
 
 def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]], int]:
     """Collect callback targets from the retained runtime/crash logs.
@@ -244,13 +249,19 @@ def main() -> int:
     recovery_source = (repo / "src/recomp/gen/recomp_stubs_unresolved.c").read_text(
         encoding="utf-8"
     )
-    recovery_stubs = {
+    all_noop_stubs = {
         int(value, 16)
         for value in re.findall(
             r"void\s+sub_([0-9A-Fa-f]{8})\s*\(void\)\s*\{\s*g_esp\s*\+=\s*4",
             recovery_source,
         )
     }
+    missing_data_artifacts = KNOWN_DATA_ARTIFACT_STUBS - all_noop_stubs
+    if missing_data_artifacts:
+        missing = ", ".join(f"0x{address:08X}" for address in sorted(missing_data_artifacts))
+        raise SystemExit(f"FAIL documented data-artifact stub drift: {missing}")
+    data_artifact_stubs = all_noop_stubs & KNOWN_DATA_ARTIFACT_STUBS
+    recovery_stubs = all_noop_stubs - data_artifact_stubs
     seeded_recovery_stubs = sorted(seed_addresses & recovery_stubs)
     if seeded_recovery_stubs:
         bad = ", ".join(f"0x{address:08X}" for address in seeded_recovery_stubs)
@@ -375,6 +386,7 @@ def main() -> int:
             "accumulatedUniqueTargets": len(accumulated_addresses),
             "missingDispatchTargets": [],
             "generatedRecoveryStubCount": len(recovery_stubs),
+            "generatedDataArtifactStubCount": len(data_artifact_stubs),
             "runtimeSeedRecoveryStubIntersection": [],
             "accumulatedRecoveryStubIntersection": [],
             "status": "all-dispatchable",
@@ -436,7 +448,8 @@ def main() -> int:
     )
     print(
         f"PASS: all {len(seed_addresses)} cumulative indirect-call seeds are dispatchable; "
-        f"none use {len(recovery_stubs)} generated no-op recovery stubs"
+        f"{len(recovery_stubs)} genuine no-op recovery stubs remain; "
+        f"{len(data_artifact_stubs)} proven data artifacts remain excluded"
     )
     print(f"PASS: {len(accumulated_addresses)} unique accumulated callback targets reconciled")
     print(

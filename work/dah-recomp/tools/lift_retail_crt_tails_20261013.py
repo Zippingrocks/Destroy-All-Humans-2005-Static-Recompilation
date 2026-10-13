@@ -65,7 +65,7 @@ def generate():
                   {"addresses": ["0x00142434", "0x00142450", "0x0014245C", "0x001424B3"],
                    "reason": "descriptor allocator tails loop into parent 0x00142352; restore coherent CFG rather than recursive tail calls"},
               ]}
-    return "\n".join(source) + "\n", json.dumps(record, indent=2) + "\n"
+    return "\n".join(source).rstrip() + "\n", json.dumps(record, indent=2) + "\n"
 
 
 def main():

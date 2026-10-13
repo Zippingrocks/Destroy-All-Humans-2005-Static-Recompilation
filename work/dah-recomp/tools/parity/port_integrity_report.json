@@ -21,8 +21,8 @@
     "unverifiedNativeSymbols": 52,
     "provisionalMitigations": 3,
     "manualDispatchOverrides": 37,
-    "retailRecoverySourceFiles": 33,
-    "recoveryNoOpStubs": 5,
+    "retailRecoverySourceFiles": 34,
+    "recoveryNoOpStubs": 0,
     "generatedDataArtifactStubs": 6,
     "seededNoOpStubs": 0,
     "completionCreditedNativeSymbols": 2
@@ -1738,6 +1738,10 @@
       "functions": 7
     },
     {
+      "file": "recomp_retail_final_crt_entries_20261013.c",
+      "functions": 1
+    },
+    {
       "file": "recomp_retail_late_tails_20261013.c",
       "functions": 3
     },
@@ -1794,13 +1798,7 @@
       "functions": 1
     }
   ],
-  "recoveryNoOpStubAddresses": [
-    "0x0013FBDC",
-    "0x00142434",
-    "0x00142450",
-    "0x0014245C",
-    "0x001424B3"
-  ],
+  "recoveryNoOpStubAddresses": [],
   "generatedDataArtifactStubAddresses": [
     "0x001EC715",
     "0x001EC74C",
