@@ -36,6 +36,7 @@ files from your own legally obtained copy of the original Xbox release.
 - [Requirements](#requirements)
 - [Game files](#game-files)
 - [Building from source](#building-from-source)
+- [Release editions](#release-editions)
 - [Controls and configuration](#controls-and-configuration)
 - [Known issues](#known-issues)
 - [Reporting bugs](#reporting-bugs)
@@ -146,6 +147,30 @@ cmake --build work/dah-recomp/build --config Release --target dah_keyboard_mappi
 ctest --test-dir work/dah-recomp/build -C Release --output-on-failure
 ```
 
+## Release editions
+
+Release packaging produces two clearly labeled downloads. Both contain one
+player-facing executable named `DestroyAllHumans.exe`:
+
+- **Normal** contains no public reporting code, shows no reporting prompt and
+  creates no public report files.
+- **Debug-Reporter** asks once, on first launch, whether the player wants to
+  help testing. Declining leaves crash and session reporting disabled. Reports
+  can be enabled or disabled independently later.
+
+Debug-Reporter creates a small allowlisted JSON report without usernames,
+computer names, local paths, memory, saves, screenshots, game assets or raw
+logs. Reports remain local until the player explicitly opens the GitHub report
+flow, reviews the file and chooses to submit it. No GitHub credential is
+embedded and no background upload occurs. See the complete
+[privacy and reporting design](work/dah-recomp/docs/PUBLIC_REPORTING.md).
+
+Build both ZIP packages with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File work\dah-recomp\tools\package_releases.ps1
+```
+
 ## Controls and configuration
 
 An XInput controller is the reference input device. The development keyboard
@@ -192,11 +217,12 @@ the appropriate GitHub issue form and include:
 - Clear reproduction steps, including whether Crypto had died or respawned.
 - What happened and what the retail game does instead.
 - A screenshot or short capture for visual problems.
-- `furonlog.log`, `recomp_crash.log` or a crash dump when one was produced.
+- The sanitized Debug-Reporter JSON, when one was produced and you choose to
+  share it.
 
 Do not upload the original XBE, extracted game assets, saves containing private
-information, or disc images. Logs can contain local paths, so review them
-before posting.
+information, disc images, raw dumps or raw runtime logs. Those files can contain
+local paths, memory or copyrighted game data.
 
 ## How it works
 
