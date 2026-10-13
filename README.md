@@ -81,9 +81,15 @@ mean that the entire game has reached retail accuracy.
 
 ### Playing a development build
 
+Follow the [player setup guide](work/dah-recomp/docs/PLAYER_SETUP.txt), also
+included as `README.txt` in both release ZIPs. Extract the ZIP, put your own
+`default.xbe`, `blocks/` and `movies/` beside `DestroyAllHumans.exe`, then
+double-click the executable. An ISO alone cannot be loaded directly.
+
 - Windows 10 or Windows 11, 64-bit.
 - A 64-bit x86 processor.
 - A Direct3D 11-capable GPU with current drivers.
+- The [Microsoft Visual C++ x64 Redistributable](https://aka.ms/vc14/vc_redist.x64.exe).
 - An XInput-compatible controller is strongly recommended.
 - A legally obtained original Xbox copy of *Destroy All Humans!* (2005).
 
