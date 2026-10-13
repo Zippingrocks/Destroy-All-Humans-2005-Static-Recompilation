@@ -319,6 +319,8 @@ static DWORD WINAPI host_window_thread(LPVOID parameter)
 
     window_class.lpfnWndProc = game_window_proc;
     window_class.hInstance = instance;
+    window_class.hIcon = (HICON)LoadImageA(instance, MAKEINTRESOURCEA(1),
+        IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
     window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
     window_class.lpszClassName = "DestroyAllHumansRecompWindow";
     window_class.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
