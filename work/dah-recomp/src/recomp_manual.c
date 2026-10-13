@@ -13,6 +13,7 @@
 #include "xinput_xbox.h"
 #include "recomp_types.h"
 #include "dah_timing.h"
+#include "dah_event_trace.h"
 
 extern volatile uint64_t g_icall_count;
 static RECOMP_TLS uint32_t g_dah_last_error;
@@ -74,6 +75,23 @@ extern void sub_000242F0(void);
 extern void sub_0011CB60(void);
 extern void sub_0014A290(void);
 extern void sub_00078040(void);
+extern void sub_00012280(void);
+extern void sub_0001F500(void);
+extern void sub_0002C660(void);
+extern void sub_0002C6E0(void);
+extern void sub_00075330(void);
+extern void sub_0002BFB0(void);
+extern void sub_00074DD0(void);
+extern void sub_00075410(void);
+extern void sub_00021FB0(void);
+extern void sub_00033060(void);
+extern void sub_0003C880(void);
+extern void sub_0003E190(void);
+extern void sub_0003F9D0(void);
+extern void sub_0003DF00(void);
+extern void sub_00077810(void);
+extern void sub_00034C70(void);
+extern void sub_00035000(void);
 static int dah_input_is_internal(void);
 static unsigned g_dah_input_state_calls;
 /* Read-only diagnostic mirrors used to correlate guest math with the logical
@@ -1517,6 +1535,11 @@ static void dah_console_poll(void)
     dah_console_autoweapons_poll();
     dah_console_god_enforce();
     if (!dah_console_take_command(line, sizeof(line))) return;
+    if (!_strnicmp(line, "mark ", 5) && line[5]) {
+        dah_event_trace_mark(line + 5);
+        dah_console_write("Evidence marker recorded: %s", line + 5);
+        return;
+    }
     tokens = sscanf(line, "%31s %63s %c", command, arg, &extra);
     if (tokens == 1 && !_stricmp(command, "capture")) {
         if (dah_request_frame_capture()) dah_console_write("Queued the next two game frames; capture paths will appear in the game log.");
@@ -4836,6 +4859,23 @@ recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
     case 0x0011CB60u: return sub_0011CB60;
     case 0x0014A290u: return sub_0014A290;
     case 0x00078040u: return sub_00078040;
+    case 0x00012280u: return sub_00012280;
+    case 0x0001F500u: return sub_0001F500;
+    case 0x0002C660u: return sub_0002C660;
+    case 0x0002C6E0u: return sub_0002C6E0;
+    case 0x00075330u: return sub_00075330;
+    case 0x0002BFB0u: return sub_0002BFB0;
+    case 0x00074DD0u: return sub_00074DD0;
+    case 0x00075410u: return sub_00075410;
+    case 0x00021FB0u: return sub_00021FB0;
+    case 0x00033060u: return sub_00033060;
+    case 0x0003C880u: return sub_0003C880;
+    case 0x0003E190u: return sub_0003E190;
+    case 0x0003F9D0u: return sub_0003F9D0;
+    case 0x0003DF00u: return sub_0003DF00;
+    case 0x00077810u: return sub_00077810;
+    case 0x00034C70u: return sub_00034C70;
+    case 0x00035000u: return sub_00035000;
     case 0x00012140u: return dah_retail_12140;
     case 0x00012160u: return dah_retail_12160;
     case 0x0003C660u: return dah_retail_3c660;

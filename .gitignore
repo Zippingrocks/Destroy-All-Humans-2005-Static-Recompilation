@@ -37,6 +37,7 @@ xbox_kernel.log
 furonlog.log
 dah_current_run.json
 dah_event_trace.jsonl
+debug-runs/
 *.ram.bin
 
 # IDE

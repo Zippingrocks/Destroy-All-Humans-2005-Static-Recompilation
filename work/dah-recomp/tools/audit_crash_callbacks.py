@@ -36,6 +36,26 @@ CALLBACKS = (
     (0x0011CB60, "mutant-runtime-retail", "sub_0011CB60"),
     (0x0014A290, "mutant-runtime-retail", "sub_0014A290"),
     (0x00078040, "mutant-runtime-retail", "sub_00078040"),
+    (0x00012280, "cutscene-runtime-retail", "sub_00012280"),
+    (0x0002C660, "cutscene-runtime-retail", "sub_0002C660"),
+    (0x0002C6E0, "capitol-cinematic-retail", "sub_0002C6E0"),
+    (0x0003DF00, "cutscene-runtime-retail", "sub_0003DF00"),
+    (0x00077810, "cutscene-runtime-retail", "sub_00077810"),
+    (0x00034C70, "capitol-boss-vtable-retail", "sub_00034C70"),
+    (0x00035000, "capitol-boss-vtable-retail", "sub_00035000"),
+    (0x0001F500, "capitol-runtime-retail", "sub_0001F500"),
+    (0x00075330, "capitol-crash-retail", "sub_00075330"),
+    (0x0002BFB0, "tesla-run-actor-retail", "sub_0002BFB0"),
+    (0x00074DD0, "tesla-tower-runtime-retail", "sub_00074DD0"),
+    (0x00075410, "tesla-tower-crash-retail", "sub_00075410"),
+    (0x00079450, "tesla-runtime-retail", "sub_00079450"),
+    (0x000797E0, "tesla-runtime-retail", "sub_000797E0"),
+    (0x00025060, "silhouette-fight-event-retail", "sub_00025060"),
+    (0x00021FB0, "capitol-cinematic-table-retail", "sub_00021FB0"),
+    (0x00033060, "capitol-cinematic-table-retail", "sub_00033060"),
+    (0x0003C880, "capitol-cinematic-table-retail", "sub_0003C880"),
+    (0x0003E190, "capitol-cinematic-table-retail", "sub_0003E190"),
+    (0x0003F9D0, "capitol-cinematic-table-retail", "sub_0003F9D0"),
     (0x00041540, "historical", "sub_00041540"),
     (0x00085FE0, "historical", "sub_00085FE0"),
     (0x0004F9E0, "historical", "sub_0004F9E0"),
@@ -47,6 +67,25 @@ CALLBACKS = (
 UNRESOLVED_LINE = re.compile(
     r"\[ICALL\]\s+unresolved Xbox target 0x([0-9A-Fa-f]{8})"
 )
+
+# This target was logged only after the missing 0x00077810 destructor was
+# skipped.  Retail disassembly proves it is the LEA instruction at 0x1ECA2
+# inside another function, rather than a callable function entry.
+KNOWN_NON_ENTRY_TARGETS = {
+    0x0001ECA2: "instruction inside the retail function containing 0x0001EC9C",
+    0x00023899: "return continuation inside retail function 0x000237C0 after the causal callback omission",
+    0x0002389F: "instruction inside retail function 0x000237C0 after the causal callback omission",
+    0x0025F060: "retail data address reached after the deferred callback list was already invalid",
+}
+
+# Every genuine internal function entry referenced by the contiguous Capitol
+# cinematic/actor table region in retail .rdata (0x00228000..0x00228FFF).
+# 0x00139ADB is an instruction inside another function, not a callable entry.
+CAPITOL_CINEMATIC_TABLE_CALLBACKS = {
+    0x00021FB0, 0x0002A1A0, 0x0002BFB0, 0x0002C660, 0x0002C6E0,
+    0x00033060, 0x00034C70, 0x00035000, 0x0003C880, 0x0003DF00,
+    0x0003E190, 0x0003F9D0,
+}
 
 
 def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]], int]:
@@ -198,13 +237,32 @@ def main() -> int:
         })
         implemented_addresses.add(address)
 
+    missing_capitol_table = sorted(
+        CAPITOL_CINEMATIC_TABLE_CALLBACKS - implemented_addresses
+    )
+    if missing_capitol_table:
+        missing = ", ".join(f"0x{address:08X}" for address in missing_capitol_table)
+        raise SystemExit(f"FAIL Capitol cinematic table callback(s) missing: {missing}")
+
     retained_observations, retained_null_calls = retained_callback_observations(workspace)
-    missing_retained = sorted(set(retained_observations) - implemented_addresses)
+    rejected_non_entries = {
+        address: retained_observations[address]
+        for address in KNOWN_NON_ENTRY_TARGETS
+        if address in retained_observations
+    }
+    retained_function_observations = {
+        address: sources
+        for address, sources in retained_observations.items()
+        if address not in KNOWN_NON_ENTRY_TARGETS
+    }
+    missing_retained = sorted(set(retained_function_observations) - implemented_addresses)
     if missing_retained:
         missing = ", ".join(f"0x{address:08X}" for address in missing_retained)
         raise SystemExit(f"FAIL retained unresolved callback(s) lack implementations: {missing}")
 
-    accumulated_addresses = seed_addresses | implemented_addresses | set(retained_observations)
+    accumulated_addresses = (
+        seed_addresses | implemented_addresses | set(retained_function_observations)
+    )
     accumulated_recovery_stubs = sorted(accumulated_addresses & recovery_stubs)
     if accumulated_recovery_stubs:
         bad = ", ".join(f"0x{address:08X}" for address in accumulated_recovery_stubs)
@@ -228,6 +286,16 @@ def main() -> int:
     for address, body in expected.items():
         if read_va(retail, address, len(body)) != body:
             raise SystemExit(f"FAIL retail byte audit at 0x{address:08X}")
+
+    capitol_boss_vtable = 0x00228908
+    expected_boss_slots = {0x00: 0x00034C70, 0x84: 0x00035000}
+    for slot, target in expected_boss_slots.items():
+        actual = dword(retail, capitol_boss_vtable + slot)
+        if actual != target:
+            raise SystemExit(
+                f"FAIL Capitol boss vtable +0x{slot:02X}: "
+                f"expected 0x{target:08X}, got 0x{actual:08X}"
+            )
 
     crash_db = workspace / "crashlog/unique-crashes.jsonl"
     crashes = [json.loads(line) for line in crash_db.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -269,7 +337,16 @@ def main() -> int:
                     "observations": sources,
                     "status": "implemented-and-dispatchable",
                 }
-                for address, sources in sorted(retained_observations.items())
+                for address, sources in sorted(retained_function_observations.items())
+            ],
+            "rejectedNonEntryTargets": [
+                {
+                    "address": f"0x{address:08X}",
+                    "observations": sources,
+                    "reason": KNOWN_NON_ENTRY_TARGETS[address],
+                    "status": "corrupt-cascade-target-not-dispatched",
+                }
+                for address, sources in sorted(rejected_non_entries.items())
             ],
             "nullCascadeCalls": retained_null_calls,
             "unimplementedNonNullTargets": [],
@@ -279,6 +356,16 @@ def main() -> int:
             "deletingDestructorSlot": {"offset": "0x24", "target": f"0x{dword(retail, 0x00226A80 + 0x24):08X}"},
             "restoredRetailOnlySlot": {"offset": "0xE4", "target": f"0x{dword(retail, 0x00226A80 + 0xE4):08X}"},
         },
+        "retailCapitolBossVtable": {
+            "address": f"0x{capitol_boss_vtable:08X}",
+            "restoredSlots": [
+                {
+                    "offset": f"0x{slot:02X}",
+                    "target": f"0x{target:08X}",
+                }
+                for slot, target in expected_boss_slots.items()
+            ],
+        },
         "alpha": alpha_record,
     }
     if args.output:
@@ -287,15 +374,25 @@ def main() -> int:
     print(f"PASS: {len(crashes)} preserved unique crash signature(s)")
     print(f"PASS: {len(callback_rows)} observed callbacks have bodies and dispatch entries")
     print(
+        f"PASS: all {len(CAPITOL_CINEMATIC_TABLE_CALLBACKS)} Capitol cinematic "
+        "table callbacks have retail bodies and dispatch entries"
+    )
+    print(
         f"PASS: all {len(seed_addresses)} cumulative indirect-call seeds are dispatchable; "
         f"none use {len(recovery_stubs)} generated no-op recovery stubs"
     )
     print(f"PASS: {len(accumulated_addresses)} unique accumulated callback targets reconciled")
     print(
-        f"PASS: {len(retained_observations)} non-null callback target(s) in retained logs "
+        f"PASS: {len(retained_function_observations)} function callback target(s) in retained logs "
         f"are dispatchable ({retained_null_calls} null cascade call(s) excluded)"
     )
+    if rejected_non_entries:
+        print(
+            f"PASS: {len(rejected_non_entries)} proven non-entry cascade target(s) "
+            "recorded and excluded from dispatch"
+        )
     print("PASS: retail crash callbacks match original XBE bytes and vtable slots")
+    print("PASS: Capitol boss type-query and activation slots match the retail vtable")
     if alpha_record:
         print("PASS: alpha retains the +0x24 destructor slot; retail extends past alpha +0x98")
     return 0

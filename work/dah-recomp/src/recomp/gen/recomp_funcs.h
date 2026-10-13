@@ -577,6 +577,7 @@ void sub_00024F40(void);
 void sub_00024F70(void);
 void sub_00024FE0(void);
 void sub_00025040(void);
+void sub_00025060(void);
 void sub_00025140(void);
 void sub_00025270(void);
 void sub_000253C0(void);
@@ -2540,11 +2541,13 @@ void sub_00079220(void);
 void sub_000792D0(void);
 void sub_000792E0(void);
 void sub_00079320(void);
+void sub_00079450(void);
 void sub_00079600(void);
 void sub_00079650(void);
 void sub_000797A0(void);
 void sub_000797C0(void);
 void sub_000797D0(void);
+void sub_000797E0(void);
 void sub_000797F0(void);
 void sub_000798A0(void);
 void sub_000798C0(void);
@@ -10893,5 +10896,26 @@ void sub_0004ACC0(void);
 
 /* Byte-checked indirect callbacks observed during long playtests. */
 void sub_000A21A0(void);
+
+/* Byte-checked indirect callbacks observed during cutscene playback. */
+void sub_00012280(void);
+void sub_0001F500(void);
+void sub_0002C660(void);
+void sub_0002C6E0(void);
+void sub_00075330(void);
+void sub_0002BFB0(void);
+void sub_00074DD0(void);
+void sub_00075410(void);
+void sub_00021FB0(void);
+void sub_00033060(void);
+void sub_0003C880(void);
+void sub_0003E190(void);
+void sub_0003F9D0(void);
+void sub_0003DF00(void);
+void sub_00077810(void);
+
+/* Byte-checked callbacks from the retail Capitol boss vtable. */
+void sub_00034C70(void);
+void sub_00035000(void);
 
 #endif /* RECOMP_FUNCS_H */

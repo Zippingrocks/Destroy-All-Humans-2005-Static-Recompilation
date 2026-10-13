@@ -5,13 +5,14 @@
 #include <string.h>
 #include <xbox/xboxrecomp.h>
 #include "dah_event_trace.h"
+#include "dah_run_evidence.h"
 
 enum { DAH_EVENT_CAPACITY = 16384, DAH_EVENT_NAME = 64 };
 enum { DAH_EVENT_AI_STATE = 1, DAH_EVENT_FRAME = 2,
        DAH_EVENT_ABILITY_FLAG = 3, DAH_EVENT_TAG_ABILITY = 4,
        DAH_EVENT_PHYSICS_BODY_COMMAND = 5,
        DAH_EVENT_PLAYER_RENDER = 6, DAH_EVENT_SCENE_FLASH = 7,
-       DAH_EVENT_UI_STATE = 8 };
+       DAH_EVENT_UI_STATE = 8, DAH_EVENT_OPERATOR_MARK = 9 };
 
 typedef struct DahTraceEvent {
     uint64_t sequence;
@@ -68,6 +69,9 @@ typedef struct DahTraceEvent {
             uint32_t mission_defeat, mission_complete, titlecard;
             uint32_t start_menu_background, messages, cinematic, main, fade;
         } ui_state;
+        struct {
+            char note[128];
+        } operator_mark;
     } payload;
 } DahTraceEvent;
 
@@ -80,6 +84,99 @@ static volatile LONG enabled;
 static HANDLE wake_event;
 static HANDLE writer_thread;
 static FILE *output;
+static FILE *anomaly_output;
+static char trace_run_id[96];
+static uint64_t trace_event_count;
+static uint64_t trace_anomaly_count;
+static uint64_t trace_frame_miss_count;
+static uint64_t trace_scene_flash_count;
+static uint64_t trace_player_loss_count;
+static uint64_t trace_ui_overlap_count;
+static uint32_t trace_worst_frame_us;
+static uint64_t trace_worst_host_frame;
+
+static void write_anomaly(const DahTraceEvent *event, const char *fingerprint,
+                          const char *severity, const char *detail)
+{
+    if (!anomaly_output) return;
+    fprintf(anomaly_output,
+            "{\"event\":\"anomaly\",\"fingerprint\":\"%s\","
+            "\"severity\":\"%s\",\"sequence\":%llu,"
+            "\"worldTick\":%u,\"detail\":\"%s\"}\n",
+            fingerprint, severity, (unsigned long long)event->sequence,
+            event->world_tick, detail);
+    ++trace_anomaly_count;
+}
+
+static void classify_event(const DahTraceEvent *event)
+{
+    char detail[256];
+    if (event->type == DAH_EVENT_FRAME) {
+        const uint32_t target = event->payload.frame.target_us ?
+                                event->payload.frame.target_us : 33333u;
+        const uint32_t measured = event->payload.frame.interval_us >
+                                  event->payload.frame.total_us ?
+                                  event->payload.frame.interval_us :
+                                  event->payload.frame.total_us;
+        if (measured > trace_worst_frame_us) {
+            trace_worst_frame_us = measured;
+            trace_worst_host_frame = event->payload.frame.host_frame;
+        }
+        if (measured > target) {
+            snprintf(detail, sizeof(detail),
+                     "hostFrame=%llu measuredUs=%u targetUs=%u logicUs=%u renderUs=%u presentUs=%u drawDelta=%u",
+                     (unsigned long long)event->payload.frame.host_frame,
+                     measured, target, event->payload.frame.logic_us,
+                     event->payload.frame.render_us,
+                     event->payload.frame.present_us,
+                     event->payload.frame.draw_delta);
+            write_anomaly(event, "frame-budget-miss", "warning", detail);
+            ++trace_frame_miss_count;
+        }
+    } else if (event->type == DAH_EVENT_SCENE_FLASH) {
+        snprintf(detail, sizeof(detail),
+                 "frame=%u object=%08X model=%08X visible=%u previous=%u gap=%u position=%.5g,%.5g,%.5g",
+                 event->payload.scene_flash.frame,
+                 event->payload.scene_flash.object,
+                 event->payload.scene_flash.model,
+                 event->payload.scene_flash.visible,
+                 event->payload.scene_flash.previous_visible,
+                 event->payload.scene_flash.transition_gap,
+                 event->payload.scene_flash.x,
+                 event->payload.scene_flash.y,
+                 event->payload.scene_flash.z);
+        write_anomaly(event, "scene-visibility-flash", "warning", detail);
+        ++trace_scene_flash_count;
+    } else if (event->type == DAH_EVENT_PLAYER_RENDER) {
+        if (event->payload.player_render.previous_crypto &&
+            (!event->payload.player_render.crypto ||
+             (event->payload.player_render.previous_render &&
+              !event->payload.player_render.render)) &&
+            !(event->payload.player_render.changes & 64u)) {
+            snprintf(detail, sizeof(detail),
+                     "crypto=%08X previousCrypto=%08X render=%08X previousRender=%08X changes=%u",
+                     event->payload.player_render.crypto,
+                     event->payload.player_render.previous_crypto,
+                     event->payload.player_render.render,
+                     event->payload.player_render.previous_render,
+                     event->payload.player_render.changes);
+            write_anomaly(event, "player-render-loss", "error", detail);
+            ++trace_player_loss_count;
+        }
+    } else if (event->type == DAH_EVENT_UI_STATE) {
+        const uint32_t mask = event->payload.ui_state.active_mask;
+        if ((mask & 32u) && (mask & (16u | 64u))) {
+            snprintf(detail, sizeof(detail),
+                     "activeMask=%08X previousActiveMask=%08X cinematic=%08X messages=%08X main=%08X",
+                     mask, event->payload.ui_state.previous_active_mask,
+                     event->payload.ui_state.cinematic,
+                     event->payload.ui_state.messages,
+                     event->payload.ui_state.main);
+            write_anomaly(event, "hud-cinematic-overlap", "warning", detail);
+            ++trace_ui_overlap_count;
+        }
+    }
+}
 
 static int guest_range(uint32_t address, uint32_t size)
 {
@@ -124,6 +221,8 @@ static DWORD WINAPI writer_main(void *unused)
         while (read != write) {
             const DahTraceEvent *event = &events[(uint32_t)read &
                                                   (DAH_EVENT_CAPACITY - 1u)];
+            ++trace_event_count;
+            classify_event(event);
             if (event->type == DAH_EVENT_AI_STATE) fprintf(output,
                     "{\"event\":\"ai-state-commit\",\"sequence\":%llu,"
                     "\"worldTick\":%u,\"manager\":\"%08X\","
@@ -281,6 +380,20 @@ static DWORD WINAPI writer_main(void *unused)
                     event->payload.ui_state.cinematic,
                     event->payload.ui_state.main,
                     event->payload.ui_state.fade);
+            else if (event->type == DAH_EVENT_OPERATOR_MARK) {
+                fprintf(output,
+                        "{\"event\":\"operator-mark\",\"sequence\":%llu,"
+                        "\"worldTick\":%u,\"note\":\"%s\"}\n",
+                        (unsigned long long)event->sequence, event->world_tick,
+                        event->payload.operator_mark.note);
+                if (anomaly_output)
+                    fprintf(anomaly_output,
+                            "{\"event\":\"operator-mark\",\"sequence\":%llu,"
+                            "\"worldTick\":%u,\"note\":\"%s\"}\n",
+                            (unsigned long long)event->sequence,
+                            event->world_tick,
+                            event->payload.operator_mark.note);
+            }
             ++read;
             InterlockedExchange(&read_index, read);
         }
@@ -298,16 +411,36 @@ void dah_event_trace_initialize(const char *run_id, const char *started_utc,
                                 uint64_t executable_hash)
 {
     const char *path = getenv("DAH_EVENT_TRACE");
+    char default_path[MAX_PATH];
+    char anomaly_path[MAX_PATH];
     /* Always retain the most recent run so a one-frame hitch or transient AI
      * state is available after the fact. A custom path is useful for parity
      * sessions; DAH_EVENT_TRACE=0 is the explicit opt-out. */
     if (path && !strcmp(path, "0")) return;
+    if ((!path || !*path) &&
+        dah_run_evidence_path(default_path, sizeof(default_path), "events.jsonl"))
+        path = default_path;
     if (!path || !*path) path = "dah_event_trace.jsonl";
     output = fopen(path, "wb");
     if (!output) return;
+    strcpy_s(trace_run_id, sizeof(trace_run_id), run_id);
+    trace_event_count = trace_anomaly_count = trace_frame_miss_count = 0u;
+    trace_scene_flash_count = trace_player_loss_count = trace_ui_overlap_count = 0u;
+    trace_worst_frame_us = 0u;
+    trace_worst_host_frame = 0u;
+    if (dah_run_evidence_path(anomaly_path, sizeof(anomaly_path),
+                              "anomalies.jsonl"))
+        anomaly_output = fopen(anomaly_path, "wb");
+    if (anomaly_output) {
+        setvbuf(anomaly_output, NULL, _IOFBF, 32u * 1024u);
+        fprintf(anomaly_output,
+                "{\"event\":\"run-start\",\"schema\":1,"
+                "\"runId\":\"%s\",\"pid\":%lu}\n",
+                run_id, GetCurrentProcessId());
+    }
     setvbuf(output, NULL, _IOFBF, 64u * 1024u);
     fprintf(output,
-            "{\"event\":\"run-start\",\"schema\":1,\"runId\":\"%s\","
+            "{\"event\":\"run-start\",\"schema\":2,\"runId\":\"%s\","
             "\"pid\":%lu,\"startedUtc\":\"%s\","
             "\"executableFnv1a64\":\"%016llX\"}\n",
             run_id, GetCurrentProcessId(), started_utc,
@@ -315,6 +448,10 @@ void dah_event_trace_initialize(const char *run_id, const char *started_utc,
     fflush(output);
     wake_event = CreateEventA(NULL, FALSE, FALSE, NULL);
     if (!wake_event) {
+        if (anomaly_output) {
+            fclose(anomaly_output);
+            anomaly_output = NULL;
+        }
         fclose(output);
         output = NULL;
         return;
@@ -325,6 +462,10 @@ void dah_event_trace_initialize(const char *run_id, const char *started_utc,
         InterlockedExchange(&running, 0);
         CloseHandle(wake_event);
         wake_event = NULL;
+        if (anomaly_output) {
+            fclose(anomaly_output);
+            anomaly_output = NULL;
+        }
         fclose(output);
         output = NULL;
         return;
@@ -735,17 +876,99 @@ void dah_event_trace_scene_flash(uint32_t frame, uint32_t object,
     InterlockedExchange(&write_index, write + 1);
 }
 
+void dah_event_trace_mark(const char *note)
+{
+    LONG write, read;
+    DahTraceEvent *event;
+    uint32_t world;
+    unsigned source, destination = 0u;
+    if (!note || !*note || !InterlockedCompareExchange(&enabled, 0, 0)) return;
+    write = InterlockedCompareExchange(&write_index, 0, 0);
+    read = InterlockedCompareExchange(&read_index, 0, 0);
+    if ((uint32_t)(write - read) >= DAH_EVENT_CAPACITY) {
+        InterlockedIncrement(&dropped_events);
+        return;
+    }
+    event = &events[(uint32_t)write & (DAH_EVENT_CAPACITY - 1u)];
+    memset(event, 0, sizeof(*event));
+    event->sequence = (uint32_t)write;
+    event->type = DAH_EVENT_OPERATOR_MARK;
+    world = guest_u32(0x00286768u);
+    event->world_tick = guest_range(world, 12u) ? guest_u32(world + 8u) : 0u;
+    for (source = 0u; note[source] &&
+         destination + 1u < sizeof(event->payload.operator_mark.note); ++source) {
+        unsigned char value = (unsigned char)note[source];
+        event->payload.operator_mark.note[destination++] =
+            value >= 32u && value < 127u && value != '"' && value != '\\' ?
+            (char)value : '?';
+    }
+    event->payload.operator_mark.note[destination] = '\0';
+    MemoryBarrier();
+    InterlockedExchange(&write_index, write + 1);
+    SetEvent(wake_event);
+}
+
 void dah_event_trace_shutdown(void)
 {
     LONG dropped;
+    char summary_path[MAX_PATH];
+    FILE *summary;
     if (!InterlockedExchange(&enabled, 0)) return;
     InterlockedExchange(&running, 0);
     SetEvent(wake_event);
     WaitForSingleObject(writer_thread, 5000u);
     dropped = InterlockedCompareExchange(&dropped_events, 0, 0);
-    if (dropped)
+    if (dropped) {
         fprintf(output, "{\"event\":\"trace-overflow\",\"dropped\":%ld}\n",
                 (long)dropped);
+        if (anomaly_output) {
+            fprintf(anomaly_output,
+                    "{\"event\":\"anomaly\",\"fingerprint\":\"trace-overflow\","
+                    "\"severity\":\"error\",\"dropped\":%ld}\n",
+                    (long)dropped);
+            ++trace_anomaly_count;
+        }
+    }
+    fprintf(output,
+            "{\"event\":\"run-end\",\"events\":%llu,\"anomalies\":%llu,"
+            "\"dropped\":%ld}\n",
+            (unsigned long long)trace_event_count,
+            (unsigned long long)trace_anomaly_count, (long)dropped);
+    if (anomaly_output) {
+        fprintf(anomaly_output,
+                "{\"event\":\"run-end\",\"events\":%llu,"
+                "\"anomalies\":%llu,\"dropped\":%ld}\n",
+                (unsigned long long)trace_event_count,
+                (unsigned long long)trace_anomaly_count, (long)dropped);
+        fflush(anomaly_output);
+        fclose(anomaly_output);
+        anomaly_output = NULL;
+    }
+    summary = dah_run_evidence_path(summary_path, sizeof(summary_path),
+                                    "summary.json") ?
+              fopen(summary_path, "wb") : NULL;
+    if (summary) {
+        fprintf(summary,
+                "{\n  \"schema\": 1,\n  \"runId\": \"%s\","
+                "\n  \"events\": %llu,\n  \"anomalies\": %llu,"
+                "\n  \"droppedEvents\": %ld,"
+                "\n  \"fingerprints\": {"
+                "\n    \"frame-budget-miss\": %llu,"
+                "\n    \"scene-visibility-flash\": %llu,"
+                "\n    \"player-render-loss\": %llu,"
+                "\n    \"hud-cinematic-overlap\": %llu"
+                "\n  },\n  \"worstFrameUs\": %u,"
+                "\n  \"worstHostFrame\": %llu\n}\n",
+                trace_run_id, (unsigned long long)trace_event_count,
+                (unsigned long long)trace_anomaly_count, (long)dropped,
+                (unsigned long long)trace_frame_miss_count,
+                (unsigned long long)trace_scene_flash_count,
+                (unsigned long long)trace_player_loss_count,
+                (unsigned long long)trace_ui_overlap_count,
+                trace_worst_frame_us,
+                (unsigned long long)trace_worst_host_frame);
+        fclose(summary);
+    }
     fflush(output);
     fclose(output);
     output = NULL;

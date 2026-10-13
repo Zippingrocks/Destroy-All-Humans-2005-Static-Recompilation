@@ -7,6 +7,7 @@
 void dah_frame_begin(void);
 void dah_frame_end(void);
 uint64_t dah_frame_serial(void);
+uint32_t dah_frame_thread_id(void);
 int dah_frame_gameplay_visual_ready(void);
 int dah_frame_presentation_held(void);
 uint32_t dah_retail_pushbuffer_commit(uint32_t device, uint32_t put);

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "callbacks": [
+    {
+      "start": "0x00021FB0",
+      "end": "0x00021FF8",
+      "bytes": 72,
+      "instructions": 24,
+      "purpose": "neighbor actor initialization callback",
+      "codeBytesSha256": "F9B70E30873D1C52AD383E1465A75C86EC703DA670354A514F075F1937730A4F"
+    },
+    {
+      "start": "0x00033060",
+      "end": "0x00033202",
+      "bytes": 418,
+      "instructions": 127,
+      "purpose": "cinematic actor transform callback",
+      "codeBytesSha256": "057CFFA002C30838C6C0388D0EFFD2A7AA1266E5AEC1BD132D33D43818C9B5E7"
+    },
+    {
+      "start": "0x0003C880",
+      "end": "0x0003C892",
+      "bytes": 18,
+      "instructions": 5,
+      "purpose": "cinematic runtime type-query callback",
+      "codeBytesSha256": "60C0F0FD962115F4BDE91624101EF1C04E021876B76779CDF97B5B786D013AFC"
+    },
+    {
+      "start": "0x0003E190",
+      "end": "0x0003E1AB",
+      "bytes": 27,
+      "instructions": 8,
+      "purpose": "cinematic effect type-query callback",
+      "codeBytesSha256": "78F52E5D955BA3CEB3A79112C847DA4FEABAD3C5D54A87030F577AEC4126D672"
+    },
+    {
+      "start": "0x0003F9D0",
+      "end": "0x0003FA8F",
+      "bytes": 191,
+      "instructions": 61,
+      "purpose": "cinematic scene activation callback",
+      "codeBytesSha256": "B85EB4189C86E40F996071F5D9EB08D574159C58552E0C7F62D29BB3180B9298"
+    }
+  ]
+}

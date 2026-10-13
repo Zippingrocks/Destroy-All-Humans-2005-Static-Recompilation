@@ -98,9 +98,20 @@ try {
         $dahRun.Kill()
         $dahRun.WaitForExit()
     }
-    # main.c defaults GUI builds to furonlog.log when DAH_LOG_PATH is unset.
-    # Keep this in sync so each run archives the telemetry it actually wrote.
-    $dahLogSource = if ($env:DAH_LOG_PATH) { $env:DAH_LOG_PATH } else { Join-Path $dahInternal 'furonlog.log' }
+    # Resolve the session-owned log from the manifest. Environment overrides
+    # remain authoritative for older builds and explicit probe destinations.
+    $dahRunManifest = Join-Path $dahInternal 'dah_current_run.json'
+    $dahManifestLog = $null
+    if (Test-Path -LiteralPath $dahRunManifest) {
+        try { $dahManifestLog = (Get-Content -LiteralPath $dahRunManifest -Raw | ConvertFrom-Json).logPath } catch {}
+    }
+    $dahLogSource = if ($env:DAH_LOG_PATH) {
+        $env:DAH_LOG_PATH
+    } elseif ($dahManifestLog) {
+        if ([IO.Path]::IsPathRooted($dahManifestLog)) { $dahManifestLog } else { Join-Path $dahInternal $dahManifestLog }
+    } else {
+        Join-Path $dahInternal 'furonlog.log'
+    }
     $dahArchive = Join-Path ([IO.Path]::GetDirectoryName($dahLogSource)) "recomp-internal-$($dahRun.Id).log"
     if (Test-Path -LiteralPath $dahLogSource) {
         Copy-Item -LiteralPath $dahLogSource -Destination $dahArchive

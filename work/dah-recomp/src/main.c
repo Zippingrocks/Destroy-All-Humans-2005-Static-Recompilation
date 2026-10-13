@@ -9,6 +9,7 @@
 #include "dah_frame.h"
 #include "dah_crashlog.h"
 #include "dah_event_trace.h"
+#include "dah_run_evidence.h"
 #include "dah_renderdoc.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
@@ -25,6 +26,12 @@ static HWND g_game_overlay;
 static HANDLE g_window_ready_event;
 static volatile LONG g_window_init_result;
 static volatile LONG g_dah_has_real_draw;
+static volatile LONG g_dah_host_closing;
+static char g_dah_run_id[96];
+static char g_dah_started_utc[32];
+static char g_dah_log_path[MAX_PATH];
+static char g_dah_event_path[MAX_PATH];
+static uint64_t g_dah_executable_hash;
 static uint32_t g_dah_ltcg_ring;
 static uintptr_t g_kpcr_watch_base;
 static RECOMP_TLS int g_kpcr_watch_rearm;
@@ -64,21 +71,10 @@ static void dah_write_run_manifest(const char *run_id, const char *started_utc,
                                    const char *log_path, const char *event_path,
                                    const char *status)
 {
-    FILE *file = fopen("dah_current_run.json", "wb");
-    if (!file) return;
-    fprintf(file, "{\n  \"schema\": 1,\n  \"runId\": ");
-    dah_write_json_string(file, run_id);
-    fprintf(file, ",\n  \"pid\": %lu,\n  \"startedUtc\": ", GetCurrentProcessId());
-    dah_write_json_string(file, started_utc);
-    fprintf(file, ",\n  \"executableFnv1a64\": \"%016llX\",\n  \"logPath\": ",
-            (unsigned long long)executable_hash);
-    dah_write_json_string(file, log_path);
-    fprintf(file, ",\n  \"eventTracePath\": ");
-    dah_write_json_string(file, event_path);
-    fprintf(file, ",\n  \"status\": ");
-    dah_write_json_string(file, status);
-    fprintf(file, "\n}\n");
-    fclose(file);
+    (void)run_id;
+    (void)started_utc;
+    (void)executable_hash;
+    dah_run_evidence_update_status(status, log_path, event_path);
 }
 
 
@@ -301,6 +297,11 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT message,
             g_game_overlay = NULL;
         }
         fprintf(stderr, "[DAH-WINDOW] WM_DESTROY hwnd=%p\n", (void *)hwnd);
+        InterlockedExchange(&g_dah_host_closing, 1);
+        if (g_dah_run_id[0])
+            dah_write_run_manifest(g_dah_run_id, g_dah_started_utc,
+                                   g_dah_executable_hash, g_dah_log_path,
+                                   g_dah_event_path, "closed");
         PostQuitMessage(0);
         return 0;
     }
@@ -610,6 +611,64 @@ static DWORD WINAPI sample_guest_threads(LPVOID unused)
     return 0;
 }
 
+/* A visual freeze used to leave only a healthy window/message thread in the
+ * log. Watch the completed-frame heartbeat and capture the translated game
+ * thread only after it has stopped for several seconds. Suspending solely to
+ * read CONTEXT takes place after the fault is already observable and is kept
+ * out of normal frame timing. */
+static DWORD WINAPI monitor_guest_stalls(LPVOID unused)
+{
+    uintptr_t module_base = (uintptr_t)GetModuleHandleA(NULL);
+    uint64_t previous = 0, unchanged_since = GetTickCount64();
+    uint64_t last_reported = 0;
+    (void)unused;
+    for (;;) {
+        uint64_t serial;
+        uint64_t now;
+        DWORD thread_id;
+        Sleep(1000);
+        if (InterlockedCompareExchange(&g_dah_host_closing, 0, 0)) return 0;
+        serial = dah_frame_serial();
+        now = GetTickCount64();
+        if (!serial || serial != previous) {
+            previous = serial;
+            unchanged_since = now;
+            last_reported = 0;
+            continue;
+        }
+        if (now - unchanged_since < 4000u || last_reported == serial) continue;
+        thread_id = dah_frame_thread_id();
+        if (thread_id) {
+            HANDLE handle = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT |
+                                       THREAD_QUERY_INFORMATION, FALSE, thread_id);
+            if (handle) {
+                if (SuspendThread(handle) != (DWORD)-1) {
+                    CONTEXT context = {0};
+                    context.ContextFlags = CONTEXT_CONTROL;
+                    if (GetThreadContext(handle, &context)) {
+                        fprintf(stderr,
+                                "[DAH-STALL] serial=%llu stalled-ms=%llu thread=%lu "
+                                "rip=%016llX rva=%08llX rsp=%016llX "
+                                "loop=%u current=%08X pending=%08X\n",
+                                (unsigned long long)serial,
+                                (unsigned long long)(now - unchanged_since), thread_id,
+                                (unsigned long long)context.Rip,
+                                (unsigned long long)((uintptr_t)context.Rip - module_base),
+                                (unsigned long long)context.Rsp,
+                                *(uint32_t *)(xbox_GetMemoryOffset() + 0x0025B1DCu),
+                                *(uint32_t *)(xbox_GetMemoryOffset() + 0x0025FBF8u),
+                                *(uint32_t *)(xbox_GetMemoryOffset() + 0x0025FBFCu));
+                        fflush(stderr);
+                    }
+                    ResumeThread(handle);
+                }
+                CloseHandle(handle);
+            }
+        }
+        last_reported = serial;
+    }
+}
+
 static int load_file(const char *path, void **data, size_t *size)
 {
     FILE *file = fopen(path, "rb");
@@ -775,10 +834,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     /* GUI launches need only the game window. Both diagnostic streams go
      * to recomp.log, so allocating a separate console creates an empty
      * second window without providing any diagnostic output. */
+    char default_log_path[MAX_PATH], default_event_path[MAX_PATH];
     const char *dah_log_path=getenv("DAH_LOG_PATH");
     const char *dah_event_path=getenv("DAH_EVENT_TRACE");
-    if(!dah_log_path || !*dah_log_path)dah_log_path="furonlog.log";
-    if(!dah_event_path || !*dah_event_path)dah_event_path="dah_event_trace.jsonl";
+    dah_run_evidence_initialize(run_id, started_utc, executable_hash);
+    if (!dah_run_evidence_path(default_log_path, sizeof(default_log_path),
+                               "runtime.log"))
+        strcpy_s(default_log_path, sizeof(default_log_path), "furonlog.log");
+    if (!dah_run_evidence_path(default_event_path, sizeof(default_event_path),
+                               "events.jsonl"))
+        strcpy_s(default_event_path, sizeof(default_event_path),
+                 "dah_event_trace.jsonl");
+    if(!dah_log_path || !*dah_log_path)dah_log_path=default_log_path;
+    if(!dah_event_path || !*dah_event_path)dah_event_path=default_event_path;
     freopen(dah_log_path, "w", stdout);
     freopen(dah_log_path, "a", stderr);
     /* Both FILE streams must exist even for a hidden GUI process, then
@@ -794,6 +862,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
             dah_log_path, dah_event_path);
     dah_write_run_manifest(run_id, started_utc, executable_hash,
                            dah_log_path, dah_event_path, "running");
+    strcpy_s(g_dah_run_id, sizeof(g_dah_run_id), run_id);
+    strcpy_s(g_dah_started_utc, sizeof(g_dah_started_utc), started_utc);
+    strcpy_s(g_dah_log_path, sizeof(g_dah_log_path), dah_log_path);
+    strcpy_s(g_dah_event_path, sizeof(g_dah_event_path), dah_event_path);
+    g_dah_executable_hash = executable_hash;
     {
         const char *kpcr_watch = getenv("DAH_KPCR_WATCH");
         if (kpcr_watch && atoi(kpcr_watch) != 0)
@@ -878,6 +951,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     if (!init_host_renderer(instance)) {
         dah_report_startup_error("Host D3D11 renderer initialization failed", MB_ICONERROR);
         return 4;
+    }
+    {
+        HANDLE stall_monitor = CreateThread(NULL, 0, monitor_guest_stalls, NULL, 0, NULL);
+        if (stall_monitor) CloseHandle(stall_monitor);
     }
     g_esp = XBOX_STACK_TOP;
     recomp_dispatch_init();

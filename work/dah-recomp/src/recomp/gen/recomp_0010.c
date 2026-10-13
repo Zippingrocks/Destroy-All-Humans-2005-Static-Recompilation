@@ -1891,6 +1891,10 @@ loc_000DE67C: ;
  */
 void sub_000DE690(void)
 {
+    uint32_t dah_list_steps = 0;
+    uint32_t dah_list_limit = 0;
+    uint32_t dah_repair_nodes[64];
+    int dah_list_repaired = 0;
     uint32_t ebp;
     ebp = g_ebp;  /* frameless: caller's frame */
     int _flags = 0; /* fallback flag var */
@@ -1908,6 +1912,14 @@ loc_000DE690: ;
     eax = ebx + 0x6C;
     PUSH32(esp, edi);
     edi = MEM32(eax);
+    /* Retail walks the pending AssetHeap completion list until its embedded
+     * sentinel. A malformed/cyclic list previously trapped the translated
+     * game thread here forever while the Windows message thread stayed alive.
+     * Bound the walk by the owner's own pending count (with a small allowance
+     * for a completion being removed during this call). Healthy retail lists
+     * are untouched; a damaged list is reported and the callback returns. */
+    dah_list_limit = MEM32(ebx + 0x7Cu) + 2u;
+    if (dah_list_limit < 2u || dah_list_limit > 4096u) dah_list_limit = 4096u;
     _fa = (uint32_t)(edi) & 0xFFFFFFFFu; _fb = (uint32_t)(eax) & 0xFFFFFFFFu;
     _fas = (int32_t)(int32_t)(_fa); _fbs = (int32_t)(int32_t)(_fb); /* cmp edi, eax (32-bit) */
     if (CMP_EQ(_fa, _fb)) goto loc_000DE815; /* je: equal / zero */
@@ -1917,6 +1929,51 @@ loc_000DE6A6: ;
     /* nop */
 
 loc_000DE6B0: ;
+    if (++dah_list_steps > dah_list_limit) {
+        uint32_t dah_pending = MEM32(ebx + 0x7Cu);
+        uint32_t dah_sentinel = ebx + 0x6Cu;
+        uint32_t dah_cursor = MEM32(dah_sentinel + 4u);
+        /* The completion queues are intrusive lists. The observed Capitol
+         * boss failure retains a valid count and backward chain, while the
+         * forward chain crosses into a sibling queue and cycles forever.
+         * Rebuild this one queue from the retail-owned tail/count, then let
+         * the original completion search continue. */
+        if (!dah_list_repaired && dah_pending && dah_pending <= 64u &&
+            dah_cursor != 0u && dah_cursor != dah_sentinel) {
+            uint32_t dah_i;
+            for (dah_i = dah_pending; dah_i != 0u; --dah_i) {
+                dah_repair_nodes[dah_i - 1u] = dah_cursor;
+                dah_cursor = MEM32(dah_cursor + 4u);
+            }
+            for (dah_i = 0; dah_i < dah_pending; ++dah_i) {
+                uint32_t dah_node = dah_repair_nodes[dah_i];
+                MEM32(dah_node) = (dah_i + 1u < dah_pending)
+                    ? dah_repair_nodes[dah_i + 1u] : dah_sentinel;
+                MEM32(dah_node + 4u) = dah_i
+                    ? dah_repair_nodes[dah_i - 1u] : dah_sentinel;
+            }
+            MEM32(dah_sentinel) = dah_repair_nodes[0];
+            MEM32(dah_sentinel + 4u) = dah_repair_nodes[dah_pending - 1u];
+            fprintf(stderr,
+                    "[DAH-ASSET-COMPLETION-REPAIR] owner=%08X sentinel=%08X "
+                    "pending=%u first=%08X last=%08X displaced-prev=%08X\n",
+                    ebx, dah_sentinel, dah_pending, dah_repair_nodes[0],
+                    dah_repair_nodes[dah_pending - 1u], dah_cursor);
+            fflush(stderr);
+            dah_list_repaired = 1;
+            dah_list_steps = 0;
+            edi = MEM32(dah_sentinel);
+            goto loc_000DE6B0;
+        }
+        fprintf(stderr,
+                "[DAH-ASSET-COMPLETION-GUARD] owner=%08X sentinel=%08X node=%08X "
+                "pending=%u steps=%u arg0=%08X arg1=%08X arg2=%08X arg3=%08X\n",
+                ebx, ebx + 0x6Cu, edi, MEM32(ebx + 0x7Cu), dah_list_steps,
+                MEM32(esp + 0x2Cu), MEM32(esp + 0x30u),
+                MEM32(esp + 0x34u), MEM32(esp + 0x38u));
+        fflush(stderr);
+        goto loc_000DE6F7;
+    }
     esi = MEM32(edi + 8);
     ecx = MEM32(ebx + 0x1C);
     PUSH32(esp, esi);

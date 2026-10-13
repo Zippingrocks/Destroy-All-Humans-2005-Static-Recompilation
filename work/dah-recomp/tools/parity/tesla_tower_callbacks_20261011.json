@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "crashSignature": "DAH-5CE241E1BBDBD156",
+  "callbacks": [
+    {
+      "start": "0x0002BFB0",
+      "end": "0x0002BFE2",
+      "bytes": 50,
+      "instructions": 14,
+      "purpose": "actor scalar deleting destructor",
+      "codeBytesSha256": "AF3AB1B2D0B4F19FB2659C22BFB458CF28D36A9913E4DDBCCCBE2DA35A0F8600"
+    },
+    {
+      "start": "0x00074DD0",
+      "end": "0x00074E0A",
+      "bytes": 58,
+      "instructions": 13,
+      "purpose": "tower transform/state callback",
+      "codeBytesSha256": "AC2C75B0C3215ED1CF1BED8B1E5ABD792402BA5950C14BB6B22AF0C0AF8A31AD"
+    },
+    {
+      "start": "0x00075410",
+      "end": "0x0007542E",
+      "bytes": 30,
+      "instructions": 11,
+      "purpose": "tower scalar deleting destructor",
+      "codeBytesSha256": "E8EF0046310AE4ECDF5EB8B9F21B73361EA2BA20CB4564C06BD5C32A63C3F499"
+    }
+  ]
+}
