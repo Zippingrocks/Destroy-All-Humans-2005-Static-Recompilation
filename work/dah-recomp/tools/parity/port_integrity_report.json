@@ -21,7 +21,7 @@
     "unverifiedNativeSymbols": 52,
     "provisionalMitigations": 3,
     "manualDispatchOverrides": 37,
-    "retailRecoverySourceFiles": 29,
+    "retailRecoverySourceFiles": 30,
     "recoveryNoOpStubs": 21,
     "seededNoOpStubs": 0,
     "completionCreditedNativeSymbols": 2
@@ -1706,6 +1706,10 @@
     },
     {
       "file": "recomp_static_vtable_callbacks.c",
+      "functions": 2
+    },
+    {
+      "file": "recomp_tesla_runtime_callbacks_20261011.c",
       "functions": 2
     },
     {
