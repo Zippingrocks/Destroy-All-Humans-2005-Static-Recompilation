@@ -72,7 +72,7 @@ body:
     id: evidence
     attributes:
       label: Logs and visual evidence
-      description: Drag in screenshots or reviewed text logs. Remove private paths and do not upload copyrighted game data.
+      description: Attach the sanitized JSON created by report_bug, screenshots, or reviewed text excerpts. Never upload debug-runs, crashlog dumps, saves, private paths, memory captures, the XBE, movies, or extracted game assets.
   - type: checkboxes
     id: checks
     attributes:

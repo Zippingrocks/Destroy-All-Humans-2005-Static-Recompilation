@@ -1,4 +1,7 @@
 #include "dah_crashlog.h"
+#ifdef DAH_REPORTER_BUILD
+#include "dah_public_report.h"
+#endif
 
 #include <dbghelp.h>
 #include <stdint.h>
@@ -198,6 +201,9 @@ LONG WINAPI dah_crashlog_unhandled(EXCEPTION_POINTERS *info)
         stamp, signature, code, (unsigned long long)host_rva, (unsigned long long)access,
         (unsigned long long)target, g_esp, guest_return, pid, tid, report_name, first_unique ? "true" : "false");
     append_text("crashlog\\events.jsonl", line);
+#ifdef DAH_REPORTER_BUILD
+    dah_public_report_crash(signature, code, host_rva, access, guest_return);
+#endif
     if (first_unique) {
         sprintf_s(line, sizeof(line),
             "{\"signature\":\"%s\",\"first_seen\":\"%s\",\"exception\":\"%08lX\",\"host_rva\":\"%016llX\",\"access\":%llu,\"guest_return\":\"%08X\",\"report\":\"%s\",\"fix_hint\":\"%s\"}\r\n",

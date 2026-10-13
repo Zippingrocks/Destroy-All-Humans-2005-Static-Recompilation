@@ -6,8 +6,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 
 option(DAH_INTERNAL_BUILD "Name the executable as a hidden-test build" OFF)
+option(DAH_REPORTER_BUILD "Build the opt-in Debug-Reporter edition" OFF)
 if(DAH_INTERNAL_BUILD)
     set(DAH_EXECUTABLE_NAME "dah_recomp_internal")
+elseif(DAH_REPORTER_BUILD)
+    set(DAH_EXECUTABLE_NAME "dah_recomp_debug_reporter")
 else()
     set(DAH_EXECUTABLE_NAME "dah_recomp_working")
 endif()
@@ -26,6 +29,11 @@ add_executable(DestroyAllHumans WIN32
     src/recomp_manual.c
     ${RECOMP_SOURCES}
 )
+if(DAH_REPORTER_BUILD)
+    target_sources(DestroyAllHumans PRIVATE src/dah_public_report.c)
+    target_compile_definitions(DestroyAllHumans PRIVATE DAH_REPORTER_BUILD=1)
+    target_link_libraries(DestroyAllHumans PRIVATE bcrypt shell32)
+endif()
 
 if(WIN32)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)

@@ -1,7 +1,8 @@
 param(
     [string]$BuildDirectory = "build-ninja",
     [string]$Target = "DestroyAllHumans",
-    [switch]$Configure
+    [switch]$Configure,
+    [switch]$Reporter
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,10 +41,12 @@ if (!$dahD3D11) { throw 'Windows SDK d3d11.lib was not found after loading VsDev
 $dahCmake = Join-Path $dahVs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
 $dahNinja = Join-Path $dahVs 'Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
 $dahBuild = [IO.Path]::GetFullPath((Join-Path $dahSource $BuildDirectory))
+$dahReporterOption = if ($Reporter) { 'ON' } else { 'OFF' }
 $dahCache = Join-Path $dahBuild 'CMakeCache.txt'
-if ($Configure -or !(Test-Path -LiteralPath $dahCache)) {
+if ($Configure -or $Reporter -or !(Test-Path -LiteralPath $dahCache)) {
     & $dahCmake -S $dahSource -B $dahBuild -G Ninja `
-        "-DCMAKE_MAKE_PROGRAM=$dahNinja" -DCMAKE_BUILD_TYPE=Release
+        "-DCMAKE_MAKE_PROGRAM=$dahNinja" -DCMAKE_BUILD_TYPE=Release `
+        "-DDAH_REPORTER_BUILD=$dahReporterOption"
     if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
 }
 & $dahCmake --build $dahBuild --parallel 4 --target $Target

@@ -10,6 +10,9 @@
 #include "dah_crashlog.h"
 #include "dah_event_trace.h"
 #include "dah_run_evidence.h"
+#ifdef DAH_REPORTER_BUILD
+#include "dah_public_report.h"
+#endif
 #include "dah_renderdoc.h"
 
 #define DAH_ENTRY_POINT 0x000B27BBu
@@ -302,6 +305,9 @@ static LRESULT CALLBACK game_window_proc(HWND hwnd, UINT message,
             dah_write_run_manifest(g_dah_run_id, g_dah_started_utc,
                                    g_dah_executable_hash, g_dah_log_path,
                                    g_dah_event_path, "closed");
+#ifdef DAH_REPORTER_BUILD
+        dah_public_report_session("closed");
+#endif
         PostQuitMessage(0);
         return 0;
     }
@@ -832,6 +838,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     if (!directory_end) return 1;
     *directory_end = L'\0';
     if (!SetCurrentDirectoryW(executable_path)) return 1;
+#ifdef DAH_REPORTER_BUILD
+    dah_public_report_initialize(executable_hash);
+    atexit(dah_public_report_shutdown);
+#endif
 
     /* GUI launches need only the game window. Both diagnostic streams go
      * to recomp.log, so allocating a separate console creates an empty
@@ -993,6 +1003,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command_line, i
     dah_event_trace_shutdown();
     dah_write_run_manifest(run_id, started_utc, executable_hash,
                            dah_log_path, dah_event_path, "completed");
+#ifdef DAH_REPORTER_BUILD
+    dah_public_report_session("completed");
+#endif
     printf("The translated game returned to the host.\n");
     xbox_kernel_shutdown();
     xbox_MemoryLayoutShutdown();

@@ -13,6 +13,8 @@ saves/
 **/build-internal/
 **/build-ninja/
 **/build-public/
+**/build-reporter/
+**/dist/
 **/cmake-build-*/
 **/CMakeFiles/
 **/CMakeCache.txt
@@ -38,6 +40,8 @@ furonlog.log
 dah_current_run.json
 dah_event_trace.jsonl
 debug-runs/
+reports/
+reporting-settings.json
 *.ram.bin
 
 # IDE
