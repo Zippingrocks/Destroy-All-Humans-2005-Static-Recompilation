@@ -26,6 +26,33 @@ add_executable(DestroyAllHumans WIN32
     src/recomp_manual.c
     ${RECOMP_SOURCES}
 )
+
+if(WIN32)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(DAH_RETAIL_XBE "${CMAKE_CURRENT_SOURCE_DIR}/../default.xbe")
+    set(DAH_GENERATED_RESOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_resources")
+    set(DAH_ICON_ICO "${DAH_GENERATED_RESOURCE_DIR}/dah1_retail_title.ico")
+    set(DAH_ICON_RC "${DAH_GENERATED_RESOURCE_DIR}/dah_icon.rc")
+    file(MAKE_DIRECTORY "${DAH_GENERATED_RESOURCE_DIR}")
+    add_custom_command(
+        OUTPUT "${DAH_ICON_ICO}"
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/extract_xbe_title_icon.py"
+            "${DAH_RETAIL_XBE}"
+            "${DAH_ICON_ICO}"
+        DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/extract_xbe_title_icon.py"
+            "${DAH_RETAIL_XBE}"
+        COMMENT "Extracting the retail DAH title icon from default.xbe"
+        VERBATIM
+    )
+    file(TO_CMAKE_PATH "${DAH_ICON_ICO}" DAH_ICON_ICO_RC)
+    configure_file(src/dah_icon.rc.in "${DAH_ICON_RC}" @ONLY)
+    set_source_files_properties("${DAH_ICON_RC}" PROPERTIES
+        OBJECT_DEPENDS "${DAH_ICON_ICO}"
+    )
+    target_sources(DestroyAllHumans PRIVATE "${DAH_ICON_RC}")
+endif()
 set_target_properties(DestroyAllHumans PROPERTIES OUTPUT_NAME "${DAH_EXECUTABLE_NAME}")
 
 target_include_directories(DestroyAllHumans PRIVATE
