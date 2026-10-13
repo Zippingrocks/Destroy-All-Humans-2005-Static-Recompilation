@@ -36,10 +36,11 @@ $dahNormalNotice = @'
 Destroy All Humans! Recomp — Normal release
 
 This build has no public bug-reporting or telemetry feature compiled into it.
-It performs no reporting network requests. Supply legally obtained game data
-as described in the project README.
+It performs no reporting network requests.
 '@
-$dahNormalNotice | Set-Content -LiteralPath (Join-Path $dahNormalStage 'README.txt')
+$dahPlayerSetup = Get-Content -LiteralPath (Join-Path $dahSource 'docs\PLAYER_SETUP.txt') -Raw
+($dahNormalNotice + "`r`n`r`n" + $dahPlayerSetup) |
+    Set-Content -LiteralPath (Join-Path $dahNormalStage 'README.txt') -Encoding UTF8
 
 $dahReporterNotice = @'
 Destroy All Humans! Recomp — Debug-Reporter release
@@ -48,7 +49,8 @@ This build offers optional, privacy-safe reporting on first launch. Reporting
 is disabled unless you choose Yes. See REPORTING.md for the exact allowlist and
 the console commands that change your choice.
 '@
-$dahReporterNotice | Set-Content -LiteralPath (Join-Path $dahReporterStage 'README.txt')
+($dahReporterNotice + "`r`n`r`n" + $dahPlayerSetup) |
+    Set-Content -LiteralPath (Join-Path $dahReporterStage 'README.txt') -Encoding UTF8
 
 Compress-Archive -Path (Join-Path $dahNormalStage '*') `
     -DestinationPath (Join-Path $dahOutput 'Destroy-All-Humans-Recomp-Normal.zip') -Force
