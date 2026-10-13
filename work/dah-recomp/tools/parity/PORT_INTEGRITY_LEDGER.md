@@ -6,8 +6,8 @@ tools, diagnostics, parity implementations, and mitigations do not.
 
 ## Current accounting
 
-- Classified native symbols and generated hooks: **177**
-- Verified classifications: **125**
+- Classified native symbols and generated hooks: **184**
+- Verified classifications: **132**
 - Unverified or partially evidenced native symbols: **52**
 - Temporary mitigations: **3**
 - Recovery no-op stubs remaining: **21**
@@ -19,7 +19,7 @@ tools, diagnostics, parity implementations, and mitigations do not.
 |---|---:|:---:|
 | compatibility-layer | 41 | no |
 | development-tooling | 28 | no |
-| diagnostic-instrumentation | 51 | no |
+| diagnostic-instrumentation | 58 | no |
 | parity-implementation | 12 | no |
 | retail-restoration | 42 | yes |
 | temporary-mitigation | 3 | no |

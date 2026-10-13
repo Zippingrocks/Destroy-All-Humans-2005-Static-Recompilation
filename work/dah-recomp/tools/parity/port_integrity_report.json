@@ -8,16 +8,16 @@
     "compatibilityLayersCountTowardCompletion": false
   },
   "summary": {
-    "classifiedNativeSymbols": 177,
+    "classifiedNativeSymbols": 184,
     "categoryCounts": {
       "compatibility-layer": 41,
       "development-tooling": 28,
-      "diagnostic-instrumentation": 51,
+      "diagnostic-instrumentation": 58,
       "parity-implementation": 12,
       "retail-restoration": 42,
       "temporary-mitigation": 3
     },
-    "verifiedNativeSymbols": 125,
+    "verifiedNativeSymbols": 132,
     "unverifiedNativeSymbols": 52,
     "provisionalMitigations": 3,
     "manualDispatchOverrides": 37,
@@ -594,6 +594,62 @@
       "reason": "Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit.",
       "acceptance": "Replace with proven retail behavior and pass matched native/xemu scenario.",
       "source": "src/recomp_manual.c"
+    },
+    {
+      "symbol": "dah_public_report_crash",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in sanitized crash reporting for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_get_consent",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicit reporting preference support for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_initialize",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in sanitized reporting support for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_open_issue",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "User-authorized GitHub issue handoff for sanitized reports; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_session",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in sanitized session reporting for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_set_consent",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Explicit reporting preference support for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
+    },
+    {
+      "symbol": "dah_public_report_shutdown",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in sanitized reporting support for the Debug-Reporter edition; excluded from retail parity.",
+      "acceptance": "Remain absent from Normal builds and pass the reporter privacy-separation test.",
+      "source": "src/dah_public_report.c"
     },
     {
       "symbol": "dah_quat_constructor_trace",

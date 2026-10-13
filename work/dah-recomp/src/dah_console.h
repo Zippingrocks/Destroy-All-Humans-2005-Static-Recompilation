@@ -84,6 +84,10 @@ int dah_console_take_command(char *line, size_t capacity)
 static void dah_console_help(void)
 {
     dah_console_write("Commands: help, clear, status, capture, capture_console, mark <note>");
+#ifdef DAH_REPORTER_BUILD
+    dah_console_write("Reporting: report_bug, reporting status, reporting crashes on/off,");
+    dah_console_write("  reporting sessions on/off (reports are sanitized; raw evidence stays local)");
+#endif
     dah_console_write("Game commands: god, infinite_ammo, load_level <map>, spawn <npc>");
     dah_console_write("  give_weapon <name>, giveallweapons");
     dah_console_write("Maps: farm rockwell santa area42 union capitol cptlboss");
@@ -214,6 +218,35 @@ static void dah_console_submit(void)
     dah_console_save_history();
     dah_console_write("> %s", line);
     if (!_stricmp(line, "help")) dah_console_help();
+#ifdef DAH_REPORTER_BUILD
+    else if (!_stricmp(line, "reporting status")) {
+        int crashes, sessions;
+        dah_public_report_get_consent(&crashes, &sessions);
+        dah_console_write("Anonymous reporting: crashes=%s sessions=%s",
+            crashes ? "on" : "off", sessions ? "on" : "off");
+        dah_console_write("Current sanitized report: %s", dah_public_report_path());
+    }
+    else if (!_stricmp(line, "reporting crashes on") ||
+             !_stricmp(line, "reporting crashes off") ||
+             !_stricmp(line, "reporting sessions on") ||
+             !_stricmp(line, "reporting sessions off")) {
+        int crashes, sessions;
+        int turn_on = !_stricmp(line + strlen(line) - 2, "on");
+        dah_public_report_get_consent(&crashes, &sessions);
+        if (!_strnicmp(line, "reporting crashes", 17)) crashes = turn_on;
+        else sessions = turn_on;
+        if (dah_public_report_set_consent(crashes, sessions))
+            dah_console_write("Reporting preference saved: crashes=%s sessions=%s",
+                crashes ? "on" : "off", sessions ? "on" : "off");
+        else dah_console_write("Could not save reporting-settings.json.");
+    }
+    else if (!_stricmp(line, "report_bug")) {
+        if (dah_public_report_open_issue())
+            dah_console_write("Opened GitHub and the reports folder. Attach only the sanitized report JSON.");
+        else dah_console_write("Could not open the GitHub report page. Report saved at %s",
+                               dah_public_report_path());
+    }
+#endif
     else if (!_stricmp(line, "capture_console")) {
         if (dah_console_save_capture())
             dah_console_write("Console saved to dah_console_%lu.bmp in the game folder.", GetCurrentProcessId());
@@ -238,7 +271,13 @@ static void dah_console_submit(void)
 static void dah_console_complete(void)
 {
     static const char *const commands[] = {
-        "help", "clear", "status", "capture", "capture_console", "mark ", "god", "infinite_ammo", "load_level farm", "load_level rockwell",
+        "help", "clear", "status", "capture", "capture_console", "mark ",
+#ifdef DAH_REPORTER_BUILD
+        "report_bug", "reporting status", "reporting crashes on",
+        "reporting crashes off", "reporting sessions on",
+        "reporting sessions off",
+#endif
+        "god", "infinite_ammo", "load_level farm", "load_level rockwell",
         "load_level santa", "load_level area42", "load_level union",
         "load_level capitol", "load_level cptlboss", "spawn npc_cow",
         "spawn npc_farmer", "spawn npc_cop", "spawn npc_soldier",
