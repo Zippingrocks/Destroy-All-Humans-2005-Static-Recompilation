@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb",
+  "sourceSha256": "a0f5c7ccce10eafc3eb96a4771145c85c427f55c387637f395ce5623f36a4a33",
+  "entries": [
+    "0x0013FBDC",
+    "0x00142434",
+    "0x00142450",
+    "0x0014245C",
+    "0x001424B3"
+  ],
+  "ranges": [
+    {
+      "start": "0x0013FBDC",
+      "endExclusive": "0x0013FC0B",
+      "bytes": 47,
+      "instructions": 15,
+      "sha256": "3a059041c7818475157e449974dc3f4e58421abea0451432b8454a2a0cc294df",
+      "purpose": "nonlocal x87 domain-result tail"
+    },
+    {
+      "start": "0x0013F420",
+      "endExclusive": "0x0013F427",
+      "bytes": 7,
+      "instructions": 4,
+      "sha256": "ded8c9e4660670bcd7499da0525dfaa6827ce60e227ab2b4096857f1dc9ddaca",
+      "purpose": "shared x87 zero-result tail"
+    },
+    {
+      "start": "0x0014237F",
+      "endExclusive": "0x001424C5",
+      "bytes": 326,
+      "instructions": 105,
+      "sha256": "a62ca1da8d0ff59c09426e763ae0c95deeacefec75ec88ad5fe52b34d792f33d",
+      "purpose": "descriptor scan/allocation continuation CFG"
+    }
+  ],
+  "x87PositiveInfinity": {
+    "address": "0x00259BFC",
+    "bytes80": "0000000000000080ff7f"
+  },
+  "scope": "Static retail-byte, control-flow, ABI, and isolated semantic validation; matched gameplay parity remains separate."
+}

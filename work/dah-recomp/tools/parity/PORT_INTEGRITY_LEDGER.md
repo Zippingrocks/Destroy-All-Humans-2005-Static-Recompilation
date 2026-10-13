@@ -10,7 +10,7 @@ tools, diagnostics, parity implementations, and mitigations do not.
 - Verified classifications: **132**
 - Unverified or partially evidenced native symbols: **52**
 - Temporary mitigations: **3**
-- Recovery no-op stubs remaining: **5**
+- Recovery no-op stubs remaining: **0**
 - Proven generated data-artifact stubs: **6**
 - Seeded callbacks using no-op stubs: **0**
 

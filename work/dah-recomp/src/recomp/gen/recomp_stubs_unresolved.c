@@ -18,13 +18,12 @@
 
 /* 0013CA28 is faithfully restored in recomp_retail_crt_tails_20261013.c. */
 /* 0013E6CF is faithfully restored in recomp_frontend_callbacks.c. */
-void sub_0013FBDC(void) { g_esp += 4; /* 0x0013FBDC: not detected */ }
+/* 0013FBDC is faithfully restored in
+ * recomp_retail_final_crt_entries_20261013.c. */
 /* 00140DE6 and 00141081 are faithfully restored in
  * recomp_retail_crt_tails_20261013.c. */
-void sub_00142434(void) { g_esp += 4; /* 0x00142434: not detected */ }
-void sub_00142450(void) { g_esp += 4; /* 0x00142450: not detected */ }
-void sub_0014245C(void) { g_esp += 4; /* 0x0014245C: not detected */ }
-void sub_001424B3(void) { g_esp += 4; /* 0x001424B3: not detected */ }
+/* 00142434, 00142450, 0014245C, and 001424B3 are one faithfully restored
+ * control-flow graph in recomp_retail_final_crt_entries_20261013.c. */
 /* 0014254F, 0014270F, 00142C8F, and 00142DA3 are faithfully restored in
  * recomp_retail_crt_tails_20261013.c. */
 /* 001A5551, 001B6C64, and 001B747C are faithfully restored in
