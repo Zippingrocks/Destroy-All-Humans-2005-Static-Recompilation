@@ -1,0 +1,71 @@
+HOW TO LAUNCH DESTROY ALL HUMANS! (2005) RECOMP
+
+This is a development prerelease. Gameplay and graphics still have known bugs.
+The download does not include the original Xbox game files.
+
+WHAT YOU NEED
+
+- Windows 10 or Windows 11 on a 64-bit x86 PC and a Direct3D 11-capable GPU.
+- Microsoft Visual C++ v14 Redistributable, x64 edition:
+  https://aka.ms/vc14/vc_redist.x64.exe
+  Microsoft download information:
+  https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
+- Files extracted from your own legally obtained original Xbox copy of
+  Destroy All Humans! (2005). The USA retail release is the reference build;
+  compatibility with other versions has not been established.
+- An XInput-compatible controller is recommended.
+
+SETUP AND PLAY
+
+1. Extract the entire release ZIP into a folder you can write to, for example
+   C:\Games\DAH-Recomp. Do not run the executable from inside the ZIP.
+2. Copy default.xbe and the complete blocks and movies folders from your
+   extracted Xbox game into that same folder. Preserve all their contents
+   and subfolders. The layout must be:
+
+   DAH-Recomp\
+     DestroyAllHumans.exe
+     default.xbe
+     blocks\
+     movies\
+     README.txt
+
+   Debug-Reporter also includes REPORTING.md.
+   Do not place default.xbe inside a separate game or work subfolder.
+   An ISO file alone is not sufficient: this build has no ISO importer.
+3. Install the Microsoft Visual C++ x64 Redistributable if it is not already
+   installed, and connect your controller.
+4. Double-click DestroyAllHumans.exe. No xemu installation, command line,
+   Visual Studio, or Windows SDK is needed to play.
+5. In Debug-Reporter only, choose Yes or No at the reporting prompt. Both
+   choices let you play. Normal has no public-reporting prompt.
+6. At the title screen press Start on your controller, then use the game's
+   menus to create or select a profile.
+
+Without a controller, the keyboard fallback uses P for Start, arrow keys for
+menus, Enter or Space for A/confirm, and Q for B/back.
+
+SAVES AND UPDATES
+
+Saves are created in the saves folder beside DestroyAllHumans.exe. Keep that
+folder when updating, and back it up before trying a new development build.
+Close the game before replacing its executable. Choose one edition per folder;
+both editions use the same executable name.
+
+IF THE GAME DOES NOT START
+
+- "default.xbe must be beside the game executable": check the folder layout.
+- Missing VCRUNTIME140.dll: install the x64 Redistributable linked above.
+- The game window opens but content does not load: check that blocks and movies
+  were fully extracted, including their original subfolders.
+- "This build is already running": close the existing game window first.
+
+REPORTING A BUG
+
+Use https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/issues
+Include the release name, what happened, and how to reproduce it.
+Debug-Reporter has optional sanitized JSON reports; see REPORTING.md for the
+report_bug command and submission steps. Submission requires your review and
+action on GitHub; nothing is uploaded automatically.
+Do not attach raw logs, memory dumps, saves, or original game files. Private
+developer logs can contain local paths and other sensitive information.
