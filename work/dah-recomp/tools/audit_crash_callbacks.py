@@ -67,6 +67,10 @@ CALLBACKS = (
 UNRESOLVED_LINE = re.compile(
     r"\[ICALL\]\s+unresolved Xbox target 0x([0-9A-Fa-f]{8})"
 )
+RETAINED_LOG_SUFFIXES = {".log", ".txt", ".jsonl"}
+RETAINED_LOG_ROOTS = (
+    "crashlog", "debug-runs", "work/dah-recomp/tools/parity/blanket-runs",
+)
 
 # This target was logged only after the missing 0x00077810 destructor was
 # skipped.  Retail disassembly proves it is the LEA instruction at 0x1ECA2
@@ -94,38 +98,80 @@ def retained_callback_observations(workspace: Path) -> tuple[dict[int, list[str]
     Zero targets are recorded separately because they are null/corrupt calls
     produced after an earlier failure, not retail functions that can be lifted.
     """
-    candidates = []
-    for pattern in ("*.log", "*.txt", "*.jsonl"):
-        candidates.extend(workspace.glob(pattern))
-    crashlog = workspace / "crashlog"
-    if crashlog.exists():
-        candidates.extend(crashlog.rglob("*.txt"))
-        candidates.extend(crashlog.rglob("*.log"))
-        candidates.extend(crashlog.rglob("*.jsonl"))
-    blanket_runs = workspace / "work/dah-recomp/tools/parity/blanket-runs"
-    if blanket_runs.exists():
-        candidates.extend(blanket_runs.rglob("*.txt"))
-        candidates.extend(blanket_runs.rglob("*.log"))
-        candidates.extend(blanket_runs.rglob("*.jsonl"))
+    candidates = [path for path in workspace.iterdir()
+                  if path.suffix.lower() in RETAINED_LOG_SUFFIXES]
+    for relative_root in RETAINED_LOG_ROOTS:
+        root = workspace / relative_root
+        if root.exists():
+            candidates.extend(path for path in root.rglob("*")
+                              if path.suffix.lower() in RETAINED_LOG_SUFFIXES)
 
     observations: dict[int, list[str]] = {}
     null_calls = 0
     for path in sorted(set(candidates)):
         if not path.is_file():
             continue
-        for line_number, line in enumerate(
-            path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
-        ):
-            match = UNRESOLVED_LINE.search(line)
-            if not match:
-                continue
-            address = int(match.group(1), 16)
-            if address == 0:
-                null_calls += 1
-                continue
-            source = path.relative_to(workspace).as_posix()
-            observations.setdefault(address, []).append(f"{source}:{line_number}")
+        # Runtime/event logs can span a long playthrough. Stream lines instead
+        # of reading and splitting the entire retained file into memory.
+        with path.open(encoding="utf-8", errors="replace") as stream:
+            for line_number, line in enumerate(stream, 1):
+                match = UNRESOLVED_LINE.search(line)
+                if not match:
+                    continue
+                address = int(match.group(1), 16)
+                if address == 0:
+                    null_calls += 1
+                    continue
+                source = path.relative_to(workspace).as_posix()
+                observations.setdefault(address, []).append(f"{source}:{line_number}")
     return observations, null_calls
+
+
+def callback_implementations(manual: str, generated: str,
+                             generated_dispatch: str) -> dict[int, str]:
+    """Index actual dispatch destinations backed by source definitions.
+
+    A historical log may name a callback restored after CALLBACKS was written.
+    Resolve its current dispatch destination instead of requiring a second
+    hardcoded list entry. Declarations, comments, and recovery stubs are not
+    evidence of an implementation. Manual overrides take precedence, matching
+    the runtime lookup order.
+    """
+    def code_only(source: str) -> str:
+        return re.sub(r"/\*.*?\*/|//[^\r\n]*", "", source, flags=re.DOTALL)
+
+    manual = code_only(manual)
+    generated = code_only(generated)
+    generated_dispatch = code_only(generated_dispatch)
+    definitions = set(re.findall(
+        r"^\s*(?:static\s+)?void\s+(\w+)\s*\(\s*void\s*\)\s*\{",
+        manual + "\n" + generated, re.MULTILINE,
+    ))
+    destinations = {
+        int(address, 16): function for address, function in re.findall(
+            r"\{\s*0x([0-9A-Fa-f]{8})u,\s*\(recomp_func_t\)(\w+)\s*\}",
+            generated_dispatch,
+        )
+    }
+    destinations.update({
+        int(address, 16): function for address, function in re.findall(
+            r"case\s+0x([0-9A-Fa-f]{8})u:\s*return\s+(\w+)\s*;", manual,
+        )
+    })
+    return {address: function for address, function in destinations.items()
+            if function in definitions}
+
+
+def missing_retained_callbacks(observations: dict[int, list[str]],
+                               implementations: dict[int, str],
+                               recovery_stubs: set[int]) -> list[int]:
+    """Reject unknown bodies and recovery destinations, retaining cascade data."""
+    recovery_symbols = {f"sub_{address:08X}" for address in recovery_stubs}
+    return sorted(address for address in observations
+                  if address not in KNOWN_NON_ENTRY_TARGETS and (
+                      address not in implementations or
+                      address in recovery_stubs or
+                      implementations.get(address) in recovery_symbols))
 
 
 def dispatched(address: int, manual: str, generated_dispatch: str) -> bool:
@@ -255,7 +301,10 @@ def main() -> int:
         for address, sources in retained_observations.items()
         if address not in KNOWN_NON_ENTRY_TARGETS
     }
-    missing_retained = sorted(set(retained_function_observations) - implemented_addresses)
+    implementations = callback_implementations(manual, generated, generated_dispatch)
+    missing_retained = missing_retained_callbacks(
+        retained_function_observations, implementations, recovery_stubs,
+    )
     if missing_retained:
         missing = ", ".join(f"0x{address:08X}" for address in missing_retained)
         raise SystemExit(f"FAIL retained unresolved callback(s) lack implementations: {missing}")
@@ -331,9 +380,17 @@ def main() -> int:
             "status": "all-dispatchable",
         },
         "retainedRuntimeAudit": {
+            "scanRoots": ["workspace (non-recursive)", *RETAINED_LOG_ROOTS],
+            "scanSuffixes": sorted(RETAINED_LOG_SUFFIXES),
+            "excludedCategories": [
+                "binary dumps and non-text evidence files",
+                "directories outside the retained evidence roots",
+                "null targets and proven non-entry cascade targets (recorded separately)",
+            ],
             "nonNullTargets": [
                 {
                     "address": f"0x{address:08X}",
+                    "function": implementations[address],
                     "observations": sources,
                     "status": "implemented-and-dispatchable",
                 }

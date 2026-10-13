@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "b9491b30eaee82af6c805d9b0036ec1119059b0660a0923803ebdb6219fa02eb",
+  "entries": [
+    {
+      "start": "0x0013CA28",
+      "endExclusive": "0x0013CA65",
+      "bytes": 61,
+      "instructions": 25,
+      "sha256": "fafdf0df593f230d7232a469120733422be81ccdb5731920c46476fcd198189c",
+      "purpose": "allocation retry tail; inherited SEH frame"
+    },
+    {
+      "start": "0x00140DE6",
+      "endExclusive": "0x00140E02",
+      "bytes": 28,
+      "instructions": 7,
+      "sha256": "3afc3cf0f6f1a33c883f7256d4e669c7cc5ad5a448140e66ac58af328fbcec6e",
+      "purpose": "invalid descriptor tail; errno and OS error reset"
+    },
+    {
+      "start": "0x00141081",
+      "endExclusive": "0x0014109D",
+      "bytes": 28,
+      "instructions": 7,
+      "sha256": "de07be8b3ff9519252ea23368466e9845c5d59caf1a5f227fe3f5ccb0aead5e6",
+      "purpose": "invalid descriptor tail; errno and OS error reset"
+    },
+    {
+      "start": "0x0014254F",
+      "endExclusive": "0x001425CA",
+      "bytes": 123,
+      "instructions": 41,
+      "sha256": "14644ed89d60afaf55e01b5c3a079faca88933537beaabb9df3e8e57d5891d73",
+      "purpose": "stream close-all entry; live reachability unproven"
+    },
+    {
+      "start": "0x0014270F",
+      "endExclusive": "0x0014272A",
+      "bytes": 27,
+      "instructions": 8,
+      "sha256": "28bc763de8ae0e8b5baa2d60e256fedbca514126a2ebaa4282e6e94fc7899e1a",
+      "purpose": "stream flush-all completion tail; unlock and unwind"
+    },
+    {
+      "start": "0x00142C8F",
+      "endExclusive": "0x00142CA3",
+      "bytes": 20,
+      "instructions": 5,
+      "sha256": "1d1798b570153928cbe02b2bec82867a59803e30dcbcd0fb6d3ca03558296f14",
+      "purpose": "invalid descriptor tail; errno only"
+    },
+    {
+      "start": "0x00142DA3",
+      "endExclusive": "0x00142DBF",
+      "bytes": 28,
+      "instructions": 7,
+      "sha256": "ac9a9e0b48bfb7499eee5db0448832f697ea04a61ae5f91409465f30d0117897",
+      "purpose": "invalid descriptor tail; errno and OS error reset"
+    }
+  ],
+  "scope": "Static body and isolated ABI validation; no claim of gameplay parity.",
+  "sehHelpers": [
+    {
+      "start": "0x0013A120",
+      "endExclusive": "0x0013A15B",
+      "sha256": "e61b1a4734a88e532ed8af5caff6f4ba50f3a2a37e1f1288ff737058bc3585f0"
+    },
+    {
+      "start": "0x0013A15B",
+      "endExclusive": "0x0013A16C",
+      "sha256": "6e914ba12848b264526c84faf2e95ada281f321bd5b8e492879c17af034c76e2"
+    }
+  ],
+  "deferred": [
+    {
+      "address": "0x0013FBDC",
+      "reason": "x87 extended constants and nonlocal guest return require separate validation"
+    },
+    {
+      "addresses": [
+        "0x00142434",
+        "0x00142450",
+        "0x0014245C",
+        "0x001424B3"
+      ],
+      "reason": "descriptor allocator tails loop into parent 0x00142352; restore coherent CFG rather than recursive tail calls"
+    }
+  ]
+}
