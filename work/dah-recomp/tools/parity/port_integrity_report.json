@@ -21,8 +21,9 @@
     "unverifiedNativeSymbols": 52,
     "provisionalMitigations": 3,
     "manualDispatchOverrides": 37,
-    "retailRecoverySourceFiles": 30,
-    "recoveryNoOpStubs": 21,
+    "retailRecoverySourceFiles": 33,
+    "recoveryNoOpStubs": 5,
+    "generatedDataArtifactStubs": 6,
     "seededNoOpStubs": 0,
     "completionCreditedNativeSymbols": 2
   },
@@ -1733,6 +1734,18 @@
       "functions": 232
     },
     {
+      "file": "recomp_retail_crt_tails_20261013.c",
+      "functions": 7
+    },
+    {
+      "file": "recomp_retail_late_tails_20261013.c",
+      "functions": 3
+    },
+    {
+      "file": "recomp_retail_type_callbacks_20261013.c",
+      "functions": 12
+    },
+    {
       "file": "recomp_rockwell_event_callback.c",
       "functions": 1
     },
@@ -1782,21 +1795,13 @@
     }
   ],
   "recoveryNoOpStubAddresses": [
-    "0x0013CA28",
     "0x0013FBDC",
-    "0x00140DE6",
-    "0x00141081",
     "0x00142434",
     "0x00142450",
     "0x0014245C",
-    "0x001424B3",
-    "0x0014254F",
-    "0x0014270F",
-    "0x00142C8F",
-    "0x00142DA3",
-    "0x001A5551",
-    "0x001B6C64",
-    "0x001B747C",
+    "0x001424B3"
+  ],
+  "generatedDataArtifactStubAddresses": [
     "0x001EC715",
     "0x001EC74C",
     "0x001EC762",

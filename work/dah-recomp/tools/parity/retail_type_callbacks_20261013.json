@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "source": "retail-xbe-only",
+  "retailXbeSha256": "B9491B30EAEE82AF6C805D9B0036EC1119059B0660A0923803EBDB6219FA02EB",
+  "discovery": "Missing dispatch entries referenced by adjacent retail .rdata function pointers",
+  "validationScope": "Exact bytes, table slots, production-body register/stack tests; matched gameplay pending",
+  "callbacks": [
+    {
+      "start": "0x00012700",
+      "end": "0x00012706",
+      "bytes": 6,
+      "tableSlot": "0x00225EA8",
+      "purpose": "type ID return",
+      "codeBytesSha256": "4B41B5C420D496D0E0C78BD8897AE57E76FC64CC678FBFB3CB1A849880156D61"
+    },
+    {
+      "start": "0x000127D0",
+      "end": "0x000127D5",
+      "bytes": 5,
+      "tableSlot": "0x00225F20",
+      "purpose": "direct tail forwarding thunk",
+      "codeBytesSha256": "9E1AAD80EE0D5004D5794A421440230570FAF4B724D6EB4E8AF5362CE4F67724"
+    },
+    {
+      "start": "0x00012A10",
+      "end": "0x00012A40",
+      "bytes": 48,
+      "tableSlot": "0x0022605C",
+      "purpose": "type membership query with ret 4",
+      "codeBytesSha256": "519959A0C99D7945CE297331A85FAB092A6B8A7E79D94C817C9B355A91CE52E7"
+    },
+    {
+      "start": "0x00012A40",
+      "end": "0x00012A46",
+      "bytes": 6,
+      "tableSlot": "0x00226060",
+      "purpose": "type ID return",
+      "codeBytesSha256": "5A0FC8D3031F3EECF097FC62BF779DE53D409B9C5AE4DB41889B55DC26834B1F"
+    },
+    {
+      "start": "0x00015AE0",
+      "end": "0x00015AE6",
+      "bytes": 6,
+      "tableSlot": "0x00226510",
+      "purpose": "type ID return",
+      "codeBytesSha256": "526310AE47AA64FAD6B5F07FCE036DAE6E50AEE2059760E4220017BD618CCD2B"
+    },
+    {
+      "start": "0x000161C0",
+      "end": "0x000161C6",
+      "bytes": 6,
+      "tableSlot": "0x00226738",
+      "purpose": "type ID return",
+      "codeBytesSha256": "7D27388F86DC0F68BC45495060313CFAACF6592D5BE10894D8AE5834C3CEF270"
+    },
+    {
+      "start": "0x0005FA20",
+      "end": "0x0005FA26",
+      "bytes": 6,
+      "tableSlot": "0x0022A8DC",
+      "purpose": "type ID return",
+      "codeBytesSha256": "47850613A10BC82772091C1B90441D19DC0CE6B031EBD0FC1008328F237692DE"
+    },
+    {
+      "start": "0x0009A260",
+      "end": "0x0009A266",
+      "bytes": 6,
+      "tableSlot": "0x0022F498",
+      "purpose": "type ID return",
+      "codeBytesSha256": "A73C077302AF0E6A45C6632602E12EB438DBE6277D6619772825B93AB82662DD"
+    },
+    {
+      "start": "0x0009C2D0",
+      "end": "0x0009C2D6",
+      "bytes": 6,
+      "tableSlot": "0x0022F620",
+      "purpose": "type ID return",
+      "codeBytesSha256": "CC90D4F6210A05EEDF1E87DF402F6B6307F9FF673E0CC1AB94AC0A9F9EC19B3C"
+    },
+    {
+      "start": "0x000A1270",
+      "end": "0x000A1276",
+      "bytes": 6,
+      "tableSlot": "0x0022FA00",
+      "purpose": "type ID return",
+      "codeBytesSha256": "3240B5B7F9846006BE2D498B3866AAC3ECFBEC3C1920F23AEA63587C2D57FE4F"
+    },
+    {
+      "start": "0x000A1DB0",
+      "end": "0x000A1DB6",
+      "bytes": 6,
+      "tableSlot": "0x0022FAC0",
+      "purpose": "type ID return",
+      "codeBytesSha256": "367425655A7CFB82A2A01DC1B216E6E6C0A697E387F603F8EC9435754544EFFA"
+    },
+    {
+      "start": "0x000A4980",
+      "end": "0x000A4986",
+      "bytes": 6,
+      "tableSlot": "0x0022FE20",
+      "purpose": "type ID return",
+      "codeBytesSha256": "8FD9A591F2F190E0658EB7CC7A174877FF204F5C192BBB1717DEE5485A5BCAD1"
+    }
+  ]
+}

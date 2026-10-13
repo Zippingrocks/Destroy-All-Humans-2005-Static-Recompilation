@@ -50,3 +50,9 @@ jobs:
       - name: Test run-evidence correlation
         shell: bash
         run: python work/dah-recomp/tools/parity/test_summarize_debug_runs.py
+      - name: Test callback evidence and dispatch coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python work/dah-recomp/tools/test_audit_crash_callbacks.py
+          python work/dah-recomp/tools/test_dispatch_table.py

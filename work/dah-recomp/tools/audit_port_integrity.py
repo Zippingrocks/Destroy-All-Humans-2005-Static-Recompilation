@@ -29,6 +29,10 @@ ALLOWED_CATEGORIES = {
     "diagnostic-instrumentation", "development-tooling", "temporary-mitigation",
 }
 COUNTED_AS_COMPLETION = {"retail-restoration"}
+KNOWN_DATA_ARTIFACT_STUBS = {
+    0x001EC715, 0x001EC74C, 0x001EC762,
+    0x0021769D, 0x002176B9, 0x002176C7,
+}
 
 
 def read(path: Path) -> str:
@@ -107,9 +111,15 @@ def main() -> int:
         )
 
     stubs_text = read(generated / "recomp_stubs_unresolved.c")
-    recovery_stubs = {int(x, 16) for x in RE_STUB.findall(stubs_text)}
+    all_noop_stubs = {int(x, 16) for x in RE_STUB.findall(stubs_text)}
+    missing_artifact_stubs = KNOWN_DATA_ARTIFACT_STUBS - all_noop_stubs
+    if missing_artifact_stubs:
+        raise SystemExit("FAIL documented data-artifact stub drift: "
+                         + repr([hex(x) for x in sorted(missing_artifact_stubs)]))
+    data_artifact_stubs = all_noop_stubs & KNOWN_DATA_ARTIFACT_STUBS
+    recovery_stubs = all_noop_stubs - data_artifact_stubs
     seeds = {int(x["start"], 16) for x in json.loads(read(repo / "icall_seeds.json"))}
-    seeded_stubs = sorted(seeds & recovery_stubs)
+    seeded_stubs = sorted(seeds & all_noop_stubs)
     if seeded_stubs:
         raise SystemExit("FAIL seeded no-op recovery stubs: " + repr([hex(x) for x in seeded_stubs]))
 
@@ -148,6 +158,7 @@ def main() -> int:
             "manualDispatchOverrides": len(overrides),
             "retailRecoverySourceFiles": len(special_files),
             "recoveryNoOpStubs": len(recovery_stubs),
+            "generatedDataArtifactStubs": len(data_artifact_stubs),
             "seededNoOpStubs": len(seeded_stubs),
             "completionCreditedNativeSymbols": len(completion),
         },
@@ -156,6 +167,9 @@ def main() -> int:
         "manualDispatchOverrides": manifest["manualDispatchOverrides"],
         "specialRetailRecoverySources": special_files,
         "recoveryNoOpStubAddresses": [f"0x{x:08X}" for x in sorted(recovery_stubs)],
+        "generatedDataArtifactStubAddresses": [
+            f"0x{x:08X}" for x in sorted(data_artifact_stubs)
+        ],
     }
     encoded = json.dumps(report, indent=2) + "\n"
     if args.json:
@@ -173,6 +187,7 @@ def main() -> int:
             f"- Unverified or partially evidenced native symbols: **{len(unverified)}**",
             f"- Temporary mitigations: **{len(provisional)}**",
             f"- Recovery no-op stubs remaining: **{len(recovery_stubs)}**",
+            f"- Proven generated data-artifact stubs: **{len(data_artifact_stubs)}**",
             f"- Seeded callbacks using no-op stubs: **{len(seeded_stubs)}**", "",
             "## Category counts", "",
             "| Category | Count | Completion credit |", "|---|---:|:---:|",
@@ -200,7 +215,8 @@ def main() -> int:
     print(
         "PASS port integrity: "
         f"{len(classified_entries)} classified native symbols/hooks, {len(provisional)} provisional, "
-        f"{len(recovery_stubs)} recovery stubs, 0 seeded stubs"
+        f"{len(recovery_stubs)} recovery stubs, {len(data_artifact_stubs)} data artifacts, "
+        "0 seeded stubs"
     )
     return 0
 
