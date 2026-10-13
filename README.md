@@ -2,6 +2,8 @@
 
 # Destroy All Humans! (2005) — Static Recompilation
 
+<img src="docs/assets/destroy-all-humans-2005-cover.png" alt="Destroy All Humans! (2005) cover artwork" width="360">
+
 **A work-in-progress native Windows port of the original Xbox release, built with XboxRecomp.**
 
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4?style=flat-square)](#requirements)
@@ -18,8 +20,9 @@ All Humans!* (2005) into native x86-64 code. A modified XboxRecomp runtime
 provides the Xbox kernel, Direct3D 8/NV2A, audio and input services expected by
 the game.
 
-The project does **not** contain the game or its assets. You must supply files
-from your own legally obtained copy of the original Xbox release.
+Other than the official cover artwork used above to identify the project, the
+repository does **not** contain the game or its runtime assets. You must supply
+files from your own legally obtained copy of the original Xbox release.
 
 > [!IMPORTANT]
 > This is active reverse-engineering work, not a finished PC release. There is
@@ -280,10 +283,11 @@ by THQ, Pandemic Studios, Sony, Microsoft, Black Forest Games or the current
 owners of the *Destroy All Humans!* intellectual property.
 
 *Destroy All Humans!* and related names, characters, artwork and assets belong
-to their respective owners. This repository does not grant rights to the
-original game or its content. Contributors must not submit copyrighted game
-data, disc images, executable files, extracted assets, movies or other material
-they do not have permission to distribute.
+to their respective owners. The cover artwork at the top of this page is used
+for identification; this repository does not grant rights to the original game
+or its content. Contributors must not submit copyrighted game data, disc
+images, executable files, extracted assets, movies or other material they do
+not have permission to distribute.
 
 Third-party components retain their own licenses. See [`NOTICE.md`](NOTICE.md)
 and the license files within `third_party/`.
