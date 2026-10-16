@@ -1,0 +1,15 @@
+# Fresh-profile route into the mothership, then select Hangar, Farm and Invade.
+# Reconstructed from the accepted 2026-10-03 retail input trace.
+300 4 10 0 0 0 0 0 0
+420 4 0 255 0 0 0 0 0
+540 4 10 0 0 0 0 0 0
+660 4 0 255 0 0 0 0 0
+780 4 10 0 0 0 0 0 0
+900 4 0 255 0 0 0 0 0
+1200 5 10 0 0 0 0 0 0
+1240 5 0 255 0 0 0 0 0
+1280 5 10 0 0 0 0 0 0
+1320 5 0 255 0 0 0 0 0
+1400 5 0 255 0 0 0 0 0
+1440 5 10 0 0 0 0 0 0
+1480 5 0 255 0 0 0 0 0

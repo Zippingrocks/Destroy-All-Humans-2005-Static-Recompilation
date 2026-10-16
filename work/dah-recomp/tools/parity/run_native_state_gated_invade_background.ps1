@@ -38,6 +38,7 @@ $settings = @{
     DAH_SAVE_DIR = $saveDir; DAH_LOG_PATH = "$prefix.log"
     DAH_PARITY_STATE_TRACE = $statePath; DAH_PARITY_STATE_INTERVAL = [string]$StateInterval
     DAH_PARITY_STATE_START = '0'; DAH_PARITY_STATE_END = '20000'
+    DAH_UI_ACTIVE_TRACE = '1'
     DAH_FRAME_CAPTURE = [string]$CaptureCount
     DAH_FRAME_CAPTURE_START = [string]$CaptureStart
     DAH_FRAME_CAPTURE_INTERVAL = [string]$CaptureInterval

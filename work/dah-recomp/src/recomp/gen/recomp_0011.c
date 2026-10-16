@@ -7392,6 +7392,41 @@ static int dah_ui_under_tutorial(uint32_t object)
     return 0;
 }
 
+/* Read-only transition tracing for the few UI handlers involved in the
+ * mothership-to-site handoff.  This is deliberately opt-in and records the
+ * retail GUI::Handler::SetActive caller rather than changing presentation
+ * state. */
+static int dah_ui_active_trace_enabled = -1;
+
+static int dah_ui_name_equals(uint32_t object, const char *name)
+{
+    unsigned i;
+    if (!object || !name) return 0;
+    for (i = 0u; i < 40u; ++i) {
+        unsigned char actual = MEM8(object + 0x0Cu + i);
+        unsigned char expected = (unsigned char)name[i];
+        if (actual != expected) return 0;
+        if (!expected) return 1;
+    }
+    return name[40] == 0;
+}
+
+static int dah_ui_is_transition_handler(uint32_t object)
+{
+    unsigned depth;
+    for (depth = 0u; object && depth < 8u; ++depth) {
+        if (dah_ui_name_equals(object, "fade") ||
+            dah_ui_name_equals(object, "loading") ||
+            dah_ui_name_equals(object, "loadingText") ||
+            dah_ui_name_equals(object, "loadingMesh") ||
+            dah_ui_name_equals(object, "cinematic") ||
+            dah_ui_name_equals(object, "titlecard"))
+            return 1;
+        object = MEM32(object + 8u);
+    }
+    return 0;
+}
+
 static void dah_tutorial_trace_tree(uint32_t object, unsigned depth)
 {
     uint32_t sentinel, node;
@@ -13698,6 +13733,26 @@ loc_000FBC4F: ;
  */
 void sub_000FBC60(void)
 {
+    if (dah_ui_active_trace_enabled < 0)
+        dah_ui_active_trace_enabled = getenv("DAH_UI_ACTIVE_TRACE") ? 1 : 0;
+    if (dah_ui_active_trace_enabled &&
+        MEM8(ecx + 4u) != MEM8(esp + 4u) &&
+        dah_ui_is_transition_handler(ecx)) {
+        uint32_t parent = MEM32(ecx + 8u);
+        uint32_t grandparent = parent ? MEM32(parent + 8u) : 0u;
+        fprintf(stderr,
+            "[DAH-UI-SETACTIVE] loop=%u caller=%08X object=%08X "
+            "name=%08X:%08X:%08X old=%u new=%u parent=%08X "
+            "parent_name=%08X:%08X grandparent=%08X grandparent_name=%08X:%08X\n",
+            MEM32(0x25B1DCu), MEM32(esp), ecx,
+            MEM32(ecx + 0x0Cu), MEM32(ecx + 0x10u), MEM32(ecx + 0x14u),
+            MEM8(ecx + 4u), MEM8(esp + 4u), parent,
+            parent ? MEM32(parent + 0x0Cu) : 0u,
+            parent ? MEM32(parent + 0x10u) : 0u,
+            grandparent,
+            grandparent ? MEM32(grandparent + 0x0Cu) : 0u,
+            grandparent ? MEM32(grandparent + 0x10u) : 0u);
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
