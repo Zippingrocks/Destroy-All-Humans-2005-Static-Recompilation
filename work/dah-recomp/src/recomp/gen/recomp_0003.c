@@ -28440,6 +28440,46 @@ loc_0005A4F8: ;
 
 loc_0005A4FC: ;
     eax = MEM32(0x24B87C);
+    /* The retail readiness test below is also the synchronization point for
+     * its 16-worker transient-object pool.  Xbox scheduling always gave the
+     * final worker a chance to return its object before this poll completed.
+     * A native host can reach the finished-backend poll while that return is
+     * still runnable on another guest thread, observe 15 forever, and tear
+     * down drawing while waiting.  Yield only for that proven boundary and
+     * keep the original 16/16 predicate authoritative; never fabricate the
+     * missing registration or advance the loader ourselves. */
+    {
+        static uint32_t finish_sync_waits;
+        static int finish_sync_reported;
+        uint32_t pending = MEM32(esi + 0x4A2Cu);
+        uint16_t gate_854 = MEM16(eax + 0x854u);
+        uint16_t gate_8d8 = MEM16(eax + 0x8D8u);
+        if (pending >= 0x00010000u && pending < 0x08000000u &&
+            MEM32(pending + 0x10u) == 22u &&
+            gate_854 == 0x0100u && gate_8d8 == 0x000Fu) {
+            if (!finish_sync_reported) {
+                fprintf(stderr,
+                        "[DAH-FINISH-SYNC] waiting for final retail worker pending=%08X pool=15/16\n",
+                        pending);
+                fflush(stderr);
+                finish_sync_reported = 1;
+            }
+            ++finish_sync_waits;
+            Sleep(1);
+            gate_8d8 = MEM16(eax + 0x8D8u);
+            if (gate_8d8 == 0x0010u) {
+                fprintf(stderr,
+                        "[DAH-FINISH-SYNC] retail worker returned after %u yield(s); pool=16/16\n",
+                        finish_sync_waits);
+                fflush(stderr);
+                finish_sync_waits = 0;
+                finish_sync_reported = 0;
+            }
+        } else if (gate_8d8 == 0x0010u) {
+            finish_sync_waits = 0;
+            finish_sync_reported = 0;
+        }
+    }
     {
         static uint32_t stuck_8d8_polls;
         static int dumped_stuck_8d8;
