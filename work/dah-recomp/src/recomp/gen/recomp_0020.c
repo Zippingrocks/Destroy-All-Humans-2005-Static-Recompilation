@@ -9,6 +9,7 @@
 #include "apu.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* DAH currently does not attach its native MCPX command stream to a backend.
  * In that explicit null-device state there can be no audible release tail.
@@ -38648,8 +38649,11 @@ loc_0020E44A: ;
     PUSH32(esp, eax);
     PUSH32(esp, esi);
     { uint32_t _icall_target = MEM32(esi + 0x10);
+      static RECOMP_TLS int _worker_trace_enabled = -1;
       static RECOMP_TLS unsigned _worker_trace_count;
-      unsigned _worker_trace = ++_worker_trace_count <= 8;
+      if (_worker_trace_enabled < 0)
+          _worker_trace_enabled = getenv("DAH_BINK_WORKER_TRACE") ? 1 : 0;
+      unsigned _worker_trace = _worker_trace_enabled && ++_worker_trace_count <= 8;
       if (_worker_trace) fprintf(stderr, "[DAH-BINK-WORKER] enter context=%08X item=%08X next=%08X target=%08X esp=%08X ebx=%08X edi=%08X\n", ebp, esi, MEM32(esi), _icall_target, esp, ebx, edi);
       PUSH32(esp, 0x0020E452u); RECOMP_ICALL_SAFE(_icall_target, _icall_esp);
       if (_worker_trace) fprintf(stderr, "[DAH-BINK-WORKER] leave context=%08X item=%08X target=%08X esp=%08X ebx=%08X edi=%08X eax=%08X\n", ebp, esi, _icall_target, esp, ebx, edi, eax);

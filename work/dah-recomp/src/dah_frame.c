@@ -188,6 +188,34 @@ static int guest_text_is(uint32_t address, const char *expected)
                   expected, length + 1u) == 0;
 }
 
+static int guest_text_starts_with(uint32_t address, const char *expected)
+{
+    size_t length = strlen(expected);
+    if (!guest_range(address, (uint32_t)length)) return 0;
+    return memcmp((const void *)((uintptr_t)g_xbox_mem_offset + address),
+                  expected, length) == 0;
+}
+
+static int dah_ui_direct_child_active(const char *name)
+{
+    uint32_t root_link = guest_u32(0x00258470u);
+    uint32_t root = guest_range(root_link, 4u) ? guest_u32(root_link) : 0u;
+    uint32_t sentinel, node;
+    unsigned count = 0u;
+    if (!guest_range(root, 0x48u)) return 0;
+    sentinel = root + 0x44u;
+    node = guest_u32(sentinel);
+    while (node && node != sentinel && count++ < 96u) {
+        uint32_t child;
+        if (!guest_range(node, 12u)) break;
+        child = guest_u32(node + 8u);
+        if (guest_range(child, 0x34u) && guest_text_is(child + 0x0Cu, name))
+            return *(const uint8_t *)((uintptr_t)g_xbox_mem_offset + child + 4u) != 0u;
+        node = guest_u32(node);
+    }
+    return 0;
+}
+
 static int dah_farm_visible_gameplay;
 static int dah_presentation_held;
 
@@ -199,6 +227,84 @@ int dah_frame_presentation_held(void)
 int dah_frame_gameplay_visual_ready(void)
 {
     return dah_farm_visible_gameplay;
+}
+
+/* Xbox and xemu block while a site package is loaded, leaving the final
+ * fadecontrol frame on screen.  The native backend keeps pumping frames while
+ * that same package is pending, so the retail one-second fade animation can
+ * expire several seconds before the new site is ready.  Preserve the last
+ * covered swapchain frame only for that otherwise-visible async gap, then
+ * release it as soon as the new site's own fade/titlecard is ready.  Guest UI
+ * state and simulation continue untouched. */
+static int dah_site_transition_presentation_hold(void)
+{
+    enum { IDLE, ARMED, HOLDING, WAITING_FOR_SITE_COVER };
+    static int state;
+    static int saw_fadecontrol;
+    const uint32_t driver = 0x0025B1D0u;
+    uint32_t current, pending;
+    int current_site, pending_site, fadecontrol, site_cover;
+
+    if (guest_u32(driver) != 0x0022B510u) {
+        state = IDLE;
+        saw_fadecontrol = 0;
+        return 0;
+    }
+    current = guest_u32(driver + 0x4A28u);
+    pending = guest_u32(driver + 0x4A2Cu);
+    current_site = guest_range(current, 0x590u) &&
+        guest_text_starts_with(current + 0x50Cu, "blocks\\sites\\");
+    pending_site = guest_range(pending, 0x590u) &&
+        guest_text_starts_with(pending + 0x50Cu, "blocks\\sites\\");
+    fadecontrol = dah_ui_direct_child_active("fadecontrol");
+    site_cover = dah_ui_direct_child_active("fade") ||
+                 dah_ui_direct_child_active("titlecard");
+
+    if (state == IDLE) {
+        if (!pending_site) return 0;
+        state = ARMED;
+        saw_fadecontrol = 0;
+    }
+    if (state == ARMED) {
+        if (!pending_site) {
+            state = IDLE;
+            saw_fadecontrol = 0;
+            return 0;
+        }
+        if (fadecontrol) {
+            saw_fadecontrol = 1;
+            return 0;
+        }
+        if (!saw_fadecontrol) return 0;
+        state = HOLDING;
+        fprintf(stderr,
+                "[DAH-SITE-TRANSITION] hold=1 current=%08X pending=%08X loop=%u host-frame=%llu\n",
+                current, pending, guest_u32(0x0025B1DCu), dah_frame_serial());
+        return 1;
+    }
+    if (state == HOLDING) {
+        if (pending_site) return 1;
+        if (!current_site) {
+            state = IDLE;
+            saw_fadecontrol = 0;
+            return 0;
+        }
+        state = WAITING_FOR_SITE_COVER;
+    }
+    if (state == WAITING_FOR_SITE_COVER) {
+        if (!current_site) {
+            state = IDLE;
+            saw_fadecontrol = 0;
+            return 0;
+        }
+        if (!site_cover) return 1;
+        fprintf(stderr,
+                "[DAH-SITE-TRANSITION] hold=0 current=%08X loop=%u host-frame=%llu\n",
+                current, guest_u32(0x0025B1DCu), dah_frame_serial());
+        state = IDLE;
+        saw_fadecontrol = 0;
+    }
+    return 0;
 }
 
 /* Legacy diagnostic only. Retail owns loading/titlecard/cinematic presentation
@@ -601,7 +707,8 @@ void dah_frame_end(void)
 
     /* QPC pacing owns the title's 50/60 Hz timing, independent of a PC
      * monitor's refresh rate and of DXGI occlusion behavior. */
-    dah_presentation_held=dah_farm_presentation_hold(real_draw);
+    dah_presentation_held=dah_site_transition_presentation_hold() ||
+                          dah_farm_presentation_hold(real_draw);
     d3d8_SetPresentationHold(dah_presentation_held);
     dah_parity_trace_state(g_dah_frame_serial);
     present_start=clock_seconds();

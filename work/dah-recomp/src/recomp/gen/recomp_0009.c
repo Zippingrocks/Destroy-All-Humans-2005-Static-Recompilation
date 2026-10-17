@@ -15712,11 +15712,14 @@ loc_000D5491: ;
  */
 void sub_000D54A0(void)
 {
+    static int dah_hash_trace_enabled = -1;
     static uint32_t dah_hash_trace_count;
     static uint32_t dah_hash_table_trace;
     uint32_t dah_hash_input = ecx;
     uint32_t dah_hash_seed = edx;
-    if (!dah_hash_table_trace) {
+    if (dah_hash_trace_enabled < 0)
+        dah_hash_trace_enabled = getenv("DAH_HASH_TRACE") ? 1 : 0;
+    if (dah_hash_trace_enabled && !dah_hash_table_trace) {
         fprintf(stderr, "[DAH-HASH-TABLE] %08X %08X %08X %08X %08X %08X %08X %08X\n",
                 MEM32(0x2504A8u), MEM32(0x2504ACu), MEM32(0x2504B0u), MEM32(0x2504B4u),
                 MEM32(0x2504B8u), MEM32(0x2504BCu), MEM32(0x2504C0u), MEM32(0x2504C4u));
@@ -15760,7 +15763,8 @@ loc_000D54B0: ;
     if (TEST_NZ(_fa, _fb)) goto loc_000D54B0; /* jne: not equal / not zero */
 
 loc_000D54D5: ;
-    if (dah_hash_trace_count < 256u && dah_hash_input >= 0x01300000u && dah_hash_input < 0x01480000u) {
+    if (dah_hash_trace_enabled && dah_hash_trace_count < 256u &&
+        dah_hash_input >= 0x01300000u && dah_hash_input < 0x01480000u) {
         char text[48];
         uint32_t i;
         uint32_t length = MEM8(dah_hash_input);

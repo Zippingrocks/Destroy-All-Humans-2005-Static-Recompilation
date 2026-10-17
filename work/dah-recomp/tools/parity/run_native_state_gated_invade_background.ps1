@@ -4,7 +4,8 @@ param(
     [ValidateRange(0, 240)][int]$CaptureCount = 0,
     [ValidateRange(0, 50000)][int]$CaptureStart = 0,
     [ValidateRange(1, 1000)][int]$CaptureInterval = 10,
-    [ValidateRange(90, 600)][int]$Seconds = 240
+    [ValidateRange(90, 600)][int]$Seconds = 240,
+    [switch]$TraceUiActive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,9 +16,10 @@ $seed = Join-Path $PSScriptRoot 'mothership_hub_probe.txt'
 $prefix = Join-Path $build "state-gated-invade-$Run"
 $route = "$prefix-input.txt"
 $statePath = "$prefix-state.jsonl"
+$uiPath = "$prefix-ui.jsonl"
 $saveDir = "$prefix-saves"
 
-foreach ($newPath in @($route, $statePath, $saveDir)) {
+foreach ($newPath in @($route, $statePath, $uiPath, $saveDir)) {
     if (Test-Path -LiteralPath $newPath) { throw "Run already exists: $newPath" }
 }
 if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Missing build: $exe" }
@@ -38,12 +40,12 @@ $settings = @{
     DAH_SAVE_DIR = $saveDir; DAH_LOG_PATH = "$prefix.log"
     DAH_PARITY_STATE_TRACE = $statePath; DAH_PARITY_STATE_INTERVAL = [string]$StateInterval
     DAH_PARITY_STATE_START = '0'; DAH_PARITY_STATE_END = '20000'
-    DAH_UI_ACTIVE_TRACE = '1'
     DAH_FRAME_CAPTURE = [string]$CaptureCount
     DAH_FRAME_CAPTURE_START = [string]$CaptureStart
     DAH_FRAME_CAPTURE_INTERVAL = [string]$CaptureInterval
     DAH_PB_CAPTURE = '0'; DAH_KPCR_WATCH = '0'
 }
+if ($TraceUiActive) { $settings.DAH_UI_ACTIVE_TRACE = '1' }
 foreach ($name in $settings.Keys) { $start.EnvironmentVariables[$name] = $settings[$name] }
 
 function Get-LatestState {
@@ -63,6 +65,20 @@ function Add-FrameA([uint64]$frame, [string]$label) {
 
 $process = [Diagnostics.Process]::Start($start)
 $process.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal
+$observerStart = [Diagnostics.ProcessStartInfo]::new()
+$observerStart.FileName = (Get-Command python).Source
+$observerStart.WorkingDirectory = $project
+$observerStart.UseShellExecute = $false
+$observerStart.CreateNoWindow = $true
+$observerStart.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+$observerStart.ArgumentList.Add((Join-Path $PSScriptRoot 'live_ui_transition_observer.py'))
+$observerStart.ArgumentList.Add('--pid')
+$observerStart.ArgumentList.Add([string]$process.Id)
+$observerStart.ArgumentList.Add('--output')
+$observerStart.ArgumentList.Add($uiPath)
+$observerStart.ArgumentList.Add('--hz')
+$observerStart.ArgumentList.Add('60')
+$observer = [Diagnostics.Process]::Start($observerStart)
 $deadline = [DateTime]::UtcNow.AddSeconds($Seconds)
 $hubStable = 0; $navicomStable = 0; $hangarFrame = 0; $invadeFrame = 0; $farmLoop = 0
 Write-Output "STATE_GATED_START pid=$($process.Id) run=$Run seconds=$Seconds"
@@ -96,6 +112,10 @@ try {
 } finally {
     $process.Refresh()
     if (!$process.HasExited) { $process.Kill(); $process.WaitForExit() }
+    if (!$observer.HasExited) {
+        if (!$observer.WaitForExit(5000)) { $observer.Kill(); $observer.WaitForExit() }
+    }
 }
 Write-Output "STATE_GATED_DONE hangarFrame=$hangarFrame invadeFrame=$invadeFrame farmLoop=$farmLoop"
 Write-Output "STATE_GATED_STATE $statePath"
+Write-Output "STATE_GATED_UI $uiPath"
