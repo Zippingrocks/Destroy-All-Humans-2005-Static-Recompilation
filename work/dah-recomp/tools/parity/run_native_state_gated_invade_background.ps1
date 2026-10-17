@@ -5,7 +5,8 @@ param(
     [ValidateRange(0, 50000)][int]$CaptureStart = 0,
     [ValidateRange(1, 1000)][int]$CaptureInterval = 10,
     [ValidateRange(90, 600)][int]$Seconds = 240,
-    [switch]$TraceUiActive
+    [switch]$TraceUiActive,
+    [switch]$SkipAfterInvade
 )
 
 $ErrorActionPreference = 'Stop'
@@ -99,7 +100,11 @@ try {
             if ($hubStable -ge 3) { $hangarFrame = [uint64]$state.loop + 45; Add-FrameA $hangarFrame 'enter-hangar' }
         } elseif (!$invadeFrame) {
             $navicomStable = if (Test-ActiveUi $state 'navicom') { $navicomStable + 1 } else { 0 }
-            if ($navicomStable -ge 3) { $invadeFrame = [uint64]$state.loop + 45; Add-FrameA $invadeFrame 'invade-farm' }
+            if ($navicomStable -ge 3) {
+                $invadeFrame = [uint64]$state.loop + 45
+                Add-FrameA $invadeFrame 'invade-farm'
+                if ($SkipAfterInvade) { Add-FrameA ($invadeFrame + 40) 'skip-launch-transition' }
+            }
         } elseif (!$farmLoop -and $state.backendName -eq 'blocks\sites\farm') {
             $farmLoop = [uint64]$state.loop
             Write-Output "STATE_GATED_FARM loop=$farmLoop invadeFrame=$invadeFrame"

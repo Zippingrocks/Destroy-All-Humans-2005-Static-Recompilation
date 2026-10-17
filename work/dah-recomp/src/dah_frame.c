@@ -188,6 +188,34 @@ static int guest_text_is(uint32_t address, const char *expected)
                   expected, length + 1u) == 0;
 }
 
+static int guest_text_starts_with(uint32_t address, const char *expected)
+{
+    size_t length = strlen(expected);
+    if (!guest_range(address, (uint32_t)length)) return 0;
+    return memcmp((const void *)((uintptr_t)g_xbox_mem_offset + address),
+                  expected, length) == 0;
+}
+
+static int dah_ui_direct_child_active(const char *name)
+{
+    uint32_t root_link = guest_u32(0x00258470u);
+    uint32_t root = guest_range(root_link, 4u) ? guest_u32(root_link) : 0u;
+    uint32_t sentinel, node;
+    unsigned count = 0u;
+    if (!guest_range(root, 0x48u)) return 0;
+    sentinel = root + 0x44u;
+    node = guest_u32(sentinel);
+    while (node && node != sentinel && count++ < 96u) {
+        uint32_t child;
+        if (!guest_range(node, 12u)) break;
+        child = guest_u32(node + 8u);
+        if (guest_range(child, 0x34u) && guest_text_is(child + 0x0Cu, name))
+            return *(const uint8_t *)((uintptr_t)g_xbox_mem_offset + child + 4u) != 0u;
+        node = guest_u32(node);
+    }
+    return 0;
+}
+
 static int dah_farm_visible_gameplay;
 static int dah_presentation_held;
 
@@ -199,6 +227,56 @@ int dah_frame_presentation_held(void)
 int dah_frame_gameplay_visual_ready(void)
 {
     return dah_farm_visible_gameplay;
+}
+
+/* The native loader can publish the new site backend at the end of one guest
+ * loop and activate that site's retail fade/titlecard on the next.  xemu's
+ * first observable site loop already contains those cover elements.  Bridge
+ * only this commit seam: preserve the previously covered swapchain image while
+ * the newly current site's UI root is still inactive, then release as soon as
+ * the retail cover is active.  This never holds while a backend is pending. */
+static int dah_site_commit_cover_hold(void)
+{
+    static uint32_t previous_backend;
+    static uint32_t committed_site;
+    static unsigned wait_frames;
+    const uint32_t driver = 0x0025B1D0u;
+    uint32_t current = guest_u32(driver + 0x4A28u);
+    int current_site = guest_range(current, 0x590u) &&
+        guest_text_starts_with(current + 0x50Cu, "blocks\\sites\\");
+    int site_cover = dah_ui_direct_child_active("fade") ||
+                     dah_ui_direct_child_active("titlecard");
+
+    if (current != previous_backend) {
+        previous_backend = current;
+        committed_site = current_site && !site_cover ? current : 0u;
+        wait_frames = 0u;
+    }
+    if (!committed_site) return 0;
+    if (current != committed_site || site_cover) {
+        fprintf(stderr,
+                "[DAH-SITE-COMMIT-COVER] hold=0 current=%08X wait-frames=%u loop=%u host-frame=%llu\n",
+                current, wait_frames, guest_u32(0x0025B1DCu), dah_frame_serial());
+        committed_site = 0u;
+        wait_frames = 0u;
+        return 0;
+    }
+    /* A corrupt or unexpected UI tree must never turn this into another long
+     * presentation freeze.  Retail activates the cover on the following loop;
+     * two frames is a conservative, bounded seam guard. */
+    if (wait_frames >= 2u) {
+        fprintf(stderr,
+                "[DAH-SITE-COMMIT-COVER] timeout current=%08X loop=%u host-frame=%llu\n",
+                current, guest_u32(0x0025B1DCu), dah_frame_serial());
+        committed_site = 0u;
+        wait_frames = 0u;
+        return 0;
+    }
+    ++wait_frames;
+    fprintf(stderr,
+            "[DAH-SITE-COMMIT-COVER] hold=1 current=%08X wait-frame=%u loop=%u host-frame=%llu\n",
+            current, wait_frames, guest_u32(0x0025B1DCu), dah_frame_serial());
+    return 1;
 }
 
 /* Legacy diagnostic only. Retail owns loading/titlecard/cinematic presentation
@@ -601,7 +679,8 @@ void dah_frame_end(void)
 
     /* QPC pacing owns the title's 50/60 Hz timing, independent of a PC
      * monitor's refresh rate and of DXGI occlusion behavior. */
-    dah_presentation_held=dah_farm_presentation_hold(real_draw);
+    dah_presentation_held=dah_site_commit_cover_hold() ||
+                          dah_farm_presentation_hold(real_draw);
     d3d8_SetPresentationHold(dah_presentation_held);
     dah_parity_trace_state(g_dah_frame_serial);
     present_start=clock_seconds();
