@@ -1518,6 +1518,8 @@ static void dah_console_autoweapons_poll(void)
     }
 }
 
+#include "dah_player_recorder.h"
+
 /* These requests execute once at the retail main-loop frame boundary.
  * The Windows message thread only queues plain text. */
 static void dah_console_poll(void)
@@ -1533,6 +1535,7 @@ static void dah_console_poll(void)
     dah_console_autounlock_poll();
     dah_console_autoload_poll();
     dah_console_autoweapons_poll();
+    dah_player_recorder_automation_poll();
     dah_console_god_enforce();
     if (!dah_console_take_command(line, sizeof(line))) return;
     if (!_strnicmp(line, "mark ", 5) && line[5]) {
@@ -1541,6 +1544,7 @@ static void dah_console_poll(void)
         return;
     }
     tokens = sscanf(line, "%31s %63s %c", command, arg, &extra);
+    if (dah_player_recorder_command(command, arg, tokens)) return;
     if (tokens == 1 && !_stricmp(command, "capture")) {
         if (dah_request_frame_capture()) dah_console_write("Queued the next two game frames; capture paths will appear in the game log.");
         else dah_console_write("Frame capture is unavailable or the capture limit has been reached.");
@@ -1555,6 +1559,7 @@ static void dah_console_poll(void)
         dah_console_write("God mode: %s.", g_dah_console_god_enabled ? "ON" : "OFF");
         dah_console_write("Infinite ammo: %s.",
                           g_dah_console_infinite_ammo_enabled ? "ON" : "OFF");
+        dah_player_recorder_status();
         return;
     }
     if (tokens == 1 && !_stricmp(command, "god")) {
@@ -2180,6 +2185,7 @@ void dah_xinput_get_state_bridge(void)
                 g_dah_console_muted_ports |= (1u << port);
             }
         } else g_dah_console_muted_ports &= ~(1u << port);
+        dah_player_recorder_process(&state, port);
         dah_trace_rockwell_player_camera(&state);
         /* furonlog records the final logical pad delivered to retail code.
          * State changes are lossless; a heartbeat every 300 polls proves a

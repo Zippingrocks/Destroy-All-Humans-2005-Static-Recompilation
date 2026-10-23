@@ -90,6 +90,8 @@ static void dah_console_help(void)
 #endif
     dah_console_write("Game commands: god, infinite_ammo, load_level <map>, spawn <npc>");
     dah_console_write("  give_weapon <name>, giveallweapons");
+    dah_console_write("Automation: player_record <name>/stop, player_replay <name>/stop");
+    dah_console_write("  Replays require the recorded start position; BACK+START aborts.");
     dah_console_write("Maps: farm rockwell santa area42 union capitol cptlboss");
     dah_console_write("Weapons: cortex brainextractor zapomatic analprobe mattermove abducto");
     dah_console_write("  holobob holobobhelper hypnoray deathray destructoray iondetonator");
