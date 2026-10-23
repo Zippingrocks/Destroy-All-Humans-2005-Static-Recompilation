@@ -98,7 +98,7 @@ static void dah_console_help(void)
     dah_console_write("  sonicboom quantum brainray");
     dah_console_write("NPCs: npc_cow npc_farmer npc_cop npc_soldier npc_scientist npc_gman");
     dah_console_write("NPC availability depends on the current map's original assets.");
-    dah_console_write("Enter submits; Up/Down history; Tab completes; ` or Esc closes.");
+    dah_console_write("Enter submits; Ctrl+V/Shift+Insert pastes; Up/Down history; Tab completes; ` or Esc closes.");
 }
 
 static int dah_console_save_capture(void);
@@ -323,10 +323,72 @@ static void dah_console_toggle(int show)
     fflush(stderr);
 }
 
+/* Insert clipboard text at the caret without allowing pasted newlines to
+ * execute commands. The console is deliberately a small, single-line input
+ * surface, so only the first clipboard line is accepted. */
+static int dah_console_paste(HWND hwnd)
+{
+    HANDLE handle;
+    const WCHAR *wide;
+    char pasted[DAH_CONSOLE_LINE * 4];
+    int converted;
+    unsigned length = (unsigned)strlen(g_dah_console_input);
+    unsigned available = DAH_CONSOLE_LINE - 1u - length;
+    unsigned count = 0;
+    unsigned i;
+    unsigned wide_count = 0;
+
+    if (!available || !OpenClipboard(hwnd)) return 0;
+    handle = GetClipboardData(CF_UNICODETEXT);
+    if (!handle) {
+        CloseClipboard();
+        return 0;
+    }
+    wide = (const WCHAR *)GlobalLock(handle);
+    if (!wide) {
+        CloseClipboard();
+        return 0;
+    }
+    while (wide[wide_count] && wide[wide_count] != L'\r' &&
+           wide[wide_count] != L'\n' &&
+           wide_count < DAH_CONSOLE_LINE - 1u) ++wide_count;
+    converted = WideCharToMultiByte(CP_ACP, 0, wide, (int)wide_count,
+        pasted, sizeof(pasted) - 1, NULL, NULL);
+    GlobalUnlock(handle);
+    CloseClipboard();
+    if (converted <= 0) return 0;
+    pasted[converted] = 0;
+
+    for (i = 0; pasted[i] && count < available; ++i) {
+        unsigned char ch = (unsigned char)pasted[i];
+        if (ch == '\r' || ch == '\n') break;
+        if (ch == '\t') ch = ' ';
+        if (ch >= 32u && ch != 127u) pasted[count++] = (char)ch;
+    }
+    if (!count) return 0;
+    memmove(g_dah_console_input + g_dah_console_cursor + count,
+        g_dah_console_input + g_dah_console_cursor,
+        length - g_dah_console_cursor + 1u);
+    memcpy(g_dah_console_input + g_dah_console_cursor, pasted, count);
+    g_dah_console_cursor += count;
+    g_dah_console_history_back = 0;
+    InvalidateRect(hwnd, NULL, FALSE);
+    return 1;
+}
+
 static LRESULT CALLBACK dah_console_proc(HWND hwnd, UINT message, WPARAM wp, LPARAM lp)
 {
     unsigned length = (unsigned)strlen(g_dah_console_input);
+    if (message == WM_PASTE) {
+        dah_console_paste(hwnd);
+        return 0;
+    }
     if (message == WM_KEYDOWN) {
+        if ((wp == 'V' && (GetKeyState(VK_CONTROL) & 0x8000)) ||
+            (wp == VK_INSERT && (GetKeyState(VK_SHIFT) & 0x8000))) {
+            if (!(lp & (1L << 30))) dah_console_paste(hwnd);
+            return 0;
+        }
         if (wp == VK_OEM_3 || wp == VK_ESCAPE) {
             if (!(lp & (1L<<30))) {
                 if (wp == VK_ESCAPE) InterlockedExchange(&g_dah_console_escape_latch,1);
