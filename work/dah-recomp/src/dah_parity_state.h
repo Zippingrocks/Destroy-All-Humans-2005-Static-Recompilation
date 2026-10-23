@@ -227,6 +227,37 @@ static void dah_parity_farm_words(FILE *output,const char *name,int valid,uint32
     for(unsigned i=0;i<count;++i)fprintf(output,"%s%u",i?",":"",dah_parity_farm_word(address+i*4u));
     fputc(']',output);
 }
+/* instance.GetActiveLayerCrcs (0006A3AB) reads the layer manager at
+ * [0025B164]. Its active-layer collection begins at +54: +54 is the count
+ * and +5C points at an array of pointers whose first word is the native layer
+ * CRC. Preserve the native order and reject the entire snapshot when any
+ * pointer is malformed; a partial list would be indistinguishable from an
+ * inactive mission layer. */
+static void dah_parity_write_active_layers(FILE *output)
+{
+    uint32_t manager=dah_parity_word(0x25B164u),count=0,array=0;
+    uint32_t crcs[1024];
+    int complete=dah_parity_farm_range(manager,0x60u);
+    if(complete){
+        count=dah_parity_farm_word(manager+0x54u);
+        array=dah_parity_farm_word(manager+0x5Cu);
+        complete=count<=1024u&&dah_parity_farm_range(array,count?count*4u:4u);
+    }
+    for(unsigned i=0;complete&&i<count;++i){
+        uint32_t layer=dah_parity_farm_word(array+i*4u);
+        if(!dah_parity_farm_range(layer,4u)){complete=0;break;}
+        crcs[i]=dah_parity_farm_word(layer);
+    }
+    fputs(",\"activeLayerCrcs\":",output);
+    if(!complete)fputs("null",output);
+    else{
+        fputc('[',output);
+        for(unsigned i=0;i<count;++i)
+            fprintf(output,"%s%u",i?",":"",crcs[i]);
+        fputc(']',output);
+    }
+    fprintf(output,",\"activeLayerCrcsComplete\":%s",complete?"true":"false");
+}
 #include "dah_cinematic_state.h"
 static uint32_t dah_parity_find_hud(const char *const *path,unsigned path_count,int *active,int *complete)
 {
@@ -311,50 +342,643 @@ static void dah_parity_write_hud(FILE *output,uint32_t actor,int actor_valid)
         traversal?"true":"false",enemy_ok?"true":"false");
 }
 /* Rotation setter 00081B70 receives actor+18, stores quaternion into
- * [actor+28]+38..44 and dirties +4C. The scene transform used by the retail
- * actor and movement compatibility code is [actor+4A0], class 00234308.
+ * [actor+28]+38..44 and dirties +4C.  +4A0 is only a scene-link candidate
+ * for the pedestrian layout; Crypto and the ship require their own proven
+ * render chains and therefore fail this legacy diagnostic closed.
  * Body 002376E8 inherits vtable+90=0012BB30, which writes velocity +84..8C.
  * Its +0C inner body has class 00237968; vtable+2C=00129100 copies the
  * physics quaternion into inner+38..44 before propagating its transform. */
-static void dah_parity_write_actor_motion(FILE *output,uint32_t actor,int actor_ok)
+static void dah_parity_motion_name(char *name,size_t capacity,
+    const char *prefix,const char *suffix)
 {
+    /* Keep the established Crypto physics keys stable while namespacing the
+     * newly recorded ship fields. Object/scene keys were already actor-prefixed. */
+    if (!strcmp(prefix,"actor")&&!strncmp(suffix,"Physics",7u))
+        snprintf(name,capacity,"physics%s",suffix+7u);
+    else snprintf(name,capacity,"%s%s",prefix,suffix);
+}
+
+static void dah_parity_write_actor_motion(FILE *output,uint32_t actor,
+    int actor_ok,const char *prefix)
+{
+    char name[64];
     uint32_t object=actor_ok?dah_parity_farm_word(actor+0x28u):0;
     int object_ok=actor_ok&&dah_parity_farm_range(object,0x50u);
-    dah_parity_farm_scalar(output,"actorObject",actor_ok,object);
-    dah_parity_farm_words(output,"actorObjectPositionBits",object_ok,object+0x2Cu,3);
-    dah_parity_farm_words(output,"actorObjectQuatBits",object_ok,object+0x38u,4);
-    dah_parity_farm_scalar(output,"actorObjectFlags",object_ok,object_ok?dah_parity_farm_word(object+0x4Cu):0);
-    fprintf(output,",\"actorObjectComplete\":%s",object_ok?"true":"false");
+    dah_parity_motion_name(name,sizeof(name),prefix,"Object");
+    dah_parity_farm_scalar(output,name,actor_ok,object);
+    dah_parity_motion_name(name,sizeof(name),prefix,"ObjectPositionBits");
+    dah_parity_farm_words(output,name,object_ok,object+0x2Cu,3);
+    dah_parity_motion_name(name,sizeof(name),prefix,"ObjectQuatBits");
+    dah_parity_farm_words(output,name,object_ok,object+0x38u,4);
+    dah_parity_motion_name(name,sizeof(name),prefix,"ObjectFlags");
+    dah_parity_farm_scalar(output,name,object_ok,object_ok?dah_parity_farm_word(object+0x4Cu):0);
+    fprintf(output,",\"%sObjectComplete\":%s",prefix,object_ok?"true":"false");
     int node_link=actor_ok&&dah_parity_farm_range(actor+0x4A0u,4u);
     uint32_t node=node_link?dah_parity_farm_word(actor+0x4A0u):0;
     int node_header=node_link&&dah_parity_farm_range(node,0x90u);
     uint32_t node_vt=node_header?dah_parity_farm_word(node):0;
     int node_ok=node_header&&node_vt==0x00234308u;
-    dah_parity_farm_scalar(output,"actorSceneNode",node_link,node);
-    dah_parity_farm_scalar(output,"actorSceneNodeVtable",node_header,node_vt);
-    dah_parity_farm_scalar(output,"actorSceneNodeParent",node_ok,node_ok?dah_parity_farm_word(node+8u):0);
-    dah_parity_farm_words(output,"actorSceneQuatBits",node_ok,node+0x40u,4);
-    dah_parity_farm_words(output,"actorSceneWorldBits",node_ok,node+0x50u,16);
-    fprintf(output,",\"actorSceneNodeComplete\":%s",node_ok?"true":"false");
+    dah_parity_motion_name(name,sizeof(name),prefix,"SceneNode");
+    dah_parity_farm_scalar(output,name,node_link,node);
+    dah_parity_motion_name(name,sizeof(name),prefix,"SceneNodeVtable");
+    dah_parity_farm_scalar(output,name,node_header,node_vt);
+    dah_parity_motion_name(name,sizeof(name),prefix,"SceneNodeParent");
+    dah_parity_farm_scalar(output,name,node_ok,node_ok?dah_parity_farm_word(node+8u):0);
+    dah_parity_motion_name(name,sizeof(name),prefix,"SceneQuatBits");
+    dah_parity_farm_words(output,name,node_ok,node+0x40u,4);
+    dah_parity_motion_name(name,sizeof(name),prefix,"SceneWorldBits");
+    dah_parity_farm_words(output,name,node_ok,node+0x50u,16);
+    fprintf(output,",\"%sSceneNodeComplete\":%s",prefix,node_ok?"true":"false");
     uint32_t body=actor_ok?dah_parity_farm_word(actor+0x110u):0;
     int body_header=actor_ok&&dah_parity_farm_range(body,0x90u);
     uint32_t body_vt=body_header?dah_parity_farm_word(body):0;
     int setter_ok=body_header&&body_vt==0x002376E8u&&dah_parity_farm_range(body_vt+0x90u,4u);
     uint32_t setter=setter_ok?dah_parity_farm_word(body_vt+0x90u):0;
     int body_ok=setter_ok&&setter==0x0012BB30u;
-    dah_parity_farm_scalar(output,"physicsBody",actor_ok,body);
-    dah_parity_farm_scalar(output,"physicsBodyVtable",body_header,body_vt);
-    dah_parity_farm_scalar(output,"physicsVelocitySetter",setter_ok,setter);
-    dah_parity_farm_words(output,"physicsVelocityBits",body_ok,body+0x84u,3);
-    fprintf(output,",\"physicsBodyComplete\":%s",body_ok?"true":"false");
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsBody");
+    dah_parity_farm_scalar(output,name,actor_ok,body);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsBodyVtable");
+    dah_parity_farm_scalar(output,name,body_header,body_vt);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsVelocitySetter");
+    dah_parity_farm_scalar(output,name,setter_ok,setter);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsVelocityBits");
+    dah_parity_farm_words(output,name,body_ok,body+0x84u,3);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsBodyComplete");
+    fprintf(output,",\"%s\":%s",name,body_ok?"true":"false");
     uint32_t inner=body_header?dah_parity_farm_word(body+0x0Cu):0;
     int inner_header=body_header&&body_vt==0x002376E8u&&dah_parity_farm_range(inner,0x48u);
     uint32_t inner_vt=inner_header?dah_parity_farm_word(inner):0;
     int inner_ok=inner_header&&inner_vt==0x00237968u;
-    dah_parity_farm_scalar(output,"physicsInner",body_header,inner);
-    dah_parity_farm_scalar(output,"physicsInnerVtable",inner_header,inner_vt);
-    dah_parity_farm_words(output,"physicsInnerQuatBits",inner_ok,inner+0x38u,4);
-    fprintf(output,",\"physicsInnerComplete\":%s",inner_ok?"true":"false");
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsInner");
+    dah_parity_farm_scalar(output,name,body_header,inner);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsInnerVtable");
+    dah_parity_farm_scalar(output,name,inner_header,inner_vt);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsInnerQuatBits");
+    dah_parity_farm_words(output,name,inner_ok,inner+0x38u,4);
+    dah_parity_motion_name(name,sizeof(name),prefix,"PhysicsInnerComplete");
+    fprintf(output,",\"%s\":%s",name,inner_ok?"true":"false");
+}
+
+/* Read-only research detail for Crypto's native body/equipment chains.
+ * Crypto (class 0022C9F8) is itself the inherited base model component: +28
+ * is the f_alien model asset, +2C is its state/model-event controller storage
+ * and +68 is its binding-list owner.  Constructor 0007F490 separately stores a shield-effect
+ * controller at +164 and a 0022FC10 f_alien_gun model at +168.  +144 is two
+ * byte-sized actor flags and +4A0 is not a universal scene link.  Preserve raw
+ * words until visibility and evaluated-pose ownership are independently
+ * proved. */
+static int dah_parity_collect_model_binding_keys(uint32_t model,int model_ok,
+    uint32_t *keys,unsigned *count_out,uint32_t *declared_out)
+{
+    uint32_t sentinel=model+0x70u;
+    int list_ok=model_ok&&dah_parity_farm_range(model+0x68u,0x1Cu)&&
+        dah_parity_farm_word(model+0x68u)==0x00235DC8u;
+    uint32_t declared=list_ok?dah_parity_farm_word(model+0x78u):0u;
+    uint32_t node=list_ok?dah_parity_farm_word(sentinel):0u;
+    unsigned count=0;
+    if(declared>256u)list_ok=0;
+    while(list_ok&&node&&node!=sentinel&&count<declared){
+        if(!dah_parity_farm_range(node,0x14u)){list_ok=0;break;}
+        keys[count++]=dah_parity_farm_word(node+8u);
+        node=dah_parity_farm_word(node);
+    }
+    if(!node||node!=sentinel||count!=declared)list_ok=0;
+    *count_out=count;
+    *declared_out=declared;
+    return list_ok;
+}
+static void dah_parity_write_model_bindings(FILE *output,uint32_t model,
+    int model_ok,const char *prefix)
+{
+    char name[64];
+    uint32_t sentinel=model+0x70u;
+    int list_ok=model_ok&&dah_parity_farm_range(model+0x68u,0x1Cu)&&
+        dah_parity_farm_word(model+0x68u)==0x00235DC8u;
+    uint32_t declared=list_ok?dah_parity_farm_word(model+0x78u):0u;
+    uint32_t node=list_ok?dah_parity_farm_word(sentinel):0u;
+    unsigned count=0;
+    snprintf(name,sizeof(name),"%sCryptoModelBindingEntries",prefix);
+    fprintf(output,",\"%s\":[",name);
+    if(declared>256u)list_ok=0;
+    while(list_ok&&node&&node!=sentinel&&count<declared){
+        if(!dah_parity_farm_range(node,0x14u)){list_ok=0;break;}
+        uint32_t instance=dah_parity_farm_word(node+0x10u);
+        uint32_t resource=dah_parity_farm_word(node+0xCu);
+        int instance_ok=dah_parity_farm_range(instance,0x80u);
+        int resource_ok=dah_parity_farm_range(resource,0x40u);
+        fprintf(output,
+            "%s{\"key\":%u,\"instance\":%u,\"instanceVtable\":",
+            count?",":"",dah_parity_farm_word(node+8u),instance);
+        if(instance_ok)fprintf(output,"%u",dah_parity_farm_word(instance));
+        else fputs("null",output);
+        fprintf(output,",\"resource\":%u,\"instanceWords\":",resource);
+        if(instance_ok){
+            fputc('[',output);
+            for(unsigned i=0;i<0x20u;++i)
+                fprintf(output,"%s%u",i?",":"",dah_parity_farm_word(instance+i*4u));
+            fputc(']',output);
+        }else fputs("null",output);
+        fputs(",\"resourceWords\":",output);
+        if(resource_ok){
+            fputc('[',output);
+            for(unsigned i=0;i<0x10u;++i)
+                fprintf(output,"%s%u",i?",":"",dah_parity_farm_word(resource+i*4u));
+            fputc(']',output);
+        }else fputs("null",output);
+        fputc('}',output);
+        node=dah_parity_farm_word(node);
+        ++count;
+    }
+    fputc(']',output);
+    if(!node||node!=sentinel||count!=declared)list_ok=0;
+    snprintf(name,sizeof(name),"%sCryptoModelBindingDeclaredCount",prefix);
+    dah_parity_farm_scalar(output,name,model_ok,declared);
+    fprintf(output,",\"%sCryptoModelBindingTraversalComplete\":%s",prefix,
+        list_ok?"true":"false");
+}
+
+static void dah_parity_write_crypto_model_summary(FILE *output,uint32_t actor,
+    int actor_ok)
+{
+    uint32_t actor_vt=actor_ok?dah_parity_farm_word(actor):0u;
+    int body_ok=actor_ok&&actor_vt==0x0022C9F8u&&dah_parity_farm_range(actor,0xC0u);
+    uint32_t body_asset=body_ok?dah_parity_farm_word(actor+0x28u):0u;
+    int body_asset_ok=body_ok&&dah_parity_farm_range(body_asset,0x58u);
+    uint32_t animation_controller=body_asset_ok?
+        dah_parity_farm_word(body_asset+8u):0u;
+    int animation_controller_ok=body_asset_ok&&
+        dah_parity_farm_range(animation_controller,0x1D0u)&&
+        dah_parity_farm_word(animation_controller+0x1C4u)==
+            dah_parity_farm_word(body_asset);
+    uint32_t animation_clip_pointers[4]={0,0,0,0};
+    uint32_t animation_clip_hashes[4]={0,0,0,0};
+    uint32_t animation_clip_duration_bits[4]={0,0,0,0};
+    uint32_t animation_clip_flags[4]={0,0,0,0};
+    uint32_t animation_slot_words4[4]={0,0,0,0};
+    uint32_t animation_slot_time_bits[4]={0,0,0,0};
+    uint32_t animation_slot_blend_bits[4]={0,0,0,0};
+    uint32_t animation_slot_rate_bits[4]={0,0,0,0};
+    uint32_t animation_slot_state_flags[4]={0,0,0,0};
+    uint32_t animation_slot_runtime_words[4][14]={{0}};
+    int animation_slots_ok=animation_controller_ok;
+    for(unsigned i=0;i<4u;++i){
+        uint32_t slot=animation_controller+i*0x70u;
+        uint32_t clip=animation_controller_ok?dah_parity_farm_word(slot):0u;
+        int clip_ok=!clip||dah_parity_farm_range(clip,0x34u);
+        animation_clip_pointers[i]=clip;
+        if(clip_ok&&clip){
+            animation_clip_hashes[i]=dah_parity_farm_word(clip);
+            animation_clip_duration_bits[i]=dah_parity_farm_word(clip+0x30u);
+            animation_clip_flags[i]=dah_parity_farm_word(clip+0x2Cu)&0xFFFFu;
+        }
+        if(animation_controller_ok){
+            animation_slot_words4[i]=dah_parity_farm_word(slot+4u);
+            animation_slot_time_bits[i]=dah_parity_farm_word(slot+8u);
+            animation_slot_blend_bits[i]=dah_parity_farm_word(slot+0xCu);
+            animation_slot_rate_bits[i]=dah_parity_farm_word(slot+0x10u);
+            animation_slot_state_flags[i]=dah_parity_farm_word(slot+0x14u);
+            for(unsigned j=0;j<14u;++j)
+                animation_slot_runtime_words[i][j]=
+                    dah_parity_farm_word(slot+0x18u+j*4u);
+        }
+        if(!clip_ok)animation_slots_ok=0;
+    }
+    /* sub_000E1FC0 owns the live skeleton at controller +1C0.  Its bone
+     * records are 0xF0 bytes (sub_000E2300); sub_000CF390 writes sampled
+     * local translation/scale/quaternion at +20/+30/+40 and sub_000F2420
+     * writes the selected 0x40-byte-per-bone evaluated matrix palette. */
+    uint32_t animation_skeleton=animation_controller_ok?
+        dah_parity_farm_word(animation_controller+0x1C0u):0u;
+    int skeleton_header_ok=animation_controller_ok&&
+        dah_parity_farm_range(animation_skeleton,0x8Cu);
+    uint32_t skeleton_vtable=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton):0u;
+    uint32_t skeleton_buffer_index=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x40u):0u;
+    uint32_t skeleton_buffer_count=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x44u):0u;
+    uint32_t skeleton_bone_count=skeleton_header_ok?
+        (dah_parity_farm_word(animation_skeleton+0x48u)&0xFFFFu):0u;
+    uint32_t skeleton_records=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x4Cu):0u;
+    uint32_t skeleton_morph_count=skeleton_header_ok?
+        (dah_parity_farm_word(animation_skeleton+0x60u)&0xFFFFu):0u;
+    uint32_t skeleton_morph_records=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x64u):0u;
+    uint32_t skeleton_material_count=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x88u):0u;
+    uint32_t skeleton_material_pointers=skeleton_header_ok?
+        dah_parity_farm_word(animation_skeleton+0x84u):0u;
+    int skeleton_ok=skeleton_header_ok&&skeleton_bone_count>0u&&
+        skeleton_bone_count<=256u&&skeleton_buffer_count>0u&&
+        skeleton_buffer_count<=8u&&skeleton_buffer_index<skeleton_buffer_count&&
+        dah_parity_farm_range(animation_skeleton+0x54u,
+            skeleton_buffer_count*4u)&&
+        dah_parity_farm_range(skeleton_records,skeleton_bone_count*0xF0u);
+    uint32_t skeleton_palette=skeleton_ok?
+        dah_parity_farm_word(animation_skeleton+0x54u+
+            skeleton_buffer_index*4u):0u;
+    if(skeleton_ok&&!dah_parity_farm_range(skeleton_palette,
+            skeleton_bone_count*0x40u))skeleton_ok=0;
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i){
+        uint32_t record=skeleton_records+i*0xF0u;
+        if(dah_parity_farm_word(record)!=0x00234308u)skeleton_ok=0;
+    }
+    int morph_targets_ok=skeleton_header_ok&&skeleton_morph_count<=256u&&
+        (!skeleton_morph_count||dah_parity_farm_range(skeleton_morph_records,
+            skeleton_morph_count*8u));
+    int material_targets_ok=skeleton_header_ok&&skeleton_material_count<=256u&&
+        (!skeleton_material_count||dah_parity_farm_range(
+            skeleton_material_pointers,skeleton_material_count*4u));
+    for(unsigned i=0;material_targets_ok&&i<skeleton_material_count;++i){
+        uint32_t material=dah_parity_farm_word(
+            skeleton_material_pointers+i*4u);
+        if(material&&!dah_parity_farm_range(material,0x70u))material_targets_ok=0;
+    }
+    uint32_t body_keys[256],body_declared=0u;
+    unsigned body_count=0u;
+    int body_bindings_ok=dah_parity_collect_model_binding_keys(actor,body_ok,
+        body_keys,&body_count,&body_declared);
+    uint32_t controller=actor_ok?dah_parity_farm_word(actor+0x164u):0u;
+    uint32_t model=actor_ok?dah_parity_farm_word(actor+0x168u):0u;
+    int controller_ok=actor_ok&&dah_parity_farm_range(controller,0x28u)&&
+        dah_parity_farm_word(controller)==actor;
+    int model_header=actor_ok&&dah_parity_farm_range(model,0x108u);
+    uint32_t model_vt=model_header?dah_parity_farm_word(model):0u;
+    int model_ok=model_header&&model_vt==0x0022FC10u;
+    uint32_t variants[3]={0,0,0},variant_vtables[3]={0,0,0};
+    static const uint32_t expected[3]={0x0022DD58u,0x0022DDF0u,0x0022DE88u};
+    int variants_ok=controller_ok;
+    for(unsigned i=0;i<3u;++i){
+        variants[i]=controller_ok?dah_parity_farm_word(controller+4u+i*4u):0u;
+        int header=controller_ok&&dah_parity_farm_range(variants[i],0xC0u);
+        variant_vtables[i]=header?dah_parity_farm_word(variants[i]):0u;
+        if(!header||variant_vtables[i]!=expected[i]||
+            dah_parity_farm_word(variants[i]+0xBCu)!=actor)variants_ok=0;
+    }
+    uint32_t sentinel=model+0x70u;
+    int bindings_ok=model_ok&&dah_parity_farm_range(model+0x68u,0x1Cu)&&
+        dah_parity_farm_word(model+0x68u)==0x00235DC8u;
+    uint32_t declared=bindings_ok?dah_parity_farm_word(model+0x78u):0u;
+    uint32_t node=bindings_ok?dah_parity_farm_word(sentinel):0u;
+    uint32_t keys[256];
+    unsigned count=0;
+    if(declared>256u)bindings_ok=0;
+    while(bindings_ok&&node&&node!=sentinel&&count<declared){
+        if(!dah_parity_farm_range(node,0x14u)){bindings_ok=0;break;}
+        keys[count++]=dah_parity_farm_word(node+8u);
+        node=dah_parity_farm_word(node);
+    }
+    if(!node||node!=sentinel||count!=declared)bindings_ok=0;
+    dah_parity_farm_scalar(output,"actorCryptoBodyModel",actor_ok,actor);
+    dah_parity_farm_scalar(output,"actorCryptoBodyModelVtable",actor_ok,actor_vt);
+    dah_parity_farm_scalar(output,"actorCryptoBodyModelAsset",body_ok,
+        body_asset);
+    fputs(",\"actorCryptoBodyModelBindingKeys\":[",output);
+    for(unsigned i=0;i<body_count;++i)fprintf(output,"%s%u",i?",":"",body_keys[i]);
+    fprintf(output,"],\"actorCryptoBodyModelBindingDeclaredCount\":%u",body_declared);
+    fprintf(output,",\"actorCryptoBodyModelBindingListComplete\":%s",
+        body_bindings_ok?"true":"false");
+    dah_parity_farm_scalar(output,"actorCryptoBodyStatePrimaryCount",body_ok,
+        body_ok?dah_parity_farm_word(actor+0x38u):0u);
+    dah_parity_farm_scalar(output,"actorCryptoBodyStateSecondaryCount",body_ok,
+        body_ok?dah_parity_farm_word(actor+0x4Cu):0u);
+    dah_parity_farm_scalar(output,"actorCryptoBodyStateMode",body_ok,
+        body_ok?dah_parity_farm_word(actor+0x58u):0u);
+    dah_parity_farm_scalar(output,"actorCryptoBodyAnimationController",
+        body_asset_ok,animation_controller);
+    dah_parity_farm_scalar(output,"actorCryptoBodyAnimationSkeleton",
+        animation_controller_ok,
+        animation_controller_ok?dah_parity_farm_word(animation_controller+0x1C0u):0u);
+    dah_parity_farm_scalar(output,"actorCryptoBodyAnimationModel",
+        animation_controller_ok,
+        animation_controller_ok?dah_parity_farm_word(animation_controller+0x1C4u):0u);
+#define DAH_PARITY_ANIMATION_ARRAY(name,values) do { \
+    fputs(",\"" name "\":[",output); \
+    for(unsigned j=0;j<4u;++j)fprintf(output,"%s%u",j?",":"",values[j]); \
+    fputc(']',output); \
+} while(0)
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationClipPointers",animation_clip_pointers);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationClipHashes",animation_clip_hashes);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationClipDurationBits",animation_clip_duration_bits);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationClipFlags",animation_clip_flags);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationLookupHashes",animation_slot_words4);
+    /* Compatibility alias from before the +4 table join was proven. */
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotWords4",animation_slot_words4);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotTimeBits",animation_slot_time_bits);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotTransitionEndClipTimeBits",animation_slot_blend_bits);
+    /* Compatibility alias from before sub_000CC780/000CC970 semantics were
+     * followed through transition setup and timeline remapping. */
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotBlendBits",animation_slot_blend_bits);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotRateBits",animation_slot_rate_bits);
+    DAH_PARITY_ANIMATION_ARRAY("actorCryptoBodyAnimationSlotStateFlags",animation_slot_state_flags);
+#undef DAH_PARITY_ANIMATION_ARRAY
+    fputs(",\"actorCryptoBodyAnimationSlotRuntimeWords18To4C\":[",output);
+    for(unsigned i=0;i<4u;++i){
+        fprintf(output,"%s[",i?",":"");
+        for(unsigned j=0;j<14u;++j)
+            fprintf(output,"%s%u",j?",":"",animation_slot_runtime_words[i][j]);
+        fputc(']',output);
+    }
+    fputc(']',output);
+    fputs(",\"actorCryptoBodyAnimationSlotTransitionDurationBits\":[",output);
+    for(unsigned i=0;i<4u;++i)
+        fprintf(output,"%s%u",i?",":"",animation_slot_runtime_words[i][12]);
+    fputc(']',output);
+    /* sub_000CC410 first copies the incoming clip's 0x24-byte node records
+     * into slot +1C, then sub_000CF670 replaces the matched bone's
+     * translation/rotation/scale curves with generated transition keys.
+     * Preserve those keys verbatim: they are the strongest available oracle
+     * for the controller's exact transition construction and sampling policy. */
+    int transition_tracks_ok=animation_controller_ok;
+    for(unsigned i=0;i<4u;++i){
+        uint32_t track_pointer=animation_slot_runtime_words[i][1];
+        uint32_t track_count=animation_slot_runtime_words[i][2];
+        if(track_count>256u||
+            (track_count&&!dah_parity_farm_range(track_pointer,
+                track_count*0x24u))){transition_tracks_ok=0;continue;}
+        for(unsigned track_index=0;track_index<track_count;++track_index){
+            uint32_t track=track_pointer+track_index*0x24u;
+            static const unsigned fields[3]={4u,0xCu,0x14u};
+            static const unsigned strides[3]={0x14u,8u,0x10u};
+            for(unsigned curve=0;curve<3u;++curve){
+                uint32_t pointer=dah_parity_farm_word(track+fields[curve]);
+                uint32_t count=dah_parity_farm_word(track+fields[curve]+4u);
+                if(count>256u||(count&&!dah_parity_farm_range(pointer,
+                        count*strides[curve])))transition_tracks_ok=0;
+            }
+        }
+    }
+    fputs(",\"actorCryptoBodyAnimationTransitionTracks\":[",output);
+    for(unsigned i=0;i<4u;++i){
+        uint32_t track_pointer=animation_slot_runtime_words[i][1];
+        uint32_t track_count=animation_slot_runtime_words[i][2];
+        int slot_ok=track_count<=256u&&(!track_count||
+            dah_parity_farm_range(track_pointer,track_count*0x24u));
+        fprintf(output,"%s{\"slot\":%u,\"trackPointer\":%u,\"trackCount\":%u,\"tracks\":[",
+            i?",":"",i,track_pointer,track_count);
+        for(unsigned track_index=0;slot_ok&&track_index<track_count;++track_index){
+            uint32_t track=track_pointer+track_index*0x24u;
+            static const unsigned fields[3]={4u,0xCu,0x14u};
+            static const unsigned strides[3]={0x14u,8u,0x10u};
+            static const char *names[3]={"translationKeyWords",
+                "rotationKeyWords","scaleKeyWords"};
+            fprintf(output,"%s{\"boneHash\":%u,\"rawDescriptorWords\":[",
+                track_index?",":"",dah_parity_farm_word(track));
+            for(unsigned word_index=0;word_index<9u;++word_index)
+                fprintf(output,"%s%u",word_index?",":"",
+                    dah_parity_farm_word(track+word_index*4u));
+            fputc(']',output);
+            for(unsigned curve=0;curve<3u;++curve){
+                uint32_t pointer=dah_parity_farm_word(track+fields[curve]);
+                uint32_t count=dah_parity_farm_word(track+fields[curve]+4u);
+                int curve_ok=count<=256u&&(!count||dah_parity_farm_range(pointer,
+                    count*strides[curve]));
+                fprintf(output,",\"%s\":[",names[curve]);
+                for(unsigned key=0;curve_ok&&key<count;++key){
+                    fprintf(output,"%s[",key?",":"");
+                    for(unsigned word_index=0;
+                        word_index<strides[curve]/4u;++word_index)
+                        fprintf(output,"%s%u",word_index?",":"",
+                            dah_parity_farm_word(pointer+key*strides[curve]+
+                                word_index*4u));
+                    fputc(']',output);
+                }
+                fputc(']',output);
+                if(!curve_ok)slot_ok=0;
+            }
+            fprintf(output,"}");
+        }
+        fprintf(output,"],\"complete\":%s}",slot_ok?"true":"false");
+    }
+    fputc(']',output);
+    fprintf(output,",\"actorCryptoBodyAnimationTransitionTracksComplete\":%s",
+        transition_tracks_ok?"true":"false");
+    /* sub_000CC410/sub_000CF0F0 construct scalar morph transitions in the
+     * slot +2C array.  Preserve the 0x0C-byte records and 0x10-byte keys just
+     * like the skeletal transition tracks above. */
+    int transition_morph_tracks_ok=animation_controller_ok;
+    for(unsigned i=0;i<4u;++i){
+        uint32_t track_pointer=animation_slot_runtime_words[i][5];
+        uint32_t track_count=animation_slot_runtime_words[i][6];
+        if(track_count>256u||(track_count&&!dah_parity_farm_range(
+                track_pointer,track_count*0xCu))){
+            transition_morph_tracks_ok=0;
+            continue;
+        }
+        for(unsigned track_index=0;track_index<track_count;++track_index){
+            uint32_t track=track_pointer+track_index*0xCu;
+            uint32_t pointer=dah_parity_farm_word(track+4u);
+            uint32_t count=dah_parity_farm_word(track+8u);
+            if(count>256u||(count&&!dah_parity_farm_range(pointer,
+                    count*0x10u)))transition_morph_tracks_ok=0;
+        }
+    }
+    fputs(",\"actorCryptoBodyAnimationTransitionMorphTracks\":[",output);
+    for(unsigned i=0;i<4u;++i){
+        uint32_t track_pointer=animation_slot_runtime_words[i][5];
+        uint32_t track_count=animation_slot_runtime_words[i][6];
+        int slot_ok=track_count<=256u&&(!track_count||
+            dah_parity_farm_range(track_pointer,track_count*0xCu));
+        fprintf(output,"%s{\"slot\":%u,\"trackPointer\":%u,\"trackCount\":%u,\"tracks\":[",
+            i?",":"",i,track_pointer,track_count);
+        for(unsigned track_index=0;slot_ok&&track_index<track_count;
+                ++track_index){
+            uint32_t track=track_pointer+track_index*0xCu;
+            uint32_t pointer=dah_parity_farm_word(track+4u);
+            uint32_t count=dah_parity_farm_word(track+8u);
+            int curve_ok=count<=256u&&(!count||dah_parity_farm_range(
+                pointer,count*0x10u));
+            fprintf(output,"%s{\"morphHash\":%u,\"rawDescriptorWords\":[%u,%u,%u],\"keyWords\":[",
+                track_index?",":"",dah_parity_farm_word(track),
+                dah_parity_farm_word(track),pointer,count);
+            for(unsigned key=0;curve_ok&&key<count;++key){
+                fprintf(output,"%s[%u,%u,%u,%u]",key?",":"",
+                    dah_parity_farm_word(pointer+key*0x10u),
+                    dah_parity_farm_word(pointer+key*0x10u+4u),
+                    dah_parity_farm_word(pointer+key*0x10u+8u),
+                    dah_parity_farm_word(pointer+key*0x10u+0xCu));
+            }
+            fputs("]}",output);
+            if(!curve_ok)slot_ok=0;
+        }
+        fprintf(output,"],\"complete\":%s}",slot_ok?"true":"false");
+    }
+    fputc(']',output);
+    fprintf(output,",\"actorCryptoBodyAnimationTransitionMorphTracksComplete\":%s",
+        transition_morph_tracks_ok?"true":"false");
+    fprintf(output,",\"actorCryptoBodyAnimationSlotsComplete\":%s",
+        animation_slots_ok?"true":"false");
+    fprintf(output,",\"actorCryptoBodyAnimationControllerComplete\":%s",
+        animation_controller_ok?"true":"false");
+    dah_parity_farm_scalar(output,"actorCryptoBodySkeletonVtable",
+        skeleton_header_ok,skeleton_vtable);
+    dah_parity_farm_scalar(output,"actorCryptoBodySkeletonBoneCount",
+        skeleton_header_ok,skeleton_bone_count);
+    dah_parity_farm_scalar(output,"actorCryptoBodySkeletonPaletteBufferIndex",
+        skeleton_header_ok,skeleton_buffer_index);
+    dah_parity_farm_scalar(output,"actorCryptoBodySkeletonPaletteBufferCount",
+        skeleton_header_ok,skeleton_buffer_count);
+    fputs(",\"actorCryptoBodySkeletonBoneHashes\":[",output);
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i)
+        fprintf(output,"%s%u",i?",":"",
+            dah_parity_farm_word(skeleton_records+i*0xF0u+4u));
+    fputs("],\"actorCryptoBodySkeletonLocalPositionBits\":[",output);
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i){
+        uint32_t record=skeleton_records+i*0xF0u;
+        fprintf(output,"%s[%u,%u,%u]",i?",":"",
+            dah_parity_farm_word(record+0x20u),
+            dah_parity_farm_word(record+0x24u),
+            dah_parity_farm_word(record+0x28u));
+    }
+    fputs("],\"actorCryptoBodySkeletonLocalScaleBits\":[",output);
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i)
+        fprintf(output,"%s%u",i?",":"",
+            dah_parity_farm_word(skeleton_records+i*0xF0u+0x30u));
+    fputs("],\"actorCryptoBodySkeletonLocalQuaternionBits\":[",output);
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i){
+        uint32_t record=skeleton_records+i*0xF0u;
+        fprintf(output,"%s[%u,%u,%u,%u]",i?",":"",
+            dah_parity_farm_word(record+0x40u),
+            dah_parity_farm_word(record+0x44u),
+            dah_parity_farm_word(record+0x48u),
+            dah_parity_farm_word(record+0x4Cu));
+    }
+    fputs("],\"actorCryptoBodyAnimationMorphTargetHashes\":[",output);
+    for(unsigned i=0;morph_targets_ok&&i<skeleton_morph_count;++i)
+        fprintf(output,"%s%u",i?",":"",
+            dah_parity_farm_word(skeleton_morph_records+i*8u));
+    fputs("],\"actorCryptoBodyAnimationMorphTargetValueBits\":[",output);
+    for(unsigned i=0;morph_targets_ok&&i<skeleton_morph_count;++i)
+        fprintf(output,"%s%u",i?",":"",
+            dah_parity_farm_word(skeleton_morph_records+i*8u+4u));
+    fprintf(output,"],\"actorCryptoBodyAnimationMorphTargetsComplete\":%s",
+        morph_targets_ok?"true":"false");
+    static const unsigned material_fields[13]={8u,0xCu,0x10u,0x14u,
+        0x18u,0x50u,0x54u,0x58u,0x5Cu,0x60u,0x64u,0x68u,0x6Cu};
+    fputs(",\"actorCryptoBodyAnimationMaterialTargetFieldOffsets\":[8,12,16,20,24,80,84,88,92,96,100,104,108]",output);
+    fputs(",\"actorCryptoBodyAnimationMaterialTargetHashes\":[",output);
+    for(unsigned i=0;material_targets_ok&&i<skeleton_material_count;++i){
+        uint32_t material=dah_parity_farm_word(skeleton_material_pointers+i*4u);
+        fprintf(output,"%s%u",i?",":"",material?
+            dah_parity_farm_word(material+4u):0u);
+    }
+    fputs("],\"actorCryptoBodyAnimationMaterialTargetStateBits\":[",output);
+    for(unsigned i=0;material_targets_ok&&i<skeleton_material_count;++i){
+        uint32_t material=dah_parity_farm_word(skeleton_material_pointers+i*4u);
+        fprintf(output,"%s[",i?",":"");
+        for(unsigned field=0;field<13u;++field)
+            fprintf(output,"%s%u",field?",":"",material?
+                dah_parity_farm_word(material+material_fields[field]):0u);
+        fputc(']',output);
+    }
+    fprintf(output,"],\"actorCryptoBodyAnimationMaterialTargetsComplete\":%s",
+        material_targets_ok?"true":"false");
+    fputs(",\"actorCryptoBodySkeletonPaletteBits\":[",output);
+    for(unsigned i=0;skeleton_ok&&i<skeleton_bone_count;++i){
+        uint32_t matrix=skeleton_palette+i*0x40u;
+        fprintf(output,"%s[",i?",":"");
+        for(unsigned j=0;j<16u;++j)
+            fprintf(output,"%s%u",j?",":"",dah_parity_farm_word(matrix+j*4u));
+        fputc(']',output);
+    }
+    fprintf(output,"],\"actorCryptoBodySkeletonComplete\":%s",
+        skeleton_ok?"true":"false");
+    fprintf(output,",\"actorCryptoBodyModelComplete\":%s",
+        body_ok&&body_bindings_ok?"true":"false");
+    /* Canonical names identify the +164/+168 objects.  The older
+     * actorCryptoModel* fields remain below as compatibility aliases. */
+    dah_parity_farm_scalar(output,"actorCryptoShieldController",actor_ok,controller);
+    fprintf(output,",\"actorCryptoShieldControllerComplete\":%s",controller_ok?"true":"false");
+    fputs(",\"actorCryptoShieldEffects\":[",output);
+    for(unsigned i=0;i<3u;++i)fprintf(output,"%s%u",i?",":"",variants[i]);
+    fputs("],\"actorCryptoShieldEffectVtables\":[",output);
+    for(unsigned i=0;i<3u;++i)fprintf(output,"%s%u",i?",":"",variant_vtables[i]);
+    fprintf(output,"],\"actorCryptoShieldEffectsComplete\":%s",variants_ok?"true":"false");
+    dah_parity_farm_scalar(output,"actorCryptoGunModel",actor_ok,model);
+    dah_parity_farm_scalar(output,"actorCryptoGunModelVtable",model_header,model_vt);
+    dah_parity_farm_scalar(output,"actorCryptoGunModelAsset",model_ok,
+        model_ok?dah_parity_farm_word(model+0x28u):0u);
+    fputs(",\"actorCryptoGunModelBindingKeys\":[",output);
+    for(unsigned i=0;i<count;++i)fprintf(output,"%s%u",i?",":"",keys[i]);
+    fprintf(output,"],\"actorCryptoGunModelBindingDeclaredCount\":%u",declared);
+    fprintf(output,",\"actorCryptoGunModelBindingListComplete\":%s",bindings_ok?"true":"false");
+    fprintf(output,",\"actorCryptoGunModelComplete\":%s",
+        model_ok&&bindings_ok?"true":"false");
+    dah_parity_farm_scalar(output,"actorCryptoModelController",actor_ok,controller);
+    fprintf(output,",\"actorCryptoModelControllerComplete\":%s",controller_ok?"true":"false");
+    fputs(",\"actorCryptoModelVariants\":[",output);
+    for(unsigned i=0;i<3u;++i)fprintf(output,"%s%u",i?",":"",variants[i]);
+    fputs("],\"actorCryptoModelVariantVtables\":[",output);
+    for(unsigned i=0;i<3u;++i)fprintf(output,"%s%u",i?",":"",variant_vtables[i]);
+    fprintf(output,"],\"actorCryptoModelVariantsComplete\":%s",variants_ok?"true":"false");
+    dah_parity_farm_scalar(output,"actorCryptoModel",actor_ok,model);
+    dah_parity_farm_scalar(output,"actorCryptoModelVtable",model_header,model_vt);
+    dah_parity_farm_scalar(output,"actorCryptoModelAsset",model_ok,
+        model_ok?dah_parity_farm_word(model+0x28u):0u);
+    fputs(",\"actorCryptoModelBindingKeys\":[",output);
+    for(unsigned i=0;i<count;++i)fprintf(output,"%s%u",i?",":"",keys[i]);
+    fprintf(output,"],\"actorCryptoModelBindingDeclaredCount\":%u",declared);
+    fprintf(output,",\"actorCryptoModelBindingListComplete\":%s",bindings_ok?"true":"false");
+    fprintf(output,",\"actorCryptoModelComplete\":%s",
+        controller_ok&&variants_ok&&model_ok&&bindings_ok?"true":"false");
+}
+static void dah_parity_write_render_detail(FILE *output,uint32_t actor,
+    int actor_ok,const char *prefix)
+{
+    char name[64];
+    uint32_t actor_vt=actor_ok?dah_parity_farm_word(actor):0u;
+    int crypto_ok=actor_ok&&actor_vt==0x0022C9F8u&&dah_parity_farm_range(actor,0x16Cu);
+    snprintf(name,sizeof(name),"%sActorWindow",prefix);
+    dah_parity_farm_words(output,name,actor_ok&&dah_parity_farm_range(actor+0x100u,0xC0u),
+        actor+0x100u,0x30u);
+    if(crypto_ok){
+        uint32_t body_asset=dah_parity_farm_word(actor+0x28u);
+        int body_asset_ok=dah_parity_farm_range(body_asset,0x90u);
+        snprintf(name,sizeof(name),"%sCryptoBodyModelWords",prefix);
+        dah_parity_farm_words(output,name,1,actor,0x30u);
+        snprintf(name,sizeof(name),"%sCryptoBodyModelAssetWords",prefix);
+        dah_parity_farm_words(output,name,body_asset_ok,body_asset,0x24u);
+        snprintf(name,sizeof(name),"%sCryptoBodyStateControllerWords",prefix);
+        dah_parity_farm_words(output,name,1,actor+0x2Cu,0x0Cu);
+        dah_parity_write_model_bindings(output,actor,1,"actorCryptoBody");
+    }
+    uint32_t controller=crypto_ok?
+        dah_parity_farm_word(actor+0x164u):0u;
+    uint32_t model=crypto_ok?
+        dah_parity_farm_word(actor+0x168u):0u;
+    int controller_ok=crypto_ok&&dah_parity_farm_range(controller,0x28u)&&
+        dah_parity_farm_word(controller)==actor;
+    int model_header=crypto_ok&&dah_parity_farm_range(model,0x108u);
+    uint32_t model_vt=model_header?dah_parity_farm_word(model):0u;
+    int model_ok=model_header&&model_vt==0x0022FC10u;
+    uint32_t node=model_ok?dah_parity_farm_word(model+0x28u):0u;
+    int node_ok=dah_parity_farm_range(node,0x90u);
+    snprintf(name,sizeof(name),"%sCryptoModelControllerWords",prefix);
+    dah_parity_farm_words(output,name,controller_ok,controller,10u);
+    snprintf(name,sizeof(name),"%sCryptoModelWords",prefix);
+    dah_parity_farm_words(output,name,model_ok,model,0x42u);
+    snprintf(name,sizeof(name),"%sCryptoModelAssetWords",prefix);
+    dah_parity_farm_words(output,name,node_ok,node,0x24u);
+    dah_parity_write_model_bindings(output,model,model_ok,prefix);
+    for(unsigned i=0;i<3u;++i){
+        static const uint32_t expected[3]={0x0022DD58u,0x0022DDF0u,0x0022DE88u};
+        uint32_t variant=controller_ok?dah_parity_farm_word(controller+4u+i*4u):0u;
+        int variant_header=controller_ok&&dah_parity_farm_range(variant,0xC0u);
+        uint32_t variant_vt=variant_header?dah_parity_farm_word(variant):0u;
+        int variant_ok=variant_header&&variant_vt==expected[i]&&
+            dah_parity_farm_word(variant+0xBCu)==actor;
+        uint32_t variant_node=variant_ok?dah_parity_farm_word(variant+0x28u):0u;
+        int variant_node_ok=dah_parity_farm_range(variant_node,0x90u);
+        snprintf(name,sizeof(name),"%sCryptoModelVariant%u",prefix,i);
+        dah_parity_farm_scalar(output,name,controller_ok,variant);
+        snprintf(name,sizeof(name),"%sCryptoModelVariant%uWords",prefix,i);
+        dah_parity_farm_words(output,name,variant_ok,variant,0x30u);
+        snprintf(name,sizeof(name),"%sCryptoModelVariant%uNodeWords",prefix,i);
+        dah_parity_farm_words(output,name,variant_node_ok,variant_node,0x24u);
+        fprintf(output,",\"%sCryptoModelVariant%uComplete\":%s",prefix,i,
+            variant_ok&&variant_node_ok?"true":"false");
+    }
 }
 static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
 {
@@ -384,6 +1008,7 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     dah_parity_farm_scalar(output,"rngState",1,dah_parity_word(0x278A58u));
     dah_parity_farm_scalar(output,"cameraUpdate",1,dah_parity_word(0x258B48u)&255u);
     fputs(",\"rngStateComplete\":true,\"cameraUpdateComplete\":true",output);
+    dah_parity_write_active_layers(output);
     uint32_t control=dah_parity_word(0x25FCECu);
     int control_ok=dah_parity_farm_range(control,0x3Cu);
     uint32_t player=control_ok?dah_parity_farm_word(control+0x38u):0;
@@ -427,6 +1052,7 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     dah_parity_farm_scalar(output,"playerFocus",player_ok,player_ok?dah_parity_farm_word(player+0x30u):0);
     dah_parity_farm_scalar(output,"playerShip",player_ok,ship);
     dah_parity_farm_scalar(output,"playerShipVtable",ship_ok,ship_ok?dah_parity_farm_word(ship):0);
+    dah_parity_farm_words(output,"shipPositionBits",ship_ok,ship+0x14Cu,3);
     if (ship_ok&&getenv("DAH_PARITY_WEAPON_DETAIL"))
         dah_parity_farm_words(output,"playerShipWords",1,ship,0xA0u);
     dah_parity_farm_scalar(output,"shipWeaponManager",ship_ok,ship_weapon_manager);
@@ -483,7 +1109,13 @@ static void dah_parity_write_farm(FILE *output,uint32_t world,uint32_t renderer)
     fprintf(output,",\"playerComplete\":%s,\"actorComplete\":%s,\"moveStateComplete\":%s,\"movementMotionComplete\":%s",
         player_ok?"true":"false",actor_ok?"true":"false",movement_ok?"true":"false",
         movement_steering_ok?"true":"false");
-    dah_parity_write_actor_motion(output,actor,actor_ok);
+    dah_parity_write_actor_motion(output,actor,actor_ok,"actor");
+    dah_parity_write_actor_motion(output,ship,ship_ok,"ship");
+    dah_parity_write_crypto_model_summary(output,actor,actor_ok);
+    if(getenv("DAH_PARITY_RENDER_DETAIL")){
+        dah_parity_write_render_detail(output,actor,actor_ok,"actor");
+        dah_parity_write_render_detail(output,ship,ship_ok,"ship");
+    }
     int camera_header=dah_parity_farm_range(renderer,0xF0u);
     uint32_t node=camera_header?dah_parity_farm_word(renderer+0xECu):0;
     int camera_ok=camera_header&&dah_parity_farm_range(node,0x90u);

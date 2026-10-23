@@ -157,6 +157,80 @@ static HANDLE dah_frame_wait_timer;
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
+/* Opt-in host-only phase control for an exact live parity fixture.  The
+ * external coordinator can move the recomp's next pacing deadline later by a
+ * bounded amount without writing guest memory or changing the fixed timestep.
+ * It is absent from ordinary player runs. */
+#define DAH_PHASE_CONTROL_MAGIC 0x31504844u /* "DHP1" */
+typedef struct DahPhaseControl {
+    uint32_t magic;
+    volatile LONG sequence;
+    volatile LONG delay_us;
+    volatile LONG applied_sequence;
+} DahPhaseControl;
+static HANDLE dah_phase_mapping;
+static DahPhaseControl *dah_phase_control;
+
+static void dah_phase_control_init(void)
+{
+    const char *enabled = getenv("DAH_PARITY_PHASE_CONTROL");
+    char name[96];
+    DWORD created;
+    if (!enabled || !enabled[0] || !strcmp(enabled, "0")) return;
+    sprintf_s(name, sizeof(name), "Local\\DAH1ParityPhase-%lu",
+              (unsigned long)GetCurrentProcessId());
+    dah_phase_mapping = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL,
+                                            PAGE_READWRITE, 0,
+                                            sizeof(DahPhaseControl), name);
+    if (!dah_phase_mapping) {
+        fprintf(stderr, "[DAH-PARITY-PHASE] mapping-create-failed error=%lu\n",
+                (unsigned long)GetLastError());
+        fflush(stderr);
+        return;
+    }
+    created = GetLastError() != ERROR_ALREADY_EXISTS;
+    dah_phase_control = (DahPhaseControl *)MapViewOfFile(
+        dah_phase_mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(DahPhaseControl));
+    if (!dah_phase_control) {
+        fprintf(stderr, "[DAH-PARITY-PHASE] mapping-view-failed error=%lu\n",
+                (unsigned long)GetLastError());
+        fflush(stderr);
+        CloseHandle(dah_phase_mapping);
+        dah_phase_mapping = NULL;
+        return;
+    }
+    if (created || dah_phase_control->magic != DAH_PHASE_CONTROL_MAGIC) {
+        memset(dah_phase_control, 0, sizeof(*dah_phase_control));
+        dah_phase_control->magic = DAH_PHASE_CONTROL_MAGIC;
+    }
+    fprintf(stderr, "[DAH-PARITY-PHASE] ready name=%s\n", name);
+    fflush(stderr);
+}
+
+static void dah_phase_control_apply(void)
+{
+    LONG sequence, applied, delay_us;
+    if (!dah_phase_control ||
+        dah_phase_control->magic != DAH_PHASE_CONTROL_MAGIC) return;
+    sequence = InterlockedCompareExchange(&dah_phase_control->sequence, 0, 0);
+    applied = InterlockedCompareExchange(&dah_phase_control->applied_sequence, 0, 0);
+    if (sequence == applied) return;
+    delay_us = InterlockedCompareExchange(&dah_phase_control->delay_us, 0, 0);
+    if (delay_us >= 250 && delay_us <= 12000) {
+        frame.next_start += (double)delay_us / 1000000.0;
+        fprintf(stderr,
+                "[DAH-PARITY-PHASE] applied sequence=%ld delay-us=%ld loop=%u\n",
+                (long)sequence, (long)delay_us, guest_u32(0x0025B1DCu));
+        fflush(stderr);
+    } else {
+        fprintf(stderr,
+                "[DAH-PARITY-PHASE] rejected sequence=%ld delay-us=%ld\n",
+                (long)sequence, (long)delay_us);
+        fflush(stderr);
+    }
+    InterlockedExchange(&dah_phase_control->applied_sequence, sequence);
+}
+
 static int compare_interval(const void *left, const void *right)
 {
     const double a = *(const double *)left;
@@ -425,6 +499,10 @@ static void shutdown_timer(void)
 {
     if (dah_frame_wait_timer) CloseHandle(dah_frame_wait_timer);
     dah_frame_wait_timer = NULL;
+    if (dah_phase_control) UnmapViewOfFile(dah_phase_control);
+    dah_phase_control = NULL;
+    if (dah_phase_mapping) CloseHandle(dah_phase_mapping);
+    dah_phase_mapping = NULL;
     if (frame.timer_resolution) timeEndPeriod(frame.timer_resolution);
 }
 
@@ -507,6 +585,7 @@ void dah_frame_begin(void)
         if (timeBeginPeriod(1u) == TIMERR_NOERROR) frame.timer_resolution = 1u;
         dah_frame_wait_timer = CreateWaitableTimerExW(NULL, NULL,
                 CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        dah_phase_control_init();
         fprintf(stderr, "[DAH-FRAME-WAIT] high-resolution-timer=%d\n", dah_frame_wait_timer != NULL);
         atexit(shutdown_timer);
         now = clock_seconds();
@@ -517,6 +596,7 @@ void dah_frame_begin(void)
     if (GetCurrentThreadId() != frame.thread_id || frame.active) return;
 
     sample_policy();
+    dah_phase_control_apply();
     now = clock_seconds();
     /* DAH_FRAME_TURBO (internal test runs only): skip real-time pacing so
      * frames run back-to-back as fast as the CPU can compute them, instead
@@ -782,4 +862,34 @@ void dah_frame_end(void)
         frame.interval_count = 0;
     }
     frame.active = 0;
+
+    /* Internal parity runs are otherwise terminated by the host runner at an
+     * arbitrary instruction.  If that happens while a JSONL row is being
+     * emitted, the final evidence record is necessarily truncated.  An
+     * explicit host-frame bound exits only after the whole frame (including
+     * parity and event traces) has completed, allowing the CRT to flush and
+     * close every diagnostic stream.  This is unavailable to normal builds
+     * unless both internal-run controls are deliberately present. */
+    {
+        static int stop_initialized;
+        static uint64_t stop_host_frame;
+        if (!stop_initialized) {
+            const char *internal = getenv("DAH_INTERNAL_RUN");
+            const char *setting = getenv("DAH_INTERNAL_STOP_HOST_FRAME");
+            stop_initialized = 1;
+            if (internal && !strcmp(internal, "1") && setting && *setting)
+                stop_host_frame = (uint64_t)strtoull(setting, NULL, 10);
+            if (stop_host_frame)
+                fprintf(stderr,
+                    "[DAH-INTERNAL-STOP] armed host-frame=%llu\n",
+                    (unsigned long long)stop_host_frame);
+        }
+        if (stop_host_frame && g_dah_frame_serial >= stop_host_frame) {
+            fprintf(stderr,
+                "[DAH-INTERNAL-STOP] reached host-frame=%llu; clean exit\n",
+                (unsigned long long)g_dah_frame_serial);
+            fflush(NULL);
+            exit(EXIT_SUCCESS);
+        }
+    }
 }

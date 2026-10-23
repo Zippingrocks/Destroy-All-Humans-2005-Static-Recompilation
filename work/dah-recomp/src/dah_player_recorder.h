@@ -309,6 +309,7 @@ static void dah_player_recorder_automation_poll(void)
 {
     static int initialized;
     static int pending;
+    static int request_consumed;
     static char name[64];
     float x, y, z;
     if (!initialized) {
@@ -326,9 +327,42 @@ static void dah_player_recorder_automation_poll(void)
             fflush(stderr);
         }
     }
+    if (!pending && !request_consumed &&
+        g_dah_player_recorder_mode == DAH_PLAYER_RECORDER_IDLE) {
+        const char *request_path = getenv("DAH_PLAYER_REPLAY_REQUEST");
+        if (request_path && *request_path) {
+            FILE *request = fopen(request_path, "r");
+            if (request) {
+                char requested_name[64];
+                int extra;
+                requested_name[0] = '\0';
+                extra = fscanf(request, "%63s", requested_name);
+                fclose(request);
+                request_consumed = 1;
+                if (extra == 1 &&
+                    dah_player_recording_name_valid(requested_name)) {
+                    strcpy(name, requested_name);
+                    pending = 1;
+                    fprintf(stderr,
+                            "[DAH-PLAYER-REPLAY] external request waiting name=%s path=%s\n",
+                            name, request_path);
+                } else {
+                    fprintf(stderr,
+                            "[DAH-PLAYER-REPLAY] external request rejected path=%s\n",
+                            request_path);
+                }
+                fflush(stderr);
+            }
+        }
+    }
     if (!pending || g_dah_player_recorder_mode != DAH_PLAYER_RECORDER_IDLE ||
         dah_console_level_is_busy() ||
         !dah_dev_npc_player_position(&x, &y, &z)) return;
+    {
+        const char *barrier = getenv("DAH_PLAYER_REPLAY_BARRIER");
+        if (barrier && *barrier &&
+            GetFileAttributesA(barrier) == INVALID_FILE_ATTRIBUTES) return;
+    }
     pending = 0;
     dah_player_recorder_load_replay(name);
 }
