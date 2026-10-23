@@ -1,0 +1,40 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Destroy All Humans!",
+  "wikidata": "Q1200987",
+  "system": "Xbox",
+  "type": "recomp",
+  "original": {
+    "region": "USA"
+  },
+  "project": "Destroy All Humans! (2005) — Static Recompilation",
+  "status": "in-progress",
+  "targets": [
+    "Windows"
+  ],
+  "toolchain": "xboxrecomp",
+  "approach": "Static recompilation of the retail Xbox executable to native x86-64 with a game-specific XboxRecomp runtime.",
+  "maintainers": [
+    {
+      "name": "Zippingrocks",
+      "link": "https://github.com/Zippingrocks"
+    }
+  ],
+  "links": [
+    {
+      "label": "Coverage dashboard",
+      "url": "https://zippingrocks.github.io/Destroy-All-Humans-2005-Static-Recompilation/"
+    }
+  ],
+  "help": [
+    "Original Xbox rendering and effects parity",
+    "Audio output and synchronization",
+    "Campaign validation and long-session stability"
+  ],
+  "tags": [
+    "x86-64",
+    "Direct3D 11",
+    "XInput"
+  ],
+  "notes": "Boots through the original front end and into tested campaign areas. Scene-by-scene retail parity, effects, audio, later missions and long-session stability remain active work; no stable public player release is available yet."
+}
