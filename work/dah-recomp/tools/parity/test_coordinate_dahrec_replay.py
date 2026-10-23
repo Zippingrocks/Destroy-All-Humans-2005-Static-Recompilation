@@ -27,6 +27,7 @@ class CoordinatorReadinessTests(unittest.TestCase):
             "actorPositionBits": [float_bits(value) for value in position],
         }
         return {
+            "at": MODULE.time.time(),
             "captureAligned": True,
             "presentationAligned": True,
             "divergent": False,
@@ -44,18 +45,21 @@ class CoordinatorReadinessTests(unittest.TestCase):
             self.status((20.0, 2.0, 3.0)), r"blocks\sites\farm", (1.0, 2.0, 3.0), 0.01
         ))
 
-    def test_rejects_visual_or_semantic_divergence(self):
-        for field, value in (
-            ("presentationAligned", False),
-            ("divergent", True),
-            ("semanticDiff", {"rngState": {}}),
-        ):
-            with self.subTest(field=field):
-                status = self.status()
-                status[field] = value
-                self.assertFalse(MODULE.ready(
-                    status, r"blocks\sites\farm", (1.0, 2.0, 3.0), 0.01
-                ))
+    def test_preexisting_divergence_does_not_hide_the_recorded_checkpoint(self):
+        status = self.status()
+        status["presentationAligned"] = False
+        status["divergent"] = True
+        status["semanticDiff"] = {"rngState": {}}
+        self.assertTrue(MODULE.ready(
+            status, r"blocks\sites\farm", (1.0, 2.0, 3.0), 0.01
+        ))
+
+    def test_stale_status_is_rejected(self):
+        status = self.status()
+        status["at"] -= 1.0
+        self.assertFalse(MODULE.ready(
+            status, r"blocks\sites\farm", (1.0, 2.0, 3.0), 0.01
+        ))
 
 
 if __name__ == "__main__":

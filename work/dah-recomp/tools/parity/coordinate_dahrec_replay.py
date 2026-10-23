@@ -79,9 +79,8 @@ def bits_position(identity: dict | None) -> tuple[float, float, float] | None:
 
 
 def ready(status: dict, backend: str, expected: tuple[float, float, float], tolerance: float) -> bool:
-    if not (status.get("captureAligned") is True and status.get("presentationAligned") is True):
-        return False
-    if status.get("divergent") or status.get("semanticDiff") or status.get("drift"):
+    age = time.time() - float(status.get("at", 0))
+    if not 0 <= age <= 0.5:
         return False
     identities = (status.get("referenceIdentity"), status.get("nativeIdentity"))
     for identity in identities:
@@ -177,7 +176,13 @@ def main() -> int:
         process_gate(native_pid, False)
         native_suspended = False
         write_status(args.status, state="replaying", adapterPid=adapter.pid,
-                     releasedAt=time.time(), acceptedAlignmentAt=accepted.get("at"))
+                     releasedAt=time.time(), acceptedAlignmentAt=accepted.get("at"),
+                     startingBlockers={
+                         "semanticDiff": accepted.get("semanticDiff") or {},
+                         "drift": accepted.get("drift") or {},
+                         "captureAligned": accepted.get("captureAligned") is True,
+                         "presentationAligned": accepted.get("presentationAligned") is True,
+                     })
         exit_code = adapter.wait(timeout=1800)
         if exit_code != 0:
             raise RuntimeError(f"xemu replay adapter exited with {exit_code}")
