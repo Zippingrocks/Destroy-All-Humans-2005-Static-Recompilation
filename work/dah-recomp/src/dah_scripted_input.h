@@ -5,20 +5,26 @@
  * interprets their start/duration values as retail main-loop frames;
  * this keeps accelerated tests deterministic across variable movie/load
  * completion. "@frame" uses the absolute retail main-loop counter at
- * 0025B1DC for subsequent rows, also observable in xemu. This mode does not
+ * 0025B1DC for subsequent rows, also observable in xemu. "@relative-frame"
+ * anchors that counter when the route is loaded so a captured short sequence
+ * can run from an already matched state in either engine. These modes do not
  * run the gameplay movement probe. "@holobob-idle" gates subsequent rows on
  * an equipped, inactive Holobob; "@always" clears that gate. These directives
  * let randomized NPC routes retry acquisition without injecting inputs after
  * success. No host input devices are accessed. */
 static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
 {
-    struct dah_input_event { unsigned start, duration, buttons, a, b, x, y, black, white, lt, rt; int lx, ly, rx, ry; int logged, relative_gameplay, absolute_frame, holobob_idle; };
-    static struct dah_input_event events[128];
+    enum { DAH_INPUT_EVENT_LIMIT = 4096 };
+    struct dah_input_event { unsigned start, duration, buttons, a, b, x, y, black, white, lt, rt; int lx, ly, rx, ry; int logged, relative_gameplay, absolute_frame, relative_frame, holobob_idle; };
+    static struct dah_input_event events[DAH_INPUT_EVENT_LIMIT];
     static unsigned count;
     static int loaded;
     static int has_gameplay_relative;
     static unsigned gameplay_ready_polls;
     static uint64_t gameplay_anchor_frame;
+    static uint32_t relative_frame_anchor;
+    static int relative_frame_anchored;
+    static int relative_frame_barrier_reported;
     static float gameplay_initial_x, gameplay_initial_y, gameplay_initial_z;
     static int gameplay_position_baseline, gameplay_position_moved;
     static unsigned gameplay_probe_settle, gameplay_probe_phase;
@@ -47,6 +53,9 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
             has_gameplay_relative = 0;
             gameplay_ready_polls = 0;
             gameplay_anchor_frame = 0;
+            relative_frame_anchor = 0;
+            relative_frame_anchored = 0;
+            relative_frame_barrier_reported = 0;
             gameplay_position_baseline = 0;
             gameplay_position_moved = 0;
             gameplay_probe_settle = 0;
@@ -63,6 +72,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                 char line[256];
                 int relative_gameplay = 0;
                 int absolute_frame = 0;
+                int relative_frame = 0;
                 int holobob_idle = 0;
                 while (fgets(line, sizeof(line), file)) {
                     struct dah_input_event event = {0};
@@ -71,6 +81,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                         (line[9] == '\0' || line[9] == '\n' || line[9] == '\r' || line[9] == ' ' || line[9] == '\t')) {
                         relative_gameplay = 1;
                         absolute_frame = 0;
+                        relative_frame = 0;
                         has_gameplay_relative = 1;
                         continue;
                     }
@@ -78,6 +89,14 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                         (line[6] == '\0' || line[6] == '\n' || line[6] == '\r' || line[6] == ' ' || line[6] == '\t')) {
                         relative_gameplay = 0;
                         absolute_frame = 1;
+                        relative_frame = 0;
+                        continue;
+                    }
+                    if (!strncmp(line, "@relative-frame", 15) &&
+                        (line[15] == '\0' || line[15] == '\n' || line[15] == '\r' || line[15] == ' ' || line[15] == '\t')) {
+                        relative_gameplay = 0;
+                        absolute_frame = 1;
+                        relative_frame = 1;
                         continue;
                     }
                     if (!strncmp(line, "@holobob-idle", 13) &&
@@ -94,7 +113,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                     int fields = sscanf(line, "%u %u %x %u %u %d %d %d %d %u %u %u %u %u %u %c", &event.start, &event.duration,
                         &event.buttons, &event.a, &event.b, &event.lx, &event.ly, &event.rx, &event.ry,
                         &event.x, &event.y, &event.black, &event.white, &event.lt, &event.rt, &extra);
-                    if (count >= 128 || (fields != 9 && fields != 10 && fields != 15) ||
+                    if (count >= DAH_INPUT_EVENT_LIMIT || (fields != 9 && fields != 10 && fields != 15) ||
                         event.duration == 0 || event.duration > 100000 || event.start > 10000000 ||
                         event.buttons > 0xffff || event.a > 255 || event.b > 255 || event.x > 255 ||
                         event.y > 255 || event.black > 255 || event.white > 255 ||
@@ -107,6 +126,7 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                     }
                     event.relative_gameplay = relative_gameplay;
                     event.absolute_frame = absolute_frame;
+                    event.relative_frame = relative_frame;
                     event.holobob_idle = holobob_idle;
                     events[count++] = event;
                 }
@@ -191,7 +211,8 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
         const char *value = getenv("DAH_INPUT_MEMDIFF_EVENT");
         char *end = NULL;
         unsigned long parsed = value && *value ? strtoul(value, &end, 10) : 0;
-        memdiff_target = value && *value && end && !*end && parsed < 128 ? (int)parsed : -1;
+        memdiff_target = value && *value && end && !*end &&
+                         parsed < DAH_INPUT_EVENT_LIMIT ? (int)parsed : -1;
         if (memdiff_target >= 0)
             fprintf(stderr, "[DAH-INPUT-MEMDIFF] armed event=%d\n", memdiff_target);
     }
@@ -199,10 +220,32 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
         struct dah_input_event *event = &events[i];
         uint64_t clock_value, event_start;
         if (event->relative_gameplay && !gameplay_anchor_frame) continue;
+        if (event->relative_frame && !relative_frame_anchored) {
+            const char *barrier = getenv("DAH_INPUT_BARRIER");
+            if (barrier && *barrier && GetFileAttributesA(barrier) == INVALID_FILE_ATTRIBUTES) {
+                if (!relative_frame_barrier_reported) {
+                    fprintf(stderr,
+                            "[DAH-INPUT-SCRIPT] relative-frame waiting barrier=%s\n",
+                            barrier);
+                    relative_frame_barrier_reported = 1;
+                }
+                continue;
+            }
+            relative_frame_anchor = MEM32(0x0025B1DCu);
+            relative_frame_anchored = 1;
+            fprintf(stderr,
+                    "[DAH-INPUT-SCRIPT] relative-frame-anchor loop=%u barrier=%s\n",
+                    relative_frame_anchor,
+                    barrier && *barrier ? barrier : "none");
+        }
         clock_value = event->relative_gameplay ? dah_frame_serial() : g_dah_input_state_calls;
         /* Menu code polls more than once per frame. @frame uses the retail
          * loop counter at driver+0xC, also directly readable in xemu. */
-        if (event->absolute_frame) clock_value = MEM32(0x0025B1DCu);
+        if (event->absolute_frame) {
+            clock_value = MEM32(0x0025B1DCu);
+            if (event->relative_frame)
+                clock_value -= relative_frame_anchor;
+        }
         event_start = event->relative_gameplay ? gameplay_anchor_frame + event->start : event->start;
         if (clock_value < event_start || clock_value - event_start >= event->duration) continue;
         if (event->holobob_idle) {
@@ -261,10 +304,11 @@ static void dah_apply_scripted_input(XBOX_INPUT_STATE *state)
                                       control_system <= 0x08000000u - 0x3Cu ?
                                       MEM32(control_system + 0x38u) : 0u;
             event->logged = 1;
-            fprintf(stderr, "[DAH-INPUT-SCRIPT] event=%u call=%u frame=%llu duration=%u buttons=%04X A=%u B=%u X=%u sticks=%d,%d,%d,%d extended=Y:%u,BLACK:%u,WHITE:%u,LT:%u,RT:%u relative_gameplay=%d\n",
+            fprintf(stderr, "[DAH-INPUT-SCRIPT] event=%u call=%u frame=%llu duration=%u buttons=%04X A=%u B=%u X=%u sticks=%d,%d,%d,%d extended=Y:%u,BLACK:%u,WHITE:%u,LT:%u,RT:%u relative_gameplay=%d relative_frame=%d\n",
                 i, g_dah_input_state_calls, (unsigned long long)dah_frame_serial(), event->duration, event->buttons, event->a, event->b,
                 event->x, event->lx, event->ly, event->rx, event->ry, event->y, event->black,
-                event->white, event->lt, event->rt, event->relative_gameplay);
+                event->white, event->lt, event->rt, event->relative_gameplay,
+                event->relative_frame);
             if (control_player >= 0x10000u &&
                 control_player <= 0x08000000u - 0x60u) {
                 uint32_t focus = MEM32(control_player + 0x30u);

@@ -7392,6 +7392,74 @@ static int dah_ui_under_tutorial(uint32_t object)
     return 0;
 }
 
+/* Read-only transition tracing for the few UI handlers involved in the
+ * mothership-to-site handoff.  This is deliberately opt-in and records the
+ * retail GUI::Handler::SetActive caller rather than changing presentation
+ * state. */
+static int dah_ui_active_trace_enabled = -1;
+
+static int dah_ui_name_equals(uint32_t object, const char *name)
+{
+    unsigned i;
+    if (!object || !name) return 0;
+    for (i = 0u; i < 40u; ++i) {
+        unsigned char actual = MEM8(object + 0x0Cu + i);
+        unsigned char expected = (unsigned char)name[i];
+        if (actual != expected) return 0;
+        if (!expected) return 1;
+    }
+    return name[40] == 0;
+}
+
+static int dah_ui_is_transition_handler(uint32_t object)
+{
+    unsigned depth;
+    for (depth = 0u; object && depth < 8u; ++depth) {
+        if (dah_ui_name_equals(object, "fade") ||
+            dah_ui_name_equals(object, "loading") ||
+            dah_ui_name_equals(object, "loadingText") ||
+            dah_ui_name_equals(object, "loadingMesh") ||
+            dah_ui_name_equals(object, "cinematic") ||
+            dah_ui_name_equals(object, "titlecard"))
+            return 1;
+        object = MEM32(object + 8u);
+    }
+    return 0;
+}
+
+static void dah_ui_trace_event(const char *kind, uint32_t object,
+                               uint32_t event, uint32_t caller)
+{
+    static uint32_t trace_count;
+    uint32_t parent, grandparent;
+    if (dah_ui_active_trace_enabled < 0)
+        dah_ui_active_trace_enabled = getenv("DAH_UI_ACTIVE_TRACE") ? 1 : 0;
+    if (!dah_ui_active_trace_enabled || trace_count >= 4096u ||
+        !dah_ui_is_transition_handler(object))
+        return;
+    parent = MEM32(object + 8u);
+    grandparent = parent ? MEM32(parent + 8u) : 0u;
+    ++trace_count;
+    fprintf(stderr,
+        "[DAH-UI-%s] call=%u loop=%u caller=%08X object=%08X "
+        "name=%08X:%08X:%08X active=%u event=%08X code=%u "
+        "event8=%08X eventC=%08X state=%08X parent=%08X "
+        "parent_name=%08X:%08X grandparent=%08X "
+        "grandparent_name=%08X:%08X\n",
+        kind, trace_count, MEM32(0x25B1DCu), caller, object,
+        MEM32(object + 0x0Cu), MEM32(object + 0x10u),
+        MEM32(object + 0x14u), MEM8(object + 4u), event,
+        event ? MEM32(event + 4u) : 0u,
+        event ? MEM32(event + 8u) : 0u,
+        event ? MEM32(event + 0x0Cu) : 0u,
+        MEM32(object + 0x134u), parent,
+        parent ? MEM32(parent + 0x0Cu) : 0u,
+        parent ? MEM32(parent + 0x10u) : 0u,
+        grandparent,
+        grandparent ? MEM32(grandparent + 0x0Cu) : 0u,
+        grandparent ? MEM32(grandparent + 0x10u) : 0u);
+}
+
 static void dah_tutorial_trace_tree(uint32_t object, unsigned depth)
 {
     uint32_t sentinel, node;
@@ -7922,6 +7990,8 @@ loc_000F93E2: ;
  */
 void sub_000F93F0(void)
 {
+    dah_ui_trace_event("ROOT-EVENT-TRANSITION", ecx, MEM32(esp + 4u),
+                       MEM32(esp));
     if (MEM32(esp + 4u) && MEM32(MEM32(esp + 4u) + 4u) == 9u) {
         int dah_hub_kind = 0;
         if (dah_hub_render_trace_take(ecx, &dah_hub_kind))
@@ -13698,6 +13768,26 @@ loc_000FBC4F: ;
  */
 void sub_000FBC60(void)
 {
+    if (dah_ui_active_trace_enabled < 0)
+        dah_ui_active_trace_enabled = getenv("DAH_UI_ACTIVE_TRACE") ? 1 : 0;
+    if (dah_ui_active_trace_enabled &&
+        MEM8(ecx + 4u) != MEM8(esp + 4u) &&
+        dah_ui_is_transition_handler(ecx)) {
+        uint32_t parent = MEM32(ecx + 8u);
+        uint32_t grandparent = parent ? MEM32(parent + 8u) : 0u;
+        fprintf(stderr,
+            "[DAH-UI-SETACTIVE] loop=%u caller=%08X object=%08X "
+            "name=%08X:%08X:%08X old=%u new=%u parent=%08X "
+            "parent_name=%08X:%08X grandparent=%08X grandparent_name=%08X:%08X\n",
+            MEM32(0x25B1DCu), MEM32(esp), ecx,
+            MEM32(ecx + 0x0Cu), MEM32(ecx + 0x10u), MEM32(ecx + 0x14u),
+            MEM8(ecx + 4u), MEM8(esp + 4u), parent,
+            parent ? MEM32(parent + 0x0Cu) : 0u,
+            parent ? MEM32(parent + 0x10u) : 0u,
+            grandparent,
+            grandparent ? MEM32(grandparent + 0x0Cu) : 0u,
+            grandparent ? MEM32(grandparent + 0x10u) : 0u);
+    }
     int _flags = 0; /* fallback flag var */
     uint32_t _fa = 0, _fb = 0;
     int32_t _fas = 0, _fbs = 0;
@@ -30462,6 +30552,8 @@ loc_00103413: ;
  */
 void sub_00103420(void)
 {
+    dah_ui_trace_event("CHILD-EVENT-TRANSITION", ecx, MEM32(esp + 4u),
+                       MEM32(esp));
     static uint32_t dah_child_event_calls;
     if (dah_child_event_calls++ < 24u) {
         fprintf(stderr, "[DAH-UI-CHILD-EVENT] call=%u object=%08X arg=%08X active=%u state=%08X\n",

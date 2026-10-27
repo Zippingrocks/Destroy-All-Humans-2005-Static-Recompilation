@@ -444,3 +444,40 @@ needs to be found and given a proper wait/synchronization, which needs a
 real debugger (or the project's Python tooling once available) to trace
 forward from `sub_000CFE20`'s caller. Both diagnostics are left in place as
 permanent opt-in aids for whoever picks this up.
+
+## Player input recording and deterministic replay
+
+The player recorder captures the **final logical Xbox controller packet** at
+the same `XInputGetState` bridge consumed by the retail game. It records every
+port-0 poll, its retail main-loop offset, packet number, digital buttons, all
+eight analog buttons, and both sticks. It does not record video or personal
+desktop data.
+
+Start from stable on-foot gameplay with Crypto idle, open the console, and use:
+
+```text
+player_record farm_pk_test
+player_record stop
+player_replay farm_pk_test
+player_replay stop
+```
+
+Close the console after arming a recording or replay. Files are stored under
+`%LOCALAPPDATA%\DestroyAllHumansRecomp\recordings` and are never uploaded.
+Names are restricted to letters, numbers, `-`, and `_`. Existing recordings
+are not overwritten. The runtime checkpoints a checksum-verified prefix every
+300 polls so a game crash loses at most the uncommitted tail.
+
+Replay requires Crypto to begin within two world units of the recorded start.
+It then requires every controller poll to occur on the recorded retail-loop
+offset. Any timing divergence stops replay and writes the expected and observed
+loop offsets to `furonlog.log`; it does not continue driving a different game
+state. Open the console and enter `player_replay stop`, or hold BACK+START on a
+physical controller, to abort. After the last packet the replay releases input
+back to the player.
+
+For unattended runs, set `DAH_PLAYER_REPLAY=<recording-name>` before launch.
+The runtime waits for stable on-foot gameplay, validates the starting position,
+and then arms the same guarded replay path. Existing event, crash, frame-time,
+and parity watchers can correlate failures using the
+`[DAH-PLAYER-REPLAY]` records in the log.

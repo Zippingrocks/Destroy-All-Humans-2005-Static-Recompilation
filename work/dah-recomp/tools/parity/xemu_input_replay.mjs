@@ -13,7 +13,10 @@ import {readCinematicState,CINEMATIC_MAX_READS,CINEMATIC_MAX_BYTES} from './xemu
 import {readUiState,UI_STATE_MAX_READS,UI_STATE_MAX_BYTES} from './xemu_ui_state.mjs';
 const args=process.argv.slice(2);
 const option=(key,fallback)=>args.includes(key)?args[args.indexOf(key)+1]:fallback;
-const script=option('--script'),out=option('--out');
+const script=option('--script'),dahrec=option('--dahrec'),out=option('--out');
+const barrier=option('--barrier');
+const readyFile=option('--ready-file');
+const startFile=option('--start-file');
 const stateOut=option('--state-out'),stateInterval=Number(option('--state-interval','1'));
 const holobobState=args.includes('--holobob-state');
 const physicsQuatOut=option('--physics-quat-out');
@@ -37,8 +40,12 @@ const captureInventoryMs=Number(option('--capture-inventory-ms','100'));
 const captureCinematicSeconds=captureCinematicRaw?captureCinematicRaw.split(',').map(Number):[];
 const stateLimit=30000;
 const port=Number(option('--port','1235')),seconds=Number(option('--seconds','30'));
-if(!script||!out||fs.existsSync(out))throw new Error('--script and new --out are required');
-if(!Number.isFinite(seconds)||seconds<1||seconds>300)throw new Error('Invalid seconds');
+if((Boolean(script)===Boolean(dahrec))||!out||fs.existsSync(out))throw new Error('exactly one of --script or --dahrec and a new --out are required');
+if(args.includes('--barrier')&&!barrier)throw new Error('--barrier requires a path');
+if(args.includes('--ready-file')&&!readyFile)throw new Error('--ready-file requires a new path');
+if(readyFile&&fs.existsSync(readyFile))throw new Error('--ready-file must be new');
+if(args.includes('--start-file')&&!startFile)throw new Error('--start-file requires a path');
+if(!Number.isFinite(seconds)||seconds<1||seconds>3600)throw new Error('Invalid seconds');
 if(!Number.isSafeInteger(stateInterval)||stateInterval<1||stateInterval>1000000)throw new Error('Invalid --state-interval');
 if(args.includes('--state-interval')&&!stateOut)throw new Error('--state-interval requires --state-out');
 if(holobobState&&!stateOut)throw new Error('--holobob-state requires --state-out');
@@ -68,10 +75,31 @@ if(args.includes('--movement-watch-out')&&!movementWatchOut)throw new Error('--m
 if(movementWatchOut&&(fs.existsSync(movementWatchOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut,velocityStageOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(movementWatchOut).toLowerCase())))throw new Error('--movement-watch-out must be new and different from other outputs');
 if(args.includes('--placement-trace-out')&&!placementTraceOut)throw new Error('--placement-trace-out requires a new JSONL path');
 if(placementTraceOut&&(fs.existsSync(placementTraceOut)||[out,stateOut,physicsQuatOut,velocityOut,velocitySourceOut,velocityStageOut,movementWatchOut].filter(Boolean).some(value=>path.resolve(value).toLowerCase()===path.resolve(placementTraceOut).toLowerCase())))throw new Error('--placement-trace-out must be new and different from other outputs');
-const events=[];let clockMode='poll';
-for(const raw of fs.readFileSync(script,'utf8').split(/\r?\n/)){
+const events=[];let clockMode='poll',relativeFrameRoute=false,directRecording=null;
+function fnv1a(bytes){let value=2166136261;for(const byte of bytes){value^=byte;value=Math.imul(value,16777619)>>>0;}return value;}
+if(dahrec){
+ const bytes=fs.readFileSync(dahrec);
+ if(bytes.length<64||bytes.subarray(0,8).toString('hex')!=='4441485245433100')throw new Error('Invalid DAHREC1 header');
+ const version=bytes.readUInt32LE(8),headerSize=bytes.readUInt32LE(12),sampleSize=bytes.readUInt32LE(16);
+ const sampleCount=bytes.readUInt32LE(20),expectedChecksum=bytes.readUInt32LE(24),flags=bytes.readUInt32LE(28);
+ const end=headerSize+sampleCount*sampleSize;
+ if(version!==1||headerSize!==64||sampleSize!==32||flags!==0||sampleCount<1||sampleCount>5000000||bytes.length<end)throw new Error('Unsupported or truncated DAHREC1 recording');
+ const payload=bytes.subarray(headerSize,end),actualChecksum=fnv1a(payload);
+ if(actualChecksum!==expectedChecksum)throw new Error(`DAHREC1 checksum mismatch expected=${expectedChecksum.toString(16)} actual=${actualChecksum.toString(16)}`);
+ const samples=[];let previous=-1;
+ for(let offset=headerSize,index=0;index<sampleCount;offset+=sampleSize,index++){
+  const loop=bytes.readUInt32LE(offset),portValue=bytes[offset+26];
+  if(loop!==index||loop<=previous||portValue!==0)throw new Error(`DAHREC1 sample ${index} has unsupported timeline or port`);
+  const pad=Buffer.alloc(22);bytes.copy(pad,0,offset+4,offset+26);
+  samples.push({loop,pad});previous=loop;
+ }
+ directRecording={samples,checksum:expectedChecksum,startPosition:[bytes.readFloatLE(32),bytes.readFloatLE(36),bytes.readFloatLE(40)]};
+ relativeFrameRoute=true;clockMode='frame';
+}
+for(const raw of script?fs.readFileSync(script,'utf8').split(/\r?\n/):[]){
  const line=raw.trim();if(!line||line.startsWith('#'))continue;
  if(line==='@frame'){clockMode='frame';continue;}
+ if(line==='@relative-frame'){clockMode='frame';relativeFrameRoute=true;continue;}
  if(line==='@gameplay'){clockMode='gameplay';continue;}
  const fields=line.split(/\s+/);if(![9,10,15].includes(fields.length))throw new Error('Invalid input row');
  if(fields.some((v,i)=>!(i===2?/^(?:0x)?[0-9a-f]+$/i:/^-?\d+$/).test(v)))throw new Error('Invalid numeric token');
@@ -102,7 +130,7 @@ const velocitySite=0x12bb30;
 const velocitySourceSite=0x52070;
 const velocityStageSites=new Map([[0x5481f,'afterDirection'],[0x54836,'afterHeading'],[0x5487a,'afterAdjustment']]);
 const placementSite=0x63770;
-const armed=[];let running=false,anchor=0,packet=0,lastPad='',samples=0;
+const armed=[];let running=false,anchor=0,anchorPending=false,packet=0,lastPad='',samples=0,directFinished=false;
 let gameplayAnchor=null,gameplayReadySamples=0,lastGameplayProbeLoop=null;
 let stateSamples=0,lastStateLoop=null;
 let physicsQuatArmed=false,physicsQuatSamples=0;
@@ -112,8 +140,9 @@ let velocityStageArmed=false,velocityStageSamples=0;
 let movementWatchAddress=0,movementWatchArmed=false,movementWatchSamples=0;
 let placementTraceArmed=false,placementTraceSamples=0;
 let nextCinematicCapture=0;
-const trace={schema:1,source:'xemu-logical-pad',script,port,startedAt:new Date().toISOString(),events:[],
+const trace={schema:1,source:'xemu-logical-pad',script:script||null,dahrec:dahrec||null,port,barrier:barrier||null,startedAt:new Date().toISOString(),events:[],
  limitation:'Synthetic XPP API results; excludes hardware-controller fidelity and wall-clock timing due to debugger stops'};
+if(directRecording)trace.recording={format:'DAHREC1',samples:directRecording.samples.length,checksum:directRecording.checksum,startPosition:directRecording.startPosition,packetNumbersPreserved:true};
 if(stateOut)trace.stateObservation={path:stateOut,phase:'XInputGetState',timingPerturbed:true,
  interval:stateInterval,limit:stateLimit,inputSampling:'before-controller-result',
  cinematicState,cinematicAdditionalReadBudget:cinematicState?{reads:CINEMATIC_MAX_READS,bytes:CINEMATIC_MAX_BYTES}:null};
@@ -163,8 +192,11 @@ try{
  if(!/^[0-9a-f]{10}$/i.test(codeReply))throw new Error(`Guest code probe failed: ${codeReply}`);
  const code=Buffer.from(codeReply,'hex');
  if(code.toString('hex')!=='e85bd6ffff')throw new Error(`Unexpected retail loop bytes: ${code.toString('hex')}`);
- anchor=args.includes('--relative')?(await read(0x25b1dc,4)).readUInt32LE():0;
- trace.anchor=anchor;
+ anchorPending=Boolean(barrier&&(args.includes('--relative')||relativeFrameRoute));
+ anchor=(args.includes('--relative')||relativeFrameRoute)&&!anchorPending?(await read(0x25b1dc,4)).readUInt32LE():0;
+ trace.anchor=anchorPending?null:anchor;
+ trace.barrierReleased=!anchorPending;
+ trace.relativeFrameRoute=relativeFrameRoute;
  if(movementWatchFd!==null){
   const control=(await read(0x25fcec,4)).readUInt32LE();
   const player=control?(await read(control+0x38,4)).readUInt32LE():0;
@@ -181,6 +213,12 @@ try{
   armed.push(placementSite);placementTraceArmed=true;
  }
  const deadline=performance.now()+seconds*1000;
+ if(readyFile)fs.writeFileSync(readyFile,JSON.stringify({schema:1,readyAt:new Date().toISOString(),port,barrier:barrier||null,dahrec:dahrec||null})+'\n',{flag:'wx'});
+ if(startFile){
+  const startDeadline=performance.now()+120000;
+  while(!fs.existsSync(startFile)&&performance.now()<startDeadline)await new Promise(resolve=>setTimeout(resolve,5));
+  if(!fs.existsSync(startFile))throw new Error('Timed out waiting for --start-file');
+ }
  rsp.resume();running=true;
  while(performance.now()<deadline){
   let stop;try{stop=await rsp.nextPacket(Math.max(1,deadline-performance.now()));}catch(error){if(error.message.includes('timed out'))break;throw error;}
@@ -288,6 +326,10 @@ try{
   const stack=await read(esp,20),ret=stack.readUInt32LE(0);let result=0;
   if(site[0]==='state'){
    const loop=(await read(0x25b1dc,4)).readUInt32LE(),pad=Buffer.alloc(22);
+   if(anchorPending&&fs.existsSync(barrier)){
+    anchor=loop;anchorPending=false;trace.anchor=anchor;trace.barrierReleased=true;
+    trace.barrierReleasedAt=new Date().toISOString();
+   }
    const relativeFrame=loop-anchor;
    if(hasGameplayEvents&&gameplayAnchor===null&&loop!==lastGameplayProbeLoop&&loop%5===0){
     const gameplay=await readFarmState(read,loop,anchor);
@@ -360,7 +402,14 @@ try{
     fs.writeSync(stateFd,JSON.stringify({...observation,sample:stateSamples,observedAt:new Date().toISOString()})+'\n');
     lastStateLoop=loop;++stateSamples;
    }
+   if(directRecording&&!anchorPending){
+    const relative=loop-anchor;
+    const sample=directRecording.samples[relative];
+    if(!sample||sample.loop!==relative)throw new Error(`DAHREC1 timeline divergence at relative loop ${relative}`);
+    sample.pad.copy(pad);
+   }
    for(const event of events){
+    if(anchorPending&&event.clockMode==='frame')continue;
     if(event.clockMode==='gameplay'&&gameplayAnchor===null)continue;
     const clock=event.clockMode==='poll'?samples:
      event.clockMode==='gameplay'?loop-gameplayAnchor:loop-anchor;
@@ -370,12 +419,15 @@ try{
     event.sticks.forEach((v,i)=>{if(v)pad.writeInt16LE(v,14+i*2);});
    }
    const signature=pad.subarray(4).toString('hex');
-   if(signature!==lastPad){lastPad=signature;++packet;trace.events.push({loop,relativeFrame:loop-anchor,pad:signature});}
-   pad.writeUInt32LE(packet,0);await write(stack.readUInt32LE(8),pad);++samples;
+   if(signature!==lastPad){lastPad=signature;if(!directRecording)++packet;trace.events.push({loop,relativeFrame:loop-anchor,pad:signature});}
+   if(!directRecording)pad.writeUInt32LE(packet,0);
+   await write(stack.readUInt32LE(8),pad);++samples;
+   if(directRecording&&!anchorPending&&loop-anchor+1>=directRecording.samples.length){trace.recording.completed=true;directFinished=true;}
   }
   registers.writeUInt32LE(result>>>0,0);registers.writeUInt32LE(esp+4+site[1],16);registers.writeUInt32LE(ret,32);
   if(await rsp.packet('G'+registers.toString('hex'))!=='OK')throw new Error('Controller return rejected');
   rsp.resume();running=true;
+  if(directFinished)break;
  }
  if(!samples)throw new Error('No controller polls observed; bind the isolated keyboard device before replay');
 }catch(error){trace.error=error.message;process.exitCode=1;}

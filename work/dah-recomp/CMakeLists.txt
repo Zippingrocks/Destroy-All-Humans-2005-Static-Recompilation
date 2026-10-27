@@ -90,9 +90,14 @@ add_executable(dah_xinput_probe tools/probe_xinput.c)
 target_link_libraries(dah_xinput_probe PRIVATE xinput)
 add_executable(dah_rockwell_vehicle_vsh_dump tools/dump_rockwell_vehicle_vsh.c)
 target_link_libraries(dah_rockwell_vehicle_vsh_dump PRIVATE xbox_d3d8)
+add_executable(dah_player_recording_test tools/test_player_recording.c)
+target_include_directories(dah_player_recording_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 enable_testing()
 add_test(NAME dah_keyboard_mapping COMMAND dah_keyboard_mapping_test)
 add_test(NAME dah_stick_conditioner COMMAND dah_stick_conditioner_test)
+add_test(NAME dah_player_recording COMMAND dah_player_recording_test)
 
 if(MSVC)
     target_compile_options(DestroyAllHumans PRIVATE /bigobj /W0 /MP)

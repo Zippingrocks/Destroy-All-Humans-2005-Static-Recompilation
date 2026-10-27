@@ -1,0 +1,37 @@
+[general]
+show_welcome = false
+skip_boot_anim = true
+
+[general.updates]
+check = false
+
+[input]
+background_input_capture = true
+auto_bind = false
+gamepad_mappings = [
+    { gamepad_id = '__CONTROLLER_ID__' }
+]
+
+[input.bindings]
+port1_driver = 'usb-xbox-gamepad'
+port1 = '__CONTROLLER_ID__'
+
+[display.quality]
+surface_scale = 1
+
+[display.window]
+startup_size = '640x480'
+vsync = false
+
+[display.ui]
+aspect_ratio = '4x3'
+
+[sys]
+mem_limit = '64'
+
+[sys.files]
+bootrom_path = 'C:\Users\Bilbo\Desktop\Emulation\XEMU\Boot ROM image\mcpx_1.0.bin'
+flashrom_path = 'C:\Users\Bilbo\Desktop\Emulation\XEMU\BIOS\Complex_4627v1.03.bin'
+eeprom_path = '__EEPROM_PATH__'
+hdd_path = 'C:\Users\Bilbo\Desktop\Emulation\XEMU\Xemu Halo 2 E3 2003 Map Test 8-8-26\xbox_hdd.qcow2'
+dvd_path = 'C:\Users\Bilbo\Desktop\Emulation\XEMU\ROMs\Destroy All Humans! (USA).xiso.iso'

@@ -6,10 +6,10 @@ tools, diagnostics, parity implementations, and mitigations do not.
 
 ## Current accounting
 
-- Classified native symbols and generated hooks: **184**
-- Verified classifications: **132**
-- Unverified or partially evidenced native symbols: **52**
-- Temporary mitigations: **3**
+- Classified native symbols and generated hooks: **191**
+- Verified classifications: **138**
+- Unverified or partially evidenced native symbols: **53**
+- Temporary mitigations: **4**
 - Recovery no-op stubs remaining: **0**
 - Proven generated data-artifact stubs: **6**
 - Seeded callbacks using no-op stubs: **0**
@@ -18,18 +18,19 @@ tools, diagnostics, parity implementations, and mitigations do not.
 
 | Category | Count | Completion credit |
 |---|---:|:---:|
-| compatibility-layer | 41 | no |
-| development-tooling | 28 | no |
-| diagnostic-instrumentation | 58 | no |
+| compatibility-layer | 42 | no |
+| development-tooling | 30 | no |
+| diagnostic-instrumentation | 61 | no |
 | parity-implementation | 12 | no |
 | retail-restoration | 42 | yes |
-| temporary-mitigation | 3 | no |
+| temporary-mitigation | 4 | no |
 
 ## Open provisional work
 
 - `dah_camera_pitch_compat_apply` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
 - `dah_farm_presentation_hold` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
 - `dah_player_velocity_compat` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
+- `dah_site_commit_cover_hold` — Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification. Acceptance: Replace or justify the guard with matched retail transition traces; verify cover release, timeout and absence of presentation freezes.
 
 ## Unverified classifications
 
@@ -73,6 +74,7 @@ tools, diagnostics, parity implementations, and mitigations do not.
 - `dah_retail_pushbuffer_commit` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
 - `dah_retail_pushbuffer_reset` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
 - `dah_retail_submit_span` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_site_commit_cover_hold` (temporary-mitigation) — Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification.
 - `dah_fmod_add` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
 - `dah_fmod_bits` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
 - `dah_fmod_store80` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.

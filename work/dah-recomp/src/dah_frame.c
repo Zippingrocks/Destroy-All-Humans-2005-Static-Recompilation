@@ -157,6 +157,80 @@ static HANDLE dah_frame_wait_timer;
 #define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
 #endif
 
+/* Opt-in host-only phase control for an exact live parity fixture.  The
+ * external coordinator can move the recomp's next pacing deadline later by a
+ * bounded amount without writing guest memory or changing the fixed timestep.
+ * It is absent from ordinary player runs. */
+#define DAH_PHASE_CONTROL_MAGIC 0x31504844u /* "DHP1" */
+typedef struct DahPhaseControl {
+    uint32_t magic;
+    volatile LONG sequence;
+    volatile LONG delay_us;
+    volatile LONG applied_sequence;
+} DahPhaseControl;
+static HANDLE dah_phase_mapping;
+static DahPhaseControl *dah_phase_control;
+
+static void dah_phase_control_init(void)
+{
+    const char *enabled = getenv("DAH_PARITY_PHASE_CONTROL");
+    char name[96];
+    DWORD created;
+    if (!enabled || !enabled[0] || !strcmp(enabled, "0")) return;
+    sprintf_s(name, sizeof(name), "Local\\DAH1ParityPhase-%lu",
+              (unsigned long)GetCurrentProcessId());
+    dah_phase_mapping = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL,
+                                            PAGE_READWRITE, 0,
+                                            sizeof(DahPhaseControl), name);
+    if (!dah_phase_mapping) {
+        fprintf(stderr, "[DAH-PARITY-PHASE] mapping-create-failed error=%lu\n",
+                (unsigned long)GetLastError());
+        fflush(stderr);
+        return;
+    }
+    created = GetLastError() != ERROR_ALREADY_EXISTS;
+    dah_phase_control = (DahPhaseControl *)MapViewOfFile(
+        dah_phase_mapping, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(DahPhaseControl));
+    if (!dah_phase_control) {
+        fprintf(stderr, "[DAH-PARITY-PHASE] mapping-view-failed error=%lu\n",
+                (unsigned long)GetLastError());
+        fflush(stderr);
+        CloseHandle(dah_phase_mapping);
+        dah_phase_mapping = NULL;
+        return;
+    }
+    if (created || dah_phase_control->magic != DAH_PHASE_CONTROL_MAGIC) {
+        memset(dah_phase_control, 0, sizeof(*dah_phase_control));
+        dah_phase_control->magic = DAH_PHASE_CONTROL_MAGIC;
+    }
+    fprintf(stderr, "[DAH-PARITY-PHASE] ready name=%s\n", name);
+    fflush(stderr);
+}
+
+static void dah_phase_control_apply(void)
+{
+    LONG sequence, applied, delay_us;
+    if (!dah_phase_control ||
+        dah_phase_control->magic != DAH_PHASE_CONTROL_MAGIC) return;
+    sequence = InterlockedCompareExchange(&dah_phase_control->sequence, 0, 0);
+    applied = InterlockedCompareExchange(&dah_phase_control->applied_sequence, 0, 0);
+    if (sequence == applied) return;
+    delay_us = InterlockedCompareExchange(&dah_phase_control->delay_us, 0, 0);
+    if (delay_us >= 250 && delay_us <= 12000) {
+        frame.next_start += (double)delay_us / 1000000.0;
+        fprintf(stderr,
+                "[DAH-PARITY-PHASE] applied sequence=%ld delay-us=%ld loop=%u\n",
+                (long)sequence, (long)delay_us, guest_u32(0x0025B1DCu));
+        fflush(stderr);
+    } else {
+        fprintf(stderr,
+                "[DAH-PARITY-PHASE] rejected sequence=%ld delay-us=%ld\n",
+                (long)sequence, (long)delay_us);
+        fflush(stderr);
+    }
+    InterlockedExchange(&dah_phase_control->applied_sequence, sequence);
+}
+
 static int compare_interval(const void *left, const void *right)
 {
     const double a = *(const double *)left;
@@ -188,6 +262,34 @@ static int guest_text_is(uint32_t address, const char *expected)
                   expected, length + 1u) == 0;
 }
 
+static int guest_text_starts_with(uint32_t address, const char *expected)
+{
+    size_t length = strlen(expected);
+    if (!guest_range(address, (uint32_t)length)) return 0;
+    return memcmp((const void *)((uintptr_t)g_xbox_mem_offset + address),
+                  expected, length) == 0;
+}
+
+static int dah_ui_direct_child_active(const char *name)
+{
+    uint32_t root_link = guest_u32(0x00258470u);
+    uint32_t root = guest_range(root_link, 4u) ? guest_u32(root_link) : 0u;
+    uint32_t sentinel, node;
+    unsigned count = 0u;
+    if (!guest_range(root, 0x48u)) return 0;
+    sentinel = root + 0x44u;
+    node = guest_u32(sentinel);
+    while (node && node != sentinel && count++ < 96u) {
+        uint32_t child;
+        if (!guest_range(node, 12u)) break;
+        child = guest_u32(node + 8u);
+        if (guest_range(child, 0x34u) && guest_text_is(child + 0x0Cu, name))
+            return *(const uint8_t *)((uintptr_t)g_xbox_mem_offset + child + 4u) != 0u;
+        node = guest_u32(node);
+    }
+    return 0;
+}
+
 static int dah_farm_visible_gameplay;
 static int dah_presentation_held;
 
@@ -199,6 +301,56 @@ int dah_frame_presentation_held(void)
 int dah_frame_gameplay_visual_ready(void)
 {
     return dah_farm_visible_gameplay;
+}
+
+/* The native loader can publish the new site backend at the end of one guest
+ * loop and activate that site's retail fade/titlecard on the next.  xemu's
+ * first observable site loop already contains those cover elements.  Bridge
+ * only this commit seam: preserve the previously covered swapchain image while
+ * the newly current site's UI root is still inactive, then release as soon as
+ * the retail cover is active.  This never holds while a backend is pending. */
+static int dah_site_commit_cover_hold(void)
+{
+    static uint32_t previous_backend;
+    static uint32_t committed_site;
+    static unsigned wait_frames;
+    const uint32_t driver = 0x0025B1D0u;
+    uint32_t current = guest_u32(driver + 0x4A28u);
+    int current_site = guest_range(current, 0x590u) &&
+        guest_text_starts_with(current + 0x50Cu, "blocks\\sites\\");
+    int site_cover = dah_ui_direct_child_active("fade") ||
+                     dah_ui_direct_child_active("titlecard");
+
+    if (current != previous_backend) {
+        previous_backend = current;
+        committed_site = current_site && !site_cover ? current : 0u;
+        wait_frames = 0u;
+    }
+    if (!committed_site) return 0;
+    if (current != committed_site || site_cover) {
+        fprintf(stderr,
+                "[DAH-SITE-COMMIT-COVER] hold=0 current=%08X wait-frames=%u loop=%u host-frame=%llu\n",
+                current, wait_frames, guest_u32(0x0025B1DCu), dah_frame_serial());
+        committed_site = 0u;
+        wait_frames = 0u;
+        return 0;
+    }
+    /* A corrupt or unexpected UI tree must never turn this into another long
+     * presentation freeze.  Retail activates the cover on the following loop;
+     * two frames is a conservative, bounded seam guard. */
+    if (wait_frames >= 2u) {
+        fprintf(stderr,
+                "[DAH-SITE-COMMIT-COVER] timeout current=%08X loop=%u host-frame=%llu\n",
+                current, guest_u32(0x0025B1DCu), dah_frame_serial());
+        committed_site = 0u;
+        wait_frames = 0u;
+        return 0;
+    }
+    ++wait_frames;
+    fprintf(stderr,
+            "[DAH-SITE-COMMIT-COVER] hold=1 current=%08X wait-frame=%u loop=%u host-frame=%llu\n",
+            current, wait_frames, guest_u32(0x0025B1DCu), dah_frame_serial());
+    return 1;
 }
 
 /* Legacy diagnostic only. Retail owns loading/titlecard/cinematic presentation
@@ -347,6 +499,10 @@ static void shutdown_timer(void)
 {
     if (dah_frame_wait_timer) CloseHandle(dah_frame_wait_timer);
     dah_frame_wait_timer = NULL;
+    if (dah_phase_control) UnmapViewOfFile(dah_phase_control);
+    dah_phase_control = NULL;
+    if (dah_phase_mapping) CloseHandle(dah_phase_mapping);
+    dah_phase_mapping = NULL;
     if (frame.timer_resolution) timeEndPeriod(frame.timer_resolution);
 }
 
@@ -429,6 +585,7 @@ void dah_frame_begin(void)
         if (timeBeginPeriod(1u) == TIMERR_NOERROR) frame.timer_resolution = 1u;
         dah_frame_wait_timer = CreateWaitableTimerExW(NULL, NULL,
                 CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+        dah_phase_control_init();
         fprintf(stderr, "[DAH-FRAME-WAIT] high-resolution-timer=%d\n", dah_frame_wait_timer != NULL);
         atexit(shutdown_timer);
         now = clock_seconds();
@@ -439,6 +596,7 @@ void dah_frame_begin(void)
     if (GetCurrentThreadId() != frame.thread_id || frame.active) return;
 
     sample_policy();
+    dah_phase_control_apply();
     now = clock_seconds();
     /* DAH_FRAME_TURBO (internal test runs only): skip real-time pacing so
      * frames run back-to-back as fast as the CPU can compute them, instead
@@ -601,7 +759,8 @@ void dah_frame_end(void)
 
     /* QPC pacing owns the title's 50/60 Hz timing, independent of a PC
      * monitor's refresh rate and of DXGI occlusion behavior. */
-    dah_presentation_held=dah_farm_presentation_hold(real_draw);
+    dah_presentation_held=dah_site_commit_cover_hold() ||
+                          dah_farm_presentation_hold(real_draw);
     d3d8_SetPresentationHold(dah_presentation_held);
     dah_parity_trace_state(g_dah_frame_serial);
     present_start=clock_seconds();
@@ -703,4 +862,34 @@ void dah_frame_end(void)
         frame.interval_count = 0;
     }
     frame.active = 0;
+
+    /* Internal parity runs are otherwise terminated by the host runner at an
+     * arbitrary instruction.  If that happens while a JSONL row is being
+     * emitted, the final evidence record is necessarily truncated.  An
+     * explicit host-frame bound exits only after the whole frame (including
+     * parity and event traces) has completed, allowing the CRT to flush and
+     * close every diagnostic stream.  This is unavailable to normal builds
+     * unless both internal-run controls are deliberately present. */
+    {
+        static int stop_initialized;
+        static uint64_t stop_host_frame;
+        if (!stop_initialized) {
+            const char *internal = getenv("DAH_INTERNAL_RUN");
+            const char *setting = getenv("DAH_INTERNAL_STOP_HOST_FRAME");
+            stop_initialized = 1;
+            if (internal && !strcmp(internal, "1") && setting && *setting)
+                stop_host_frame = (uint64_t)strtoull(setting, NULL, 10);
+            if (stop_host_frame)
+                fprintf(stderr,
+                    "[DAH-INTERNAL-STOP] armed host-frame=%llu\n",
+                    (unsigned long long)stop_host_frame);
+        }
+        if (stop_host_frame && g_dah_frame_serial >= stop_host_frame) {
+            fprintf(stderr,
+                "[DAH-INTERNAL-STOP] reached host-frame=%llu; clean exit\n",
+                (unsigned long long)g_dah_frame_serial);
+            fflush(NULL);
+            exit(EXIT_SUCCESS);
+        }
+    }
 }

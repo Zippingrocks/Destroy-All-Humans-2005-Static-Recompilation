@@ -472,6 +472,20 @@
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
     },
     {
+      "symbol": "dah_phase_control_apply",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Applies bounded host frame-start delays requested through the opt-in phase-control mapping; external pacing receives no parity completion credit.",
+      "acceptance": "Accept each sequence once and reject delays outside 250..12000 microseconds; disabled runs retain normal scheduling."
+    },
+    {
+      "symbol": "dah_phase_control_init",
+      "category": "development-tooling",
+      "evidenceStatus": "verified",
+      "reason": "Creates the shared phase-control mapping only when DAH_PARITY_PHASE_CONTROL is enabled; controlled comparison setup, not retail gameplay.",
+      "acceptance": "Remain opt-in; with the flag absent no mapping or timing intervention is applied."
+    },
+    {
       "symbol": "dah_physics_quat_trace",
       "category": "diagnostic-instrumentation",
       "evidenceStatus": "verified",
@@ -962,6 +976,13 @@
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
     },
     {
+      "symbol": "dah_site_commit_cover_hold",
+      "category": "temporary-mitigation",
+      "evidenceStatus": "needs-retail-differential",
+      "reason": "Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification.",
+      "acceptance": "Replace or justify the guard with matched retail transition traces; verify cover release, timeout and absence of presentation freezes."
+    },
+    {
       "symbol": "dah_start_model_watch",
       "category": "diagnostic-instrumentation",
       "evidenceStatus": "verified",
@@ -995,6 +1016,13 @@
       "evidenceStatus": "verified",
       "reason": "Native host bridge required to run Xbox behavior on PC; excluded from gameplay completion.",
       "acceptance": "Remain opt-in or behavior-neutral and pass regression checks."
+    },
+    {
+      "symbol": "dah_ui_direct_child_active",
+      "category": "compatibility-layer",
+      "evidenceStatus": "verified",
+      "reason": "Read-only bounded traversal of direct retail UI children used by the host presentation guard; this is a host bridge, not a recovered retail function.",
+      "acceptance": "Validate guest ranges and cap traversal at 96 links; do not modify guest UI state."
     },
     {
       "symbol": "dah_velocity_source_trace",
@@ -1445,6 +1473,20 @@
       "acceptance": "Remain scoped to its classified host/debug role."
     },
     {
+      "symbol": "dah_ui_is_transition_handler",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Read-only traversal of at most eight UI ancestors to filter transition diagnostics.",
+      "acceptance": "Remain read-only and opt-in; logging must not change guest registers, UI events or presentation state."
+    },
+    {
+      "symbol": "dah_ui_name_equals",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Read-only bounded UI object-name comparison used exclusively to select opt-in transition diagnostics.",
+      "acceptance": "Remain read-only and opt-in; logging must not change guest registers, UI events or presentation state."
+    },
+    {
       "symbol": "dah_ui_name_museum",
       "category": "diagnostic-instrumentation",
       "evidenceStatus": "verified",
@@ -1457,6 +1499,13 @@
       "evidenceStatus": "verified",
       "reason": "Explicitly classified generated-code host hook.",
       "acceptance": "Remain scoped to its classified host/debug role."
+    },
+    {
+      "symbol": "dah_ui_trace_event",
+      "category": "diagnostic-instrumentation",
+      "evidenceStatus": "verified",
+      "reason": "Opt-in DAH_UI_ACTIVE_TRACE event logging capped at 4096 records; records transition handlers without changing their activation state.",
+      "acceptance": "Remain read-only and opt-in; logging must not change guest registers, UI events or presentation state."
     },
     {
       "symbol": "dah_ui_under_tutorial",
