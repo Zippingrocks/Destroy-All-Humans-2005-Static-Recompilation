@@ -27,66 +27,66 @@ tools, diagnostics, parity implementations, and mitigations do not.
 
 ## Open provisional work
 
-- `dah_camera_pitch_compat_apply` â€” Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
-- `dah_farm_presentation_hold` â€” Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
-- `dah_player_velocity_compat` â€” Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
-- `dah_site_commit_cover_hold` â€” Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification. Acceptance: Replace or justify the guard with matched retail transition traces; verify cover release, timeout and absence of presentation freezes.
+- `dah_camera_pitch_compat_apply` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
+- `dah_farm_presentation_hold` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
+- `dah_player_velocity_compat` — Gameplay-affecting compatibility path retained for diagnosis; it receives no completion credit. Acceptance: Replace with proven retail behavior and pass matched native/xemu scenario.
+- `dah_site_commit_cover_hold` — Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification. Acceptance: Replace or justify the guard with matched retail transition traces; verify cover release, timeout and absence of presentation freezes.
 
 ## Unverified classifications
 
-- `dah_retail_12140` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_12160` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_12b560` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_12ee90` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_133e90` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_133ef0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_15ab0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_184430` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_18ac0_vtable_tail` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_18da20` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_18de20` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_18fd10` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_1cb50` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_1f2178` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_21020` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_234e0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_26710` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_35650` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_3c660` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_3c770` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_3c770_compare_pop` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_4a460` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_566a0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_6fc30` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_81910` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_850b0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_85720` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_9d100` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a12c0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a1dd0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a1df0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a3750` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a7b60` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a8100` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_a8540` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_b6da0` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_cop_icall` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_pushbuffer_commit` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_pushbuffer_reset` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_retail_submit_span` (retail-restoration) â€” Manual retail-address implementation; byte provenance must remain independently auditable.
-- `dah_site_commit_cover_hold` (temporary-mitigation) â€” Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification.
-- `dah_fmod_add` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_fmod_bits` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_fmod_store80` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_fmod_value` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_script_dispatch_next` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_script_restore_and_return` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_token_append` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_token_emit_increment` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_token_parser_finish` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_token_update_high_water` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_x87_fxam_live_status` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
-- `dah_x87_round` (parity-implementation) â€” Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_retail_12140` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_12160` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_12b560` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_12ee90` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_133e90` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_133ef0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_15ab0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_184430` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_18ac0_vtable_tail` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_18da20` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_18de20` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_18fd10` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_1cb50` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_1f2178` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_21020` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_234e0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_26710` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_35650` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_3c660` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_3c770` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_3c770_compare_pop` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_4a460` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_566a0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_6fc30` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_81910` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_850b0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_85720` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_9d100` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a12c0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a1dd0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a1df0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a3750` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a7b60` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a8100` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_a8540` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_b6da0` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_cop_icall` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_pushbuffer_commit` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_pushbuffer_reset` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_retail_submit_span` (retail-restoration) — Manual retail-address implementation; byte provenance must remain independently auditable.
+- `dah_site_commit_cover_hold` (temporary-mitigation) — Holds host presentation for at most two frames across a site-backend commit while retail fade/titlecard activation catches up. The underlying transition timing still requires matched retail verification.
+- `dah_fmod_add` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_fmod_bits` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_fmod_store80` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_fmod_value` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_script_dispatch_next` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_script_restore_and_return` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_token_append` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_token_emit_increment` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_token_parser_finish` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_token_update_high_water` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_x87_fxam_live_status` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
+- `dah_x87_round` (parity-implementation) — Generated-code hook replacing or extending guest behavior; requires direct retail differential proof.
 
 ## Enforcement
 
