@@ -9,6 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4?style=flat-square)](#requirements)
 [![Target](https://img.shields.io/badge/target-Original%20Xbox-107C10?style=flat-square)](#how-it-works)
 [![Frame rate](https://img.shields.io/badge/accuracy%20target-30%20FPS-734F96?style=flat-square)](#status)
+[![Development](https://img.shields.io/badge/development-AI--assisted-8A2BE2?style=flat-square)](#ai-assisted-development)
 [![Repository checks](https://img.shields.io/github/actions/workflow/status/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/repository-checks.yml?branch=main&style=flat-square&label=checks)](https://github.com/Zippingrocks/Destroy-All-Humans-2005-Static-Recompilation/actions)
 
 [Status](#status) · [Requirements](#requirements) · [Building](#building-from-source) · [Known issues](#known-issues) · [Contributing](#contributing) · [Coverage dashboard](https://zippingrocks.github.io/Destroy-All-Humans-2005-Static-Recompilation/)
@@ -45,6 +46,7 @@ files from your own legally obtained copy of the original Xbox release.
 - [Accuracy and validation](#accuracy-and-validation)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [AI-assisted development](#ai-assisted-development)
 - [Legal](#legal)
 - [Credits](#credits)
 
@@ -307,6 +309,19 @@ Please follow the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Security-sensitive
 reports should follow [`SECURITY.md`](SECURITY.md). Current accessibility
 support and limitations are documented in [`ACCESSIBILITY.md`](ACCESSIBILITY.md),
 and release-facing changes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
+
+## AI-assisted development
+
+This project is **AI-assisted**. AI coding tools, including OpenAI Codex, are
+used under human direction to help analyze retail behavior, write and review
+code, build tests and parity tooling, investigate bugs, and maintain
+documentation.
+
+AI-generated suggestions are not treated as proof of game accuracy. Behavioral
+claims and fixes are expected to be checked against the retail Xbox executable,
+controlled xemu comparisons, reproducible traces, tests, and human review.
+Project maintainers remain responsible for the code and decisions committed to
+this repository.
 
 ## Legal
 
